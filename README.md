@@ -54,6 +54,9 @@ pokeidle-farm/
 | [0007](docs/decisions/0007-contas-farm-email-senha.md) | Contas de farm com e-mail e senha; senhas fora do worker | Aceita |
 | [0008](docs/decisions/0008-escopo-completo-modular.md) | Escopo completo (até o Mercado), com estratégias plugáveis e métricas em camadas | Aceita |
 | [0009](docs/decisions/0009-licenca-agpl.md) | Licença AGPL-3.0 | Aceita |
+| [0010](docs/decisions/0010-supabase-desde-o-inicio.md) | Supabase desde o início do desenvolvimento | Aceita |
+
+**Pendente:** conexão do droplet (direta, proxy residencial ou local), a decidir antes da fase 5. Ver [ADR 0004](docs/decisions/0004-hospedagem-digitalocean.md).
 
 ## Referências e créditos
 

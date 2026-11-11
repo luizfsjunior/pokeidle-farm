@@ -29,6 +29,8 @@ DigitalOcean como opção principal, começando pelos créditos grátis e pelo B
 
 ## Questão em aberto: IP de datacenter
 
+> **Adiada em 2026-11-11.** Decidir antes da fase 5 (deploy). Até lá, tudo roda localmente com IP residencial.
+
 O DiuleJR/pokeidle-manager-online conecta **cada conta por um proxy ISP dedicado** e, por padrão, não deixa nada sair pelo IP da VPS. Isso sugere que o autor considera o IP de datacenter um risco. Os Termos (seção 8) dizem que a moderação pode consultar o tipo de conexão (residencial, móvel, datacenter, VPN), mas só cita isso para avaliar pedidos de liberação de rede. Não há proibição explícita de datacenter.
 
 Antes de subir para o droplet, decidir entre:
