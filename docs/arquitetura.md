@@ -14,7 +14,8 @@ Python 3.12 com asyncio, `websockets` e Pydantic. Roda em Docker, na máquina lo
 |---|---|
 | `AccountSession` | Uma por conta. Faz a conexão WebSocket, o handshake com o token, o heartbeat e a reconexão com backoff exponencial. |
 | `protocol` | Modelos Pydantic das mensagens do jogo (entrada e saída). Nada de JSON solto fora daqui. |
-| `strategies` | Módulos plugáveis, ligáveis pelo painel: melhor hunt, reposição de bolas/poções/revives, venda de sobras. |
+| `events` | Barramento interno de eventos tipados (abate, drop, captura, estado, Mercado). A sessão publica; estratégias e telemetria assinam. |
+| `strategies` | Plugins com interface comum, ligados e configurados por conta pelo painel: automação nativa, hunt, restock, captura, venda, sniper. Ver [ADR 0008](decisions/0008-escopo-completo-modular.md). |
 | `RateLimiter` | Intervalo mínimo por tipo de ação e por conta, para cumprir o "não sobrecarregar o servidor". |
 | `Telemetry` | Grava eventos (drops, capturas, XP, gold, quedas de conexão) no Supabase. |
 | `CommandListener` | Assina a tabela `commands` via Supabase Realtime e despacha para a sessão certa. |
@@ -34,9 +35,24 @@ Postgres no Supabase, com RLS ligada em todas as tabelas.
 | `account_tokens` | token de sessão criptografado, data de expiração |
 | `commands` | comandos do painel (ex.: trocar hunt, pausar), com status |
 | `account_state` | último estado de cada conta (nível, hunt, gold, inventário resumido) |
-| `events` | drops, capturas, shinies, mortes, desconexões |
-| `metrics_hourly` | agregados por hora e por conta (XP/h, gold/h, drops) |
+| `events` | eventos brutos e imutáveis (drops, capturas, shinies, mortes, desconexões), a fonte da verdade |
+| `metrics_hourly` | agregados por hora e por conta (XP/h, gold/h, drops), recalculáveis a partir de `events` |
+| `metric_definitions` | métricas derivadas declaradas (nome, fórmula, janela, contas) |
+| `goals` | objetivos: métrica, valor-alvo, prazo e contas |
+| `goal_snapshots` | progresso periódico de cada objetivo (valor atual, ritmo, previsão de conclusão) |
 | `market_prices` | preços observados no Mercado, para dar valor aos drops |
+| `strategy_configs` | quais estratégias estão ligadas por conta, e com quais parâmetros |
+
+### Camadas de métricas
+
+```
+events (brutos, imutáveis)
+   └─> metrics_hourly / diário (agregados recalculáveis)
+          └─> metric_definitions (métricas derivadas, declarativas)
+                 └─> goals + goal_snapshots (meta, progresso, ritmo, previsão)
+```
+
+Uma métrica nova é só uma linha em `metric_definitions`. Se a definição mudar, o histórico é recalculado a partir dos eventos brutos.
 
 ### 3. Painel (`web/`)
 
@@ -45,6 +61,8 @@ Next.js na Vercel, com Supabase Auth via Google e RLS restrita ao dono.
 - Status em tempo real das contas (online, hunt atual, XP/h)
 - Controles: pausar, retomar, trocar estratégia
 - Gráficos de drops e "valor estimado em Gemas por dia"
+- Configuração de estratégias por conta
+- Cadastro de métricas e objetivos, com progresso e previsão
 - Aviso de token expirado
 
 ## Fluxos

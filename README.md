@@ -52,17 +52,23 @@ pokeidle-farm/
 | [0005](docs/decisions/0005-auth-por-token-de-sessao.md) | Auth no jogo por token de sessão reaproveitado | Proposta |
 | [0006](docs/decisions/0006-contas.md) | 4 contas: 3 de farm + 1 pessoal | Aceita (alterada pela 0007) |
 | [0007](docs/decisions/0007-contas-farm-email-senha.md) | Contas de farm com e-mail e senha; senhas fora do worker | Aceita |
+| [0008](docs/decisions/0008-escopo-completo-modular.md) | Escopo completo (até o Mercado), com estratégias plugáveis e métricas em camadas | Aceita |
+| [0009](docs/decisions/0009-licenca-agpl.md) | Licença AGPL-3.0 | Aceita |
 
 ## Referências e créditos
 
 Este projeto se apoia no trabalho da comunidade do pokeidle.io:
 
-- **[DiuleJR/pokeidle-manager-online](https://github.com/DiuleJR/pokeidle-manager-online)** (AGPL-3.0), bot headless em Python com painel web. O mapeamento inicial do protocolo WebSocket em [docs/protocolo.md](docs/protocolo.md) se baseia na leitura do código dele: handshake, mensagens, códigos de erro e o comportamento do token. Obrigado pelo trabalho de engenharia reversa! Não copiamos código de lá; só documentamos o protocolo com nossas palavras.
+- **[DiuleJR/pokeidle-manager-online](https://github.com/DiuleJR/pokeidle-manager-online)** (AGPL-3.0), bot headless em Python com painel web. O mapeamento inicial do protocolo WebSocket em [docs/protocolo.md](docs/protocolo.md) se baseia na leitura do código dele: handshake, mensagens, códigos de erro e o comportamento do token. Obrigado pelo trabalho de engenharia reversa! As duas licenças são AGPL-3.0, então trechos reaproveitados de lá mantêm o aviso de origem no próprio arquivo.
 - [Romeu-q/ThoseIdles](https://github.com/Romeu-q/ThoseIdles), gerenciador de sessões que documenta o `hello` e o `ping`.
 - [ZaryImortal/pokeidle-piloto](https://github.com/ZaryImortal/pokeidle-piloto), extensão de automação, referência de funcionalidades.
 - [Termos de Uso do pokeidle.io](https://pokeidle.io/terms).
 
 Se você é autor de algum desses projetos e quer que algo seja ajustado, abra uma issue.
+
+## Licença
+
+[AGPL-3.0](LICENSE). Ver [ADR 0009](docs/decisions/0009-licenca-agpl.md).
 
 ## Segurança
 

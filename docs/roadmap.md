@@ -4,12 +4,16 @@
 |---|---|---|---|
 | 0 | Arquitetura e decisões documentadas | — | ✅ |
 | 1 | Engenharia reversa: [protocolo.md](protocolo.md) preenchido | navegador | 🟡 mapeado a partir de referência, falta confirmar no DevTools |
-| 2 | Worker só escutando: 1 conta, conecta com token e registra eventos, sem enviar ações | local | ⬜ |
-| 3 | Ações com RateLimiter: trocar hunt e repor itens, 1 conta | local | ⬜ |
-| 4 | Supabase (schema + RLS) e painel Next.js na Vercel | local + Vercel | ⬜ |
-| 5 | Docker e deploy no droplet, subindo para 3 contas | DigitalOcean | ⬜ |
-| 6 | Avaliar se compensa: 1–2 semanas de métricas e preços do Mercado | DigitalOcean | ⬜ |
-| 7 | (Opcional) Venda automática no Mercado | DigitalOcean | ⬜ |
+| 2 | Núcleo do worker: sessão, barramento de eventos, interface de plugin, gravação de eventos brutos. 1 conta, só escutando | local | ⬜ |
+| 3 | Escopo A: plugin da automação nativa (`auto.set`) + RateLimiter | local | ⬜ |
+| 4 | Supabase (schema + RLS), métricas em camadas e painel Next.js na Vercel | local + Vercel | ⬜ |
+| 5 | Docker e deploy, subindo para 3 contas | DigitalOcean | ⬜ |
+| 6 | Escopo B: plugins de hunt, restock e captura | DigitalOcean | ⬜ |
+| 7 | Métricas derivadas e objetivos (`goals`) com previsão | DigitalOcean | ⬜ |
+| 8 | Avaliar se compensa: 1–2 semanas de métricas e preços do Mercado | DigitalOcean | ⬜ |
+| 9 | Escopo C: plugins de venda e sniper no Mercado | DigitalOcean | ⬜ |
+
+As fases seguem o [ADR 0008](decisions/0008-escopo-completo-modular.md): escopo completo, entregue em etapas (A → B → C).
 
 ## Critério de "compensa?"
 

@@ -2,7 +2,7 @@
 
 > 🟡 Mapeamento inicial baseado no código do [DiuleJR/pokeidle-manager-online](https://github.com/DiuleJR/pokeidle-manager-online) (commit `ca6e7f0`, 10/11/2026). Créditos ao autor, que fez esse trabalho de engenharia reversa. **Ainda precisa ser confirmado por nós no DevTools** (coluna "Confirmado").
 >
-> Este documento descreve o protocolo com nossas palavras. **Não copiamos código** de lá: o projeto é AGPL-3.0, e copiar trechos obrigaria este repositório a seguir a mesma licença.
+> Este repositório também é AGPL-3.0 ([ADR 0009](decisions/0009-licenca-agpl.md)). Código reaproveitado de lá deve manter o aviso de origem no arquivo.
 
 > ⚠️ Nunca cole aqui tokens, cookies ou mensagens com dados de conta. O repositório é público.
 
