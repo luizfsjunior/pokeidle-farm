@@ -36,6 +36,16 @@ const s = JSON.parse(localStorage.getItem('sessao'));
 console.log({ nick: s.nick, token: s.token, dispositivo: localStorage.getItem('id-dispositivo') });
 ```
 
+### Passo a passo para extrair o token de várias contas
+
+1. Use **um perfil do Chrome ou uma janela anônima por conta**. Logar uma segunda conta no mesmo perfil sobrescreve a `sessao` da primeira.
+2. Entre em pokeidle.io/app e faça o login na mão (o Turnstile aparece normalmente).
+3. Abra o console (F12), rode o comando acima e guarde `nick`, `token` e `dispositivo` no `.env` ou no painel. **Nunca no repositório.**
+4. **Feche a aba ou a janela sem clicar em "Sair".** Sair provavelmente invalida o token (a confirmar), e uma aba aberta disputa a sessão com o worker (close 4001).
+5. Repita para cada conta de farm.
+
+As senhas ficam no gerenciador de senhas, nunca no worker (ver [ADR 0007](decisions/0007-contas-farm-email-senha.md)).
+
 Comportamento conhecido:
 - A sessão dura **cerca de 30 dias**.
 - O servidor renova o token sozinho com a mensagem `sessao.renovada`. **É preciso guardar o token novo**, senão o antigo vence.

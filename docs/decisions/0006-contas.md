@@ -1,6 +1,6 @@
 # 0006 — 4 contas: 3 de farm + 1 pessoal
 
-- **Status:** Aceita
+- **Status:** Aceita (forma de login alterada pela [0007](0007-contas-farm-email-senha.md))
 - **Data:** 2026-11-11
 
 ## Contexto
@@ -11,7 +11,7 @@ Os termos permitem até 4 contas por pessoa, somando todas as redes e aparelhos.
 
 - 3 contas de farm, rodando no worker (droplet).
 - 1 conta pessoal, para jogar na mão e evoluir pokémons no navegador de casa. Ela não entra no worker.
-- Cada conta tem a própria conta Google.
+- ~~Cada conta tem a própria conta Google.~~ Substituído pela [0007](0007-contas-farm-email-senha.md): as contas de farm usam e-mail e senha, e a pessoal usa Google.
 
 ## Consequências
 
