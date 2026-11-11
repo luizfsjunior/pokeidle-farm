@@ -22,7 +22,14 @@ As contas entram pelo Google. O login do jogo passa pelo Cloudflare Turnstile (a
 
 ## A validar
 
-- [ ] Nome da chave do token no localStorage
-- [ ] Como o token vai no handshake (query string, primeira mensagem, header?)
-- [ ] Tempo de expiração
-- [ ] Se usar o mesmo token em dois lugares ao mesmo tempo derruba uma das sessões
+Respostas iniciais vindas do código do [DiuleJR/pokeidle-manager-online](https://github.com/DiuleJR/pokeidle-manager-online), ainda a confirmar por nós. Detalhes em [protocolo.md](../protocolo.md).
+
+- [x] Nome da chave no localStorage: `sessao` (JSON com `nick` e `token`), mais `id-dispositivo`
+- [x] Como o token vai no handshake: na primeira mensagem, `{t: "hello", nick, token, delta: 1, dispositivo}`
+- [x] Tempo de expiração: cerca de 30 dias. O servidor manda `sessao.renovada` com o token novo, que precisa ser salvo
+- [x] Mesmo token em dois lugares: derruba o outro (close 4001). Não abrir a conta de farm no navegador com o worker ligado
+- [ ] Confirmar tudo acima no DevTools com uma conta nossa
+
+## Consequência extra
+
+O `account_tokens` precisa guardar também o `dispositivo` de cada conta, e o worker precisa atualizar o token sempre que chegar um `sessao.renovada`.

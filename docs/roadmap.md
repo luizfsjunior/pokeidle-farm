@@ -3,7 +3,7 @@
 | Fase | Entrega | Onde roda | Status |
 |---|---|---|---|
 | 0 | Arquitetura e decisões documentadas | — | ✅ |
-| 1 | Engenharia reversa: [protocolo.md](protocolo.md) preenchido | navegador | ⬜ |
+| 1 | Engenharia reversa: [protocolo.md](protocolo.md) preenchido | navegador | 🟡 mapeado a partir de referência, falta confirmar no DevTools |
 | 2 | Worker só escutando: 1 conta, conecta com token e registra eventos, sem enviar ações | local | ⬜ |
 | 3 | Ações com RateLimiter: trocar hunt e repor itens, 1 conta | local | ⬜ |
 | 4 | Supabase (schema + RLS) e painel Next.js na Vercel | local + Vercel | ⬜ |

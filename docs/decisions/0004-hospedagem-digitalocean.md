@@ -27,6 +27,17 @@ DigitalOcean como opção principal, começando pelos créditos grátis e pelo B
 - Pendente: confirmar se a conta tem os créditos disponíveis.
 - Como tudo roda em Docker, migrar para a Vultr São Paulo ou para a máquina local é só subir o mesmo `docker compose`.
 
+## Questão em aberto: IP de datacenter
+
+O DiuleJR/pokeidle-manager-online conecta **cada conta por um proxy ISP dedicado** e, por padrão, não deixa nada sair pelo IP da VPS. Isso sugere que o autor considera o IP de datacenter um risco. Os Termos (seção 8) dizem que a moderação pode consultar o tipo de conexão (residencial, móvel, datacenter, VPN), mas só cita isso para avaliar pedidos de liberação de rede. Não há proibição explícita de datacenter.
+
+Antes de subir para o droplet, decidir entre:
+1. Conectar direto do droplet (mais simples, risco desconhecido).
+2. Usar um proxy residencial ou ISP (custo extra).
+3. Rodar na máquina local, com IP residencial.
+
+Vale perguntar no Discord oficial se conexão de datacenter é aceita.
+
 ## Alternativas consideradas
 
 Ver a tabela acima. O Render foi descartado pelo IP compartilhado, e a Hetzner pelo preço e pela falta de planos baratos.

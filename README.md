@@ -6,7 +6,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
 
 ## Status
 
-🟡 Em planejamento: arquitetura definida, protocolo ainda não mapeado.
+🟡 Em planejamento: arquitetura definida, protocolo mapeado a partir de referência (falta confirmar).
 
 ## Visão geral
 
@@ -51,6 +51,17 @@ pokeidle-farm/
 | [0004](docs/decisions/0004-hospedagem-digitalocean.md) | Hospedagem do worker na DigitalOcean | Aceita |
 | [0005](docs/decisions/0005-auth-por-token-de-sessao.md) | Auth no jogo por token de sessão reaproveitado | Proposta |
 | [0006](docs/decisions/0006-contas.md) | 4 contas: 3 de farm + 1 pessoal | Aceita |
+
+## Referências e créditos
+
+Este projeto se apoia no trabalho da comunidade do pokeidle.io:
+
+- **[DiuleJR/pokeidle-manager-online](https://github.com/DiuleJR/pokeidle-manager-online)** (AGPL-3.0), bot headless em Python com painel web. O mapeamento inicial do protocolo WebSocket em [docs/protocolo.md](docs/protocolo.md) se baseia na leitura do código dele: handshake, mensagens, códigos de erro e o comportamento do token. Obrigado pelo trabalho de engenharia reversa! Não copiamos código de lá; só documentamos o protocolo com nossas palavras.
+- [Romeu-q/ThoseIdles](https://github.com/Romeu-q/ThoseIdles), gerenciador de sessões que documenta o `hello` e o `ping`.
+- [ZaryImortal/pokeidle-piloto](https://github.com/ZaryImortal/pokeidle-piloto), extensão de automação, referência de funcionalidades.
+- [Termos de Uso do pokeidle.io](https://pokeidle.io/terms).
+
+Se você é autor de algum desses projetos e quer que algo seja ajustado, abra uma issue.
 
 ## Segurança
 
