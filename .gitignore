@@ -1,0 +1,23 @@
+# Segredos
+.env
+.env.*
+!.env.example
+*.token
+storage_state*.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+.vercel/
+
+# Sistema
+.DS_Store
+Thumbs.db
