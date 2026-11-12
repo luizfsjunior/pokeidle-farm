@@ -1,0 +1,53 @@
+[project]
+name = "pokeidle-farm"
+version = "0.1.0"
+description = "Worker headless para o pokeidle.io: sessões WebSocket, plugins e telemetria"
+readme = "README.md"
+license = "AGPL-3.0-only"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "websockets>=15,<18",
+    "pydantic>=2.9,<3",
+    "pydantic-settings>=2.6,<3",
+    "supabase>=2.10,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.7",
+]
+
+[project.scripts]
+pokeidle-farm = "pokeidle_farm.main:cli"
+
+# Plugins são descobertos por entry points: plugin novo = módulo + uma linha aqui.
+[project.entry-points."pokeidle_farm.plugins"]
+telemetry = "pokeidle_farm.plugins.telemetry:TelemetryPlugin"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pokeidle_farm"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
+ignore = [
+    "RUF001", "RUF002", "RUF003",  # acentos em strings e comentários em português
+    "E501",                        # o formatter cuida do tamanho das linhas
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ASYNC109", "ASYNC110"]  # polling simples nos helpers de teste

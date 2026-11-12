@@ -4,7 +4,7 @@
 |---|---|---|---|
 | 0 | Arquitetura e decisões documentadas | — | ✅ |
 | 1 | Engenharia reversa: [protocolo.md](protocolo.md) preenchido | navegador | 🟡 mapeado a partir de referência, falta confirmar no DevTools |
-| 2 | Núcleo do worker: sessão, barramento de eventos, interface de plugin, gravação de eventos brutos no Supabase. 1 conta, só escutando | local + Supabase | ⬜ |
+| 2 | Núcleo do worker: sessão, barramento de eventos, interface de plugin, gravação de eventos brutos no Supabase. 1 conta, só escutando | local + Supabase | 🟡 código e testes prontos; falta rodar contra o jogo e um Supabase real |
 | 3 | Escopo A: plugin da automação nativa (`auto.set`) + RateLimiter | local | ⬜ |
 | 4 | Métricas em camadas e painel Next.js na Vercel (o Supabase já entra na fase 2, ver [ADR 0010](decisions/0010-supabase-desde-o-inicio.md)) | local + Vercel | ⬜ |
 | 5 | Docker e deploy, subindo para 3 contas. **Antes:** decidir a conexão do droplet ([ADR 0004](decisions/0004-hospedagem-digitalocean.md)) | DigitalOcean | ⬜ |

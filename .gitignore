@@ -5,6 +5,9 @@
 *.token
 storage_state*.json
 
+# Dados locais do worker (buffer da telemetria)
+data/
+
 # Python
 __pycache__/
 *.pyc

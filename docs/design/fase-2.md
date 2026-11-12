@@ -152,7 +152,7 @@ O heartbeat usa o ping do WebSocket a cada 30 s, e a conexão é dada como morta
 
 ## 4. Schema inicial do Supabase
 
-Arquivo: `supabase/migrations/0001_init.sql`.
+Arquivo: [`supabase/migrations/20261112000000_init.sql`](../../supabase/migrations/20261112000000_init.sql) (nome no formato da Supabase CLI). Validado num Postgres 16 local com stubs do Vault e do auth: token, lease e RLS se comportam como esperado.
 
 ```sql
 create table accounts (
