@@ -129,9 +129,17 @@ async def simulate(settings: Settings, nick: str, days: float, live: bool, seed:
             await flush()
     await flush()
     log.info("gravados: %s", ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
-    rows = await store.refresh_metrics(now - timedelta(days=days), now)
-    if rows:
-        log.info("métricas por hora recalculadas: %d linhas", rows)
+    try:
+        rows = await store.refresh_metrics(now - timedelta(days=days), now)
+    except Exception as exc:
+        log.warning(
+            "eventos gravados, mas não deu para recalcular as métricas (%s). "
+            "A migration 20261112010000_metrics.sql foi aplicada?",
+            exc,
+        )
+    else:
+        if rows:
+            log.info("métricas por hora recalculadas: %d linhas", rows)
 
     if live:
         log.info("modo ao vivo: gerando eventos em tempo real (Ctrl+C para parar)")
