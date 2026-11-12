@@ -37,6 +37,7 @@ pokeidle-farm/
 │  ├─ protocolo.md    # mapa das mensagens WebSocket do jogo
 │  ├─ regras-do-jogo.md
 │  ├─ roadmap.md
+│  ├─ design/       # documentos de design por fase
 │  └─ decisions/      # ADRs (registro de decisões)
 └─ docker-compose.yml
 ```
