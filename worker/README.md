@@ -55,6 +55,16 @@ delete from public.events where raw->>'_sim' = 'true';
 
 O ritmo (abates por minuto, chance de captura, drops) é um **chute** em `sim/generator.py`, não uma medição do jogo.
 
+### No GitHub Codespaces
+
+O repo tem um `.devcontainer/` que já abre com Python 3.12 e o worker instalado.
+
+1. Cadastre os secrets `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` em **GitHub → Settings → Codespaces → Secrets**, liberando o repo `pokeidle-farm`. Eles viram variáveis de ambiente; não precisa de `.env`.
+2. No repo: **Code → Codespaces → Create codespace on main** (máquina de 2 núcleos).
+3. No terminal: `pokeidle-farm simulate --nick <nick> --days 3`.
+
+Use o codespace só para desenvolver e simular. **Não rode `pokeidle-farm run` daqui**: é IP de datacenter, que o jogo bloqueia, e os termos do GitHub não permitem esse uso (ver [ADR 0011](../docs/decisions/0011-worker-em-ip-residencial.md)).
+
 ## Testes
 
 ```bash

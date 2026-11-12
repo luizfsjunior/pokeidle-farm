@@ -1,0 +1,23 @@
+{
+  // Ambiente de desenvolvimento para GitHub Codespaces (só dev e simulador).
+  // Não rode o worker contra o jogo daqui: IP de datacenter (ver docs/decisions/0011).
+  "name": "pokeidle-farm",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "lts" }
+  },
+  "postCreateCommand": "pip install -e './worker[dev]'",
+  "secrets": {
+    "SUPABASE_URL": {
+      "description": "URL do projeto Supabase (Project Settings → API)."
+    },
+    "SUPABASE_SERVICE_ROLE_KEY": {
+      "description": "Chave secreta (sb_secret_...). Só para o worker; nunca no painel/Vercel."
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "charliermarsh.ruff"]
+    }
+  }
+}
