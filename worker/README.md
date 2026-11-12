@@ -38,6 +38,23 @@ Nesse modo os eventos ficam só em memória e no log. Serve para validar o hands
    ```
 5. `.venv/bin/pokeidle-farm run`
 
+## Simulador (desenvolver sem o jogo)
+
+Grava eventos simulados, mas realistas, no banco: abates, drops, capturas com potência, qualidade e IV sorteados pelas tabelas dos Termos, trocas de hunt e quedas. Serve para desenvolver métricas e painel antes de o worker rodar contra o jogo.
+
+```bash
+.venv/bin/pokeidle-farm simulate --nick <nick> --days 3          # histórico dos últimos 3 dias
+.venv/bin/pokeidle-farm simulate --nick <nick> --days 1 --live   # e continua gerando ao vivo
+```
+
+Os eventos simulados ficam marcados com `raw._sim = true`. Para apagar:
+
+```sql
+delete from public.events where raw->>'_sim' = 'true';
+```
+
+O ritmo (abates por minuto, chance de captura, drops) é um **chute** em `sim/generator.py`, não uma medição do jogo.
+
 ## Testes
 
 ```bash
@@ -58,4 +75,5 @@ Os testes usam um servidor WebSocket falso que imita o jogo (handshake, renovaç
 | `session.py` | `AccountSession`: handshake, heartbeat, reconexão, lease, renovação de token |
 | `plugins/` | interface, registry (entry points) e o plugin `telemetry` |
 | `store/` | interface `Store`, implementação em memória e no Supabase |
-| `main.py` | CLI (`run`, `set-token`) |
+| `sim/` | sorteios dos Termos (`rolls.py`) e gerador de eventos simulados |
+| `main.py` | CLI (`run`, `set-token`, `simulate`) |

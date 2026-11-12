@@ -79,6 +79,7 @@ class Event(BaseModel):
 | `wild_fled` | `batalha` / `k: fugiu` | `name`, `level` | perdas |
 | `pokecenter` | `batalha` / `k: centro` | `reason` | tempo parado |
 | `unknown` | qualquer outro | — | descobrir mensagens novas |
+| `pokemon.captured` | **provisório:** só o simulador gera por enquanto; no jogo real deve vir do `estado.pkMud` | `species`, `level`, `shiny`, `potency`, `quality`, `ivs`, `iv_sum`, `hunt_slug` | valor das capturas, objetivos de busca (ex.: Dratini qualidade ≥ 1,5) |
 
 `Drop` começa só com `name` (o único campo confirmado na referência), mais `raw`. Ele ganha campos quando conferirmos o formato no DevTools.
 

@@ -2,6 +2,7 @@
 
     pokeidle-farm run                       # sobe as sessões das contas de farm
     pokeidle-farm set-token --nick NICK     # grava token e dispositivo no Vault
+    pokeidle-farm simulate --nick NICK      # grava eventos simulados (dev sem o jogo)
 
 Sem SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente, o `run` usa o modo
 memória com a conta ACCOUNT_1_* do .env (só para desenvolvimento).
@@ -98,6 +99,53 @@ async def set_token(settings: Settings, nick: str, device_id: str) -> int:
     return 0
 
 
+async def simulate(settings: Settings, nick: str, days: float, live: bool, seed: int | None) -> int:
+    from collections import Counter
+    from datetime import UTC, datetime, timedelta
+
+    from .sim.generator import EventSimulator, SimConfig
+
+    store = await _make_store(settings)
+    account = next((a for a in await store.list_accounts() if a.nick == nick), None)
+    if account is None:
+        log.error("conta %s não encontrada (ou desabilitada) na tabela accounts", nick)
+        return 1
+
+    sim = EventSimulator(account.id, SimConfig(seed=seed))
+    counts: Counter[str] = Counter()
+    batch: list[dict] = []
+
+    async def flush() -> None:
+        if batch:
+            await store.insert_events(batch)
+            batch.clear()
+
+    now = datetime.now(UTC)
+    log.info("simulando %.1f dia(s) de eventos para %s...", days, nick)
+    for ev in sim.generate(now - timedelta(days=days), now):
+        counts[ev.type] += 1
+        batch.append(ev.to_row())
+        if len(batch) >= 500:
+            await flush()
+    await flush()
+    log.info("gravados: %s", ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+
+    if live:
+        log.info("modo ao vivo: gerando eventos em tempo real (Ctrl+C para parar)")
+        try:
+            while True:
+                start = datetime.now(UTC)
+                await asyncio.sleep(settings.telemetry_flush_s)
+                for ev in sim.generate(start, datetime.now(UTC)):
+                    if ev.type not in ("state.snapshot", "session.connected"):
+                        batch.append(ev.to_row())
+                await flush()
+        except asyncio.CancelledError:
+            await flush()
+    log.info("para apagar: delete from public.events where raw->>'_sim' = 'true';")
+    return 0
+
+
 def cli() -> None:
     parser = argparse.ArgumentParser(prog="pokeidle-farm")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -105,6 +153,15 @@ def cli() -> None:
     st = sub.add_parser("set-token", help="grava o token de uma conta no Vault")
     st.add_argument("--nick", required=True)
     st.add_argument("--device", required=True, help="valor de localStorage['id-dispositivo']")
+    sm = sub.add_parser(
+        "simulate", help="grava eventos simulados (para desenvolver métricas e painel)"
+    )
+    sm.add_argument("--nick", required=True)
+    sm.add_argument("--days", type=float, default=3.0, help="dias de histórico a gerar (padrão: 3)")
+    sm.add_argument(
+        "--live", action="store_true", help="depois do histórico, continua gerando ao vivo"
+    )
+    sm.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
 
     settings = Settings()
@@ -114,6 +171,11 @@ def cli() -> None:
     )
     if args.cmd == "run":
         code = asyncio.run(run(settings))
+    elif args.cmd == "simulate":
+        try:
+            code = asyncio.run(simulate(settings, args.nick, args.days, args.live, args.seed))
+        except KeyboardInterrupt:
+            code = 0
     else:
         code = asyncio.run(set_token(settings, args.nick, args.device))
     sys.exit(code)
