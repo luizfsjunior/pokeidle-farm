@@ -169,6 +169,9 @@ def cli() -> None:
         level=settings.log_level.upper(),
         format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
     )
+    # O cliente do Supabase loga cada requisição HTTP em INFO; só interessa se der erro.
+    for noisy in ("httpx", "httpcore", "hpack"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     if args.cmd == "run":
         code = asyncio.run(run(settings))
     elif args.cmd == "simulate":
