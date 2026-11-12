@@ -4,11 +4,11 @@
 |---|---|---|---|
 | 0 | Arquitetura e decisões documentadas | — | ✅ |
 | 1 | Engenharia reversa: [protocolo.md](protocolo.md) preenchido | navegador | 🟡 mapeado a partir de referência, falta confirmar no DevTools |
-| 2 | Núcleo do worker: sessão, barramento de eventos, interface de plugin, gravação de eventos brutos no Supabase. 1 conta, só escutando | local + Supabase | 🟡 código e testes prontos; falta rodar contra o jogo e um Supabase real |
+| 2 | Núcleo do worker: sessão, barramento de eventos, interface de plugin, gravação de eventos brutos no Supabase. 1 conta, só escutando | local + Supabase | 🟡 código e testes prontos, Supabase real ok; falta rodar contra o jogo em IP residencial |
 | 2b | Simulador de eventos (`pokeidle-farm simulate`), para desenvolver métricas e painel sem o jogo | local + Supabase | ✅ |
 | 4a | Métricas em camadas: agregados por hora e dia, definições, objetivos com ritmo, previsão e chance ([ADR 0012](decisions/0012-metricas-em-camadas.md)) | Supabase | ✅ testado em Postgres local com dados simulados |
 | 3 | Escopo A: plugin da automação nativa (`auto.set`) + RateLimiter | local | ⬜ |
-| 4 | Painel Next.js na Vercel, lendo as métricas da fase 4a (o Supabase já entra na fase 2, ver [ADR 0010](decisions/0010-supabase-desde-o-inicio.md)) | local + Vercel | 🟡 v1 pronta: visão geral, gráficos e objetivos; falta comandos (fase 4b, [desenho](design/fase-4b-comandos.md)) |
+| 4 | Painel Next.js na Vercel, lendo as métricas da fase 4a (o Supabase já entra na fase 2, ver [ADR 0010](decisions/0010-supabase-desde-o-inicio.md)) | local + Vercel | 🟡 v1 no ar na Vercel: visão geral, gráficos e objetivos; falta comandos (fase 4b, [desenho](design/fase-4b-comandos.md)) |
 | 5 | Docker e deploy, subindo para 3 contas, numa máquina em casa ([ADR 0011](decisions/0011-worker-em-ip-residencial.md)) | casa | ⬜ |
 | 6 | Escopo B: plugins de hunt, restock e captura | casa | ⬜ |
 | 7 | Métricas derivadas do Mercado (valor dos drops em gold) e objetivos sobre elas | casa | ⬜ |

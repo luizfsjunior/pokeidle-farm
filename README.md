@@ -37,6 +37,7 @@ pokeidle-farm/
 │  ├─ protocolo.md    # mapa das mensagens WebSocket do jogo
 │  ├─ regras-do-jogo.md
 │  ├─ roadmap.md
+│  ├─ diario.md      # o que foi feito a cada dia, problemas e pendências
 │  ├─ design/       # documentos de design por fase
 │  ├─ deploy.md     # como subir Supabase + worker
 │  └─ decisions/      # ADRs (registro de decisões)
