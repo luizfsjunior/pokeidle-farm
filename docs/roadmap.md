@@ -8,7 +8,7 @@
 | 2b | Simulador de eventos (`pokeidle-farm simulate`), para desenvolver métricas e painel sem o jogo | local + Supabase | ✅ |
 | 4a | Métricas em camadas: agregados por hora e dia, definições, objetivos com ritmo, previsão e chance ([ADR 0012](decisions/0012-metricas-em-camadas.md)) | Supabase | ✅ testado em Postgres local com dados simulados |
 | 3 | Escopo A: plugin da automação nativa (`auto.set`) + RateLimiter | local | ⬜ |
-| 4 | Painel Next.js na Vercel, lendo as métricas da fase 4a (o Supabase já entra na fase 2, ver [ADR 0010](decisions/0010-supabase-desde-o-inicio.md)) | local + Vercel | ⬜ |
+| 4 | Painel Next.js na Vercel, lendo as métricas da fase 4a (o Supabase já entra na fase 2, ver [ADR 0010](decisions/0010-supabase-desde-o-inicio.md)) | local + Vercel | 🟡 v1 pronta: visão geral, gráficos e objetivos; falta comandos (fase 4b) |
 | 5 | Docker e deploy, subindo para 3 contas, numa máquina em casa ([ADR 0011](decisions/0011-worker-em-ip-residencial.md)) | casa | ⬜ |
 | 6 | Escopo B: plugins de hunt, restock e captura | casa | ⬜ |
 | 7 | Métricas derivadas do Mercado (valor dos drops em gold) e objetivos sobre elas | casa | ⬜ |

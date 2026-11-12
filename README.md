@@ -11,7 +11,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
 ## Visão geral
 
 ```
-[Painel Next.js — Vercel] ──Supabase Auth (Google)──┐
+[Painel Next.js — Vercel] ──Supabase Auth (senha)───┐
                                                      ▼
                                         [Supabase: Postgres + Realtime]
                                                      ▲
@@ -30,7 +30,7 @@ Detalhes em [docs/arquitetura.md](docs/arquitetura.md).
 ```
 pokeidle-farm/
 ├─ worker/            # Python: sessão, protocolo, estratégias, telemetria
-├─ web/               # Next.js (Vercel)
+├─ web/               # painel Next.js (Vercel), ver web/README.md
 ├─ supabase/          # migrations SQL + policies RLS; tests/ para validar num Postgres local
 ├─ docs/
 │  ├─ arquitetura.md

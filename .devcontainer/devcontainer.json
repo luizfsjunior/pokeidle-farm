@@ -6,7 +6,9 @@
   "features": {
     "ghcr.io/devcontainers/features/node:1": { "version": "lts" }
   },
-  "postCreateCommand": "pip install -e './worker[dev]'",
+  "postCreateCommand": "pip install -e './worker[dev]' && npm ci --prefix web",
+  "forwardPorts": [3000],
+  "portsAttributes": { "3000": { "label": "painel", "onAutoForward": "openBrowser" } },
   "secrets": {
     "SUPABASE_URL": {
       "description": "URL do projeto Supabase (Project Settings → API)."

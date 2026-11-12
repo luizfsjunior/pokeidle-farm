@@ -1,4 +1,4 @@
-# Deploy: Supabase + worker
+# Deploy: Supabase, worker e painel
 
 > ⚠️ **O jogo bloqueia conexões da DigitalOcean** (`auth.provedorBanido`, ver [ADR 0011](decisions/0011-worker-em-ip-residencial.md)). O worker precisa rodar numa máquina com **IP residencial**. A seção 3 (droplet) fica só como referência de comandos: os mesmos passos valem para qualquer máquina Linux ou para o Docker Desktop em casa.
 
@@ -77,3 +77,14 @@ Se der errado:
 | `REJECTED (auth.ipBanido / provedorBanido)` | o IP do droplet foi barrado. Pare e reavalie o ADR 0004 |
 
 Para parar: `docker compose down`. Para atualizar o código: `git pull && docker compose up -d --build`.
+
+## 5. Painel na Vercel
+
+1. Na Vercel: **Add New → Project**, importe `pokeidle-farm` e em **Root Directory** escolha `web`.
+2. **Environment Variables**:
+   - `NEXT_PUBLIC_SUPABASE_URL`: a Project URL.
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: a **publishable key** (`sb_publishable_...`), em **Project Settings → API Keys**. Nunca a secreta.
+3. **Deploy**. Entre com o e-mail e a senha do usuário do passo 1.3.
+
+Detalhes e como rodar no Codespaces: [web/README.md](../web/README.md).
+

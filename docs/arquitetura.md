@@ -57,7 +57,7 @@ Uma razão nova é só uma linha em `metric_definitions`. Uma métrica base nova
 
 ### 3. Painel (`web/`)
 
-Next.js na Vercel, com Supabase Auth via Google e RLS restrita ao dono.
+Next.js na Vercel, com Supabase Auth por e-mail e senha (Google pode entrar depois, sem mudar o RLS), só a chave pública e RLS restrita ao dono. Código em `web/`.
 
 - Status em tempo real das contas (online, hunt atual, XP/h)
 - Controles: pausar, retomar, trocar estratégia
