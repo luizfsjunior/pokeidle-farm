@@ -183,11 +183,23 @@ Sessão de 12/11/2026, conta nível 2, ~10 min no Centro de Cerulean e depois na
 | `spawn` | `slot`, `nome`, `level`, `hp`, `maxHp`, `tipos`, `speciesId`, `looktype` | um selvagem apareceu; vem um por abate |
 | `levelup` | `quem: "treinador"`, `level` | subida de nível do treinador (provavelmente também de pokémon, com outro `quem`) |
 
+`bola` e `fugiu` também foram confirmados, com a bola automática ligada:
+
+```json
+{ "k": "bola", "slot": 33, "ballId": 1, "chance": 0.003, "sucesso": false, "shiny": false }
+{ "k": "fugiu", "nome": "Magikarp", "level": 1, "shiny": false }
+```
+
+- No modo "sem parar" sai **uma bola por abate**, e cada bola que falha vem seguida de um `fugiu`.
+- A `chance` de 0,003 é o `piso` da tabela `captura` do `welcome` (Poké Ball em Magikarp), ou seja, uma captura a cada ~330 bolas.
+- O estoque de bolas chega em `estado.balls` (`{"1": 56}`) a cada arremesso.
+- **A bola automática exige VIP** no jogo. Sem VIP, as duas flags de bola da `automation` não ligam.
+
 ### Mensagens que o mapeamento não tinha
 
 | `t` | Conteúdo | Observação |
 |---|---|---|
-| `campo` | `sl`, `ts`, `seq`, `alvo`, `fora[]` | tick de ~1 por segundo **no Centro**; não apareceu na hunt |
+| `campo` | `ts`, `seq`, `alvo`, `fora[]` e, quando mudam, `heroi`, `treinador` e `mobs[]` (posições no mapa) | tick de posição. ~1 por segundo no Centro. Na hunt, **~3 por segundo e ~6 MB por hora** (não apareceu na primeira conexão, só na segunda) |
 | `vivo` | vazio | keepalive do servidor |
 | `chat` | mensagem do chat global, **de outros jogadores** | ~45 por minuto. Não serve para telemetria e guarda conversa de terceiros |
 | `chat.del`, `chat.fixada` | moderação do chat | — |
@@ -200,6 +212,7 @@ Sessão de 12/11/2026, conta nível 2, ~10 min no Centro de Cerulean e depois na
 - O `estado` chega a **cada abate** com `xp`, `gold`, `centroLivreEm`, `dexMud` e o `pkMud` completo do pokémon ativo (~1 KB). São ~1.000 patches por hora por conta.
 - O `welcome` tem ~450 KB e é gravado inteiro em cada conexão.
 - O `chat` tem ~50 KB por 3 min.
+- O `campo` na hunt é o maior de todos: ~140 KB em 1,4 min, ou ~6 MB por hora por conta.
 
 ### `welcome` além do que está na tabela acima
 
@@ -213,6 +226,7 @@ Sessão de 12/11/2026, conta nível 2, ~10 min no Centro de Cerulean e depois na
 - [ ] Ver se `delta` muda em algum caso
 - [ ] Confirmar o `sessao.renovada` (quando chega?)
 - [ ] Anotar o formato de `drops[]` dentro de `morte` (nenhum drop em Magikarp)
-- [ ] Ver um `bola` real e a mensagem de captura (precisa ligar a bola automática)
+- [x] Ver um `bola` real (bola automática "sem parar", com VIP)
+- [ ] Ver uma captura com sucesso e a mensagem que vem junto (pokémon novo no `pkMud`?)
 - [ ] Entender `xp` × `xpPokemon`/`xpTreinador` e `ouro` × `ouroLoot` em `morte`
 - [ ] Medir o ritmo de abates numa hunt de nível alto
