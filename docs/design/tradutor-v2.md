@@ -1,6 +1,6 @@
 # Tradutor v2: eventos no formato real do jogo
 
-Status: **implementado** (12/11/2026), com os 14 casos de teste aprovados em `worker/tests/test_protocol.py` (`test_v2_*`). Falta só a captura real (seção 8).
+Status: **implementado** (12/11/2026), com os 14 casos de teste aprovados em `worker/tests/test_protocol.py` (`test_v2_*`). A captura real (seção 8) entrou numa segunda entrega, com os casos 15 a 17.
 
 Motivo: na primeira sessão real (12/11/2026, ver [protocolo.md](../protocolo.md#observado-na-sessão-real))
 o tradutor de `worker/src/pokeidle_farm/events.py` mostrou dois bugs, gravou muito ruído e não gerou
@@ -77,7 +77,7 @@ Esses tipos são traduzidos e **passam pelo barramento** (um plugin pode querer 
 | `batalha` `k: fugiu` | `wild_fled` | `{name, level, shiny}` (ganha `shiny`) | sim |
 | `shiny.captura` | `global.shiny_captured` | `{nick, species, level, species_id}` | sim (D3) |
 
-### 8. Captura real (P8): segunda entrega, proposta
+### 8. Captura real (P8): segunda entrega, implementada
 
 A primeira captura real chegou em 12/11/2026 (formato em [protocolo.md](../protocolo.md#observado-na-sessão-real)).
 A mensagem certa é a `batalha` `k: capturado`, não o `bola`: ela traz o pokémon inteiro.
@@ -100,7 +100,7 @@ A mensagem certa é a `batalha` `k: capturado`, não o `bola`: ela traz o pokém
 
 `topCatchNova` (ranking) continua `battle.topCatchNova`, gravado e sem `data`.
 
-Casos de teste propostos:
+Casos de teste (aprovados):
 
 15. **Captura real:** o frame do protocolo → um `pokemon.captured` com `species: "Magikarp"`, `species_id: 129`,
     `level: 1`, `shiny: False`, `potency: 1`, `quality: 0.983`, os `ivs` iguais aos do frame, `iv_sum: 105`,

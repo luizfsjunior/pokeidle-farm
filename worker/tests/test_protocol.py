@@ -292,3 +292,53 @@ def test_v2_global_shiny_is_not_our_capture():
 
 def battle_frame(*evs: dict) -> dict:
     return {"t": "batalha", "ev": list(evs)}
+
+
+CAPTURED = {
+    "k": "capturado",
+    "pokemon": {
+        "id": 128261620,
+        "ivs": {"hp": 19, "atk": 6, "def": 17, "spAtk": 27, "spDef": 28, "speed": 8},
+        "nome": "Magikarp",
+        "level": 1,
+        "shiny": False,
+        "quality": 0.983,
+        "potencia": 1,
+        "lookShiny": None,
+        "speciesId": 129,
+    },
+    "paraDepot": False,
+}
+
+
+def test_v2_real_capture():
+    ev = _one(_tr_in_hunt("magikarp"), battle_frame(CAPTURED))
+    assert ev.type == "pokemon.captured"
+    assert ev.data == {
+        "species": "Magikarp",
+        "species_id": 129,
+        "level": 1,
+        "shiny": False,
+        "potency": 1,
+        "quality": 0.983,
+        "ivs": {"hp": 19, "atk": 6, "def": 17, "spAtk": 27, "spDef": 28, "speed": 8},
+        "iv_sum": 105,
+        "pokemon_id": 128261620,
+        "to_depot": False,
+        "hunt_slug": "magikarp",
+    }
+    assert "pokemon.captured" not in NOT_PERSISTED
+
+
+def test_v2_successful_ball_alone_is_not_a_capture():
+    tr = _tr_in_hunt()
+    evs = tr.translate(
+        *codec.decode(json.dumps(battle_frame({"k": "bola", "ballId": 4, "sucesso": True})))
+    )
+    assert [e.type for e in evs] == ["capture_attempt"]
+
+
+def test_v2_capture_without_ivs():
+    frame = {**CAPTURED, "pokemon": {k: v for k, v in CAPTURED["pokemon"].items() if k != "ivs"}}
+    ev = _one(_tr_in_hunt(), battle_frame(frame))
+    assert ev.data["ivs"] == {} and ev.data["iv_sum"] == 0

@@ -4,7 +4,7 @@
 |---|---|---|---|
 | 0 | Arquitetura e decisões documentadas | — | ✅ |
 | 1 | Engenharia reversa: [protocolo.md](protocolo.md) preenchido | navegador | 🟡 handshake, sessão e abates confirmados na sessão real de 12/11; faltam captura, drops e `sessao.renovada` |
-| 2 | Núcleo do worker: sessão, barramento de eventos, interface de plugin, gravação de eventos brutos no Supabase. 1 conta, só escutando | local + Supabase | 🟡 rodou contra o jogo em IP residencial (12/11) e grava abates reais; tradutor v2 pronto (formato real do `estado`, sem ruído no banco); falta a captura real |
+| 2 | Núcleo do worker: sessão, barramento de eventos, interface de plugin, gravação de eventos brutos no Supabase. 1 conta, só escutando | local + Supabase | 🟡 rodou contra o jogo em IP residencial (12/11) e grava abates reais; tradutor v2 pronto (formato real do `estado`, sem ruído no banco) e captura real |
 | 2b | Simulador de eventos (`pokeidle-farm simulate`), para desenvolver métricas e painel sem o jogo | local + Supabase | ✅ |
 | 4a | Métricas em camadas: agregados por hora e dia, definições, objetivos com ritmo, previsão e chance ([ADR 0012](decisions/0012-metricas-em-camadas.md)) | Supabase | ✅ testado em Postgres local com dados simulados |
 | 3 | Escopo A: plugin da automação nativa (`auto.set`) + RateLimiter | local | ⬜ |

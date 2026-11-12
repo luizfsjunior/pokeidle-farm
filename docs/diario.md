@@ -53,7 +53,8 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 - Apagar o droplet da DigitalOcean e os *Actions secrets* que sobraram.
 - Esperar a resposta do suporte sobre VPS/proxy (ADR 0011).
 - Ver uma captura real (para o `pokemon.captured`): a bola automática "sem parar" (exige VIP) já está
-  ligada, mas as 100 Poké Balls acabaram sem captura (chance de 0,3% em Magikarp). Precisa comprar bolas.
+  ligada, mas as 100 Poké Balls acabaram sem captura (chance de 0,3% em Magikarp). Resolvido: com Ultra Balls veio a primeira captura, e o `capturado` virou
+  `pokemon.captured` real.
 - Fase 4b: implementar os comandos seguindo o desenho.
 - Depois: fase 3 (`auto.set`), telemetria de captura vinda do `pkMud` (`pokemon.captured` ainda é
   provisório), retenção dos eventos brutos, métricas do Mercado.

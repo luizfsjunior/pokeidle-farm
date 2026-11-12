@@ -75,6 +75,22 @@ class CaptureAttemptData(_Data):
     hunt_slug: str | None = None
 
 
+class CapturedData(_Data):
+    """Pokémon capturado (mesmo formato do simulador e das métricas)."""
+
+    species: str | None = None
+    species_id: int | None = None
+    level: int | None = None
+    shiny: bool | None = None
+    potency: int | None = None
+    quality: float | None = None
+    ivs: dict[str, int] = Field(default_factory=dict)
+    iv_sum: int = 0
+    pokemon_id: Any = None
+    to_depot: bool | None = None
+    hunt_slug: str | None = None
+
+
 class HuntChangedData(_Data):
     slug: str | None = None
     name: str | None = None
@@ -265,6 +281,24 @@ class Translator:
                 hunt_slug=self.hunt_slug,
             )
             return self._ev("capture_attempt", data, ev)
+        if k == "capturado":
+            # a captura vem daqui, não do `bola` com sucesso (que só vira capture_attempt)
+            pk = ev.get("pokemon") or {}
+            ivs = pk.get("ivs") or {}
+            data = CapturedData(
+                species=pk.get("nome"),
+                species_id=pk.get("speciesId"),
+                level=pk.get("level"),
+                shiny=pk.get("shiny"),
+                potency=pk.get("potencia"),
+                quality=pk.get("quality"),
+                ivs=ivs,
+                iv_sum=sum(v for v in ivs.values() if isinstance(v, int)),
+                pokemon_id=pk.get("id"),
+                to_depot=ev.get("paraDepot"),
+                hunt_slug=self.hunt_slug,
+            )
+            return self._ev("pokemon.captured", data, ev)
         if k == "hunt":
             if ev.get("slug"):
                 self.hunt_slug = ev["slug"]
