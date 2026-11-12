@@ -170,7 +170,7 @@ Sessão de 12/11/2026, conta nível 2, ~10 min no Centro de Cerulean e depois na
   "ouro": 41, "ouroLoot": 5, "lootBoost": true, "drops": [] }
 ```
 
-- `xp` (8) é diferente de `xpPokemon`/`xpTreinador` (11). Hipótese: `xp` é a base e os outros dois já vêm com bônus. **A confirmar.**
+- `xp` (8) é diferente de `xpPokemon`/`xpTreinador` (11). ✅ O `xp` é a base e os outros dois já vêm com os bônus: depois de ativar o VIP, `xp` continuou 8 e `xpPokemon`/`xpTreinador` foram para 16.
 - `ouroLoot` (5) vem separado de `ouro` (41), junto com `lootBoost`. ✅ O `ouro` **já inclui** o `ouroLoot`: em 288 abates seguidos o `estado.gold` subiu exatamente 41 por abate. O `ouroLoot` é só a parte que veio do bônus de loot.
 - `ouroVendaAuto` **não apareceu** nessa sessão (o tradutor grava 0).
 - Nenhum drop em 53 abates de Magikarp, então o formato de `drops[]` continua desconhecido.
@@ -193,6 +193,17 @@ Sessão de 12/11/2026, conta nível 2, ~10 min no Centro de Cerulean e depois na
 - No modo "sem parar" sai **uma bola por abate**, e cada bola que falha vem seguida de um `fugiu`.
 - A `chance` de 0,003 é o `piso` da tabela `captura` do `welcome` (Poké Ball em Magikarp), ou seja, uma captura a cada ~330 bolas.
 - O estoque de bolas chega em `estado.balls` (`{"1": 56}`) a cada arremesso.
+- ✅ **Captura com sucesso** (Ultra Ball, `ballId: 4`, chance de 0,012 em Magikarp): no mesmo frame vem o `bola` com `sucesso: true` e o `topCatchNova`, e uns 250 ms depois chega o `capturado` com o pokémon completo:
+
+  ```json
+  { "k": "capturado", "paraDepot": false,
+    "pokemon": { "id": 128261620, "nome": "Magikarp", "speciesId": 129, "level": 1, "shiny": false,
+                 "quality": 0.983, "potencia": 1, "lookShiny": null,
+                 "ivs": { "hp": 19, "atk": 6, "def": 17, "spAtk": 27, "spDef": 28, "speed": 8 } } }
+  ```
+
+  Depois chega um `estado` com o pokémon novo no `pkMud`. O `topCatchNova` (`sp`, `chave`, `n`, `m`, `s`, `pontua`) parece ser o ranking de capturas da semana. `paraDepot` indica se o pokémon foi para o Depot.
+- O `estado.dexMud` (`{"129": {"c": 1, "k": 502}}`) traz capturas (`c`) e abates (`k`) por espécie.
 - **A bola automática exige VIP** no jogo. Sem VIP, as duas flags de bola da `automation` não ligam.
 - **Quando as bolas acabam** (`estado.balls` = `{"1": 0}`), o jogo simplesmente para de jogar: não compra sozinho e não manda `aviso`. A hunt continua normalmente. Repor bolas fica por conta da fase 3 (`shop.buy`).
 
@@ -228,7 +239,7 @@ Sessão de 12/11/2026, conta nível 2, ~10 min no Centro de Cerulean e depois na
 - [ ] Confirmar o `sessao.renovada` (quando chega?)
 - [ ] Anotar o formato de `drops[]` dentro de `morte` (nenhum drop em Magikarp)
 - [x] Ver um `bola` real (bola automática "sem parar", com VIP)
-- [ ] Ver uma captura com sucesso e a mensagem que vem junto (pokémon novo no `pkMud`?)
+- [x] Ver uma captura com sucesso (`k: capturado`)
 - [x] `ouro` × `ouroLoot` em `morte` (o `ouro` já inclui o `ouroLoot`)
-- [ ] Entender `xp` × `xpPokemon`/`xpTreinador` em `morte`
+- [x] Entender `xp` × `xpPokemon`/`xpTreinador` em `morte` (`xp` é a base)
 - [ ] Medir o ritmo de abates numa hunt de nível alto

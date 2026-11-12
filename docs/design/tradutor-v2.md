@@ -77,13 +77,37 @@ Esses tipos são traduzidos e **passam pelo barramento** (um plugin pode querer 
 | `batalha` `k: fugiu` | `wild_fled` | `{name, level, shiny}` (ganha `shiny`) | sim |
 | `shiny.captura` | `global.shiny_captured` | `{nick, species, level, species_id}` | sim (D3) |
 
-### 8. Captura real (P8): fica para depois
+### 8. Captura real (P8): segunda entrega, proposta
 
-A captura real ainda não foi vista (chance de 0,3% por bola em Magikarp). O formato provável é `bola`
-com `sucesso: true`, seguido de um pokémon novo no `estado.pkMud`. Sem ver isso acontecer, não dá para
-escrever o teste. **Fora do escopo desta entrega.** Quando aparecer uma captura no banco, vira uma
-entrega pequena: gerar `pokemon.captured` com `species`, `level`, `shiny`, `potency`, `quality`, `ivs`
-e `iv_sum`, no formato que o simulador e as métricas já usam.
+A primeira captura real chegou em 12/11/2026 (formato em [protocolo.md](../protocolo.md#observado-na-sessão-real)).
+A mensagem certa é a `batalha` `k: capturado`, não o `bola`: ela traz o pokémon inteiro.
+
+`capturado` → `pokemon.captured`, gravado, com `data` no formato que o simulador e as métricas já usam:
+
+| Campo | Origem |
+|---|---|
+| `species` | `pokemon.nome` |
+| `species_id` | `pokemon.speciesId` |
+| `level` | `pokemon.level` |
+| `shiny` | `pokemon.shiny` |
+| `potency` | `pokemon.potencia` |
+| `quality` | `pokemon.quality` |
+| `ivs` | `pokemon.ivs` (as mesmas chaves `hp`, `atk`, `def`, `spAtk`, `spDef`, `speed`) |
+| `iv_sum` | soma dos `ivs` |
+| `pokemon_id` | `pokemon.id` |
+| `to_depot` | `paraDepot` |
+| `hunt_slug` | hunt atual |
+
+`topCatchNova` (ranking) continua `battle.topCatchNova`, gravado e sem `data`.
+
+Casos de teste propostos:
+
+15. **Captura real:** o frame do protocolo → um `pokemon.captured` com `species: "Magikarp"`, `species_id: 129`,
+    `level: 1`, `shiny: False`, `potency: 1`, `quality: 0.983`, os `ivs` iguais aos do frame, `iv_sum: 105`,
+    `pokemon_id: 128261620`, `to_depot: False` e o `hunt_slug` atual. Fora de `NOT_PERSISTED`.
+16. **Bola com sucesso não gera captura sozinha:** um `bola` com `sucesso: true` gera só o `capture_attempt`;
+    o `pokemon.captured` vem só do `capturado` (senão a captura contaria em dobro).
+17. **`capturado` sem `ivs`:** `ivs: {}` e `iv_sum: 0`, sem quebrar.
 
 ## Decisões (aprovadas em 12/11/2026)
 
