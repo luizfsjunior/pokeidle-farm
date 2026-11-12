@@ -26,6 +26,10 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 - **Primeira sessão real do worker** (à noite, no PC de casa, via Docker, `observe_only`): o IP residencial
   passou, o handshake funcionou com o token do Vault e os abates reais de Magikarp chegaram ao Supabase com
   `hunt_slug`. O que foi aprendido do protocolo está em [protocolo.md](protocolo.md#observado-na-sessão-real).
+  Com a bola automática ligada vieram `bola` e `fugiu` reais; quando as bolas acabam, o jogo só para de jogar.
+  O saldo de ouro confirmou que o `ouroLoot` já está dentro do `ouro`.
+- **Spec do tradutor v2** ([design/tradutor-v2.md](design/tradutor-v2.md)): corrige o `estado` aninhado e
+  o Centro tratado como hunt, e tira o ruído do banco. Decisões aprovadas; casos de teste aguardando.
 
 ### Problemas e soluções
 
@@ -47,11 +51,10 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 - Apagar o droplet da DigitalOcean e os *Actions secrets* que sobraram.
 - Esperar a resposta do suporte sobre VPS/proxy (ADR 0011).
-- **Tradutor v2** (spec + testes antes de implementar): `estado` aninhado (`pkMud`, `huntSlug`), não
-  tratar `campo.init` do Centro (`slug: "centro"`) como hunt, `shiny.captura` global ≠ captura nossa,
-  `xp`/`ouro`/`ouroLoot` corretos em `morte`, e parar de gravar o ruído (`chat`, `campo`, `vivo`,
-  `welcome` inteiro, `pkMud` a cada abate).
-- Ver captura real: ligar a bola automática no jogo e observar `bola` e a mensagem de captura.
+- **Tradutor v2**: spec e decisões aprovadas em [design/tradutor-v2.md](design/tradutor-v2.md); falta
+  aprovar os 14 casos de teste e implementar.
+- Ver uma captura real (para o `pokemon.captured`): a bola automática "sem parar" (exige VIP) já está
+  ligada, mas as 100 Poké Balls acabaram sem captura (chance de 0,3% em Magikarp). Precisa comprar bolas.
 - Fase 4b: implementar os comandos seguindo o desenho.
 - Depois: fase 3 (`auto.set`), telemetria de captura vinda do `pkMud` (`pokemon.captured` ainda é
   provisório), retenção dos eventos brutos, métricas do Mercado.

@@ -79,4 +79,4 @@ Se você é autor de algum desses projetos e quer que algo seja ajustado, abra u
 ## Segurança
 
 - **Nunca** faça commit de tokens de sessão, `.env` ou chaves do Supabase. O repositório é público.
-- Os segredos ficam no `.env` local ou do droplet. Use [.env.example](.env.example) como modelo.
+- Os segredos ficam no `.env` da máquina que roda o worker. Use [.env.example](.env.example) como modelo.

@@ -1,6 +1,6 @@
 # Deploy: Supabase, worker e painel
 
-> ⚠️ **O jogo bloqueia conexões da DigitalOcean** (`auth.provedorBanido`, ver [ADR 0011](decisions/0011-worker-em-ip-residencial.md)). O worker precisa rodar numa máquina com **IP residencial**. A seção 3 (droplet) fica só como referência de comandos: os mesmos passos valem para qualquer máquina Linux ou para o Docker Desktop em casa.
+> ⚠️ **O jogo bloqueia conexões da DigitalOcean** (`auth.provedorBanido`, ver [ADR 0011](decisions/0011-worker-em-ip-residencial.md)). O worker precisa rodar numa máquina com **IP residencial**. O caminho testado é a seção [3a (PC de casa com Docker Desktop)](#3a-pc-de-casa-docker-desktop-no-windows). A seção 3 (droplet) fica só como referência de comandos.
 
 Guia para subir tudo sem precisar abrir o jogo no computador. Dá para fazer só com o navegador (Supabase e console web da DigitalOcean) e com o celular (para pegar o token).
 
@@ -33,6 +33,25 @@ Sem console no navegador do celular, use um bookmarklet:
 4. **Feche a aba anônima sem clicar em "Sair"** (ver [protocolo.md](protocolo.md)).
 
 O bookmarklet só mostra os dados para você: não envia nada para lugar nenhum.
+
+## 3a. PC de casa (Docker Desktop no Windows)
+
+Caminho testado em 12/11/2026: conectou, gravou abates reais e o painel passou a mostrar a conta como `ready`.
+
+1. Abra o **Docker Desktop** e espere o engine subir. Sem ele aberto, o `docker compose` falha com `open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified`.
+2. Na raiz do repo, copie `.env.example` para `.env` e preencha `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`. Deixe `ACCOUNT_1_*` vazio: o token vem do Vault. Vale definir `WORKER_HOLDER=pc-casa`, senão o lease usa o hostname do container, que muda a cada `up`.
+3. Grave o token no Vault, se ainda não estiver lá (seção 2 e [worker/README.md](../worker/README.md)).
+4. Suba e acompanhe:
+   ```bash
+   docker compose up -d --build
+   docker compose logs -f
+   ```
+
+**Mexer na conta na mão** (trocar de hunt, ligar a bola automática, comprar): o jogo só aceita uma sessão por conta, e abrir no navegador derruba o worker (`close 4001`, que ele trata como `NEEDS_LOGIN` e não reconecta).
+1. `docker compose stop`;
+2. faça o que precisar no navegador;
+3. feche a aba **sem "Sair"** (o token do worker continua valendo);
+4. `docker compose up -d`.
 
 ## 3. Droplet
 
@@ -72,7 +91,7 @@ Se der errado:
 | Log | Provável causa |
 |---|---|
 | `NEEDS_LOGIN (auth.sessaoInvalida)` | token errado ou vencido; extraia de novo |
-| `NEEDS_LOGIN (close 4001...)` | a conta está aberta em outro lugar (aba esquecida?) |
+| `NEEDS_LOGIN (close 4001...)` | a conta está aberta em outro lugar (aba esquecida?). Feche a aba sem "Sair" e `docker compose up -d` |
 | `timeout esperando welcome` repetido | o handshake mudou; precisamos revisar o `hello` |
 | `REJECTED (auth.ipBanido / provedorBanido)` | o IP do droplet foi barrado. Pare e reavalie o ADR 0004 |
 
