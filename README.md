@@ -38,6 +38,7 @@ pokeidle-farm/
 │  ├─ regras-do-jogo.md
 │  ├─ roadmap.md
 │  ├─ design/       # documentos de design por fase
+│  ├─ deploy.md     # como subir Supabase + worker
 │  └─ decisions/      # ADRs (registro de decisões)
 └─ docker-compose.yml
 ```

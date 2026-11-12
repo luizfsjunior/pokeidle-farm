@@ -1,0 +1,18 @@
+services:
+  worker:
+    build: ./worker
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - worker-data:/app/data
+    # Para o lease ficar estável entre reinícios, defina WORKER_HOLDER no .env
+    # (ex.: droplet-1). Sem isso, o nome é o hostname do container, que muda.
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  worker-data:

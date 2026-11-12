@@ -44,6 +44,8 @@ console.log({ nick: s.nick, token: s.token, dispositivo: localStorage.getItem('i
 4. **Feche a aba ou a janela sem clicar em "Sair".** Sair provavelmente invalida o token (a confirmar), e uma aba aberta disputa a sessão com o worker (close 4001).
 5. Repita para cada conta de farm.
 
+Sem computador? O [deploy.md](deploy.md) tem um bookmarklet para extrair o token pelo celular.
+
 As senhas ficam no gerenciador de senhas, nunca no worker (ver [ADR 0007](decisions/0007-contas-farm-email-senha.md)).
 
 Comportamento conhecido:
