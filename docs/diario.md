@@ -29,7 +29,8 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   Com a bola automática ligada vieram `bola` e `fugiu` reais; quando as bolas acabam, o jogo só para de jogar.
   O saldo de ouro confirmou que o `ouroLoot` já está dentro do `ouro`.
 - **Spec do tradutor v2** ([design/tradutor-v2.md](design/tradutor-v2.md)): corrige o `estado` aninhado e
-  o Centro tratado como hunt, e tira o ruído do banco. Decisões aprovadas; casos de teste aguardando.
+  o Centro tratado como hunt, e tira o ruído do banco. Implementado com os 14 casos de teste aprovados. A sessão
+  passou a copiar a hunt atual do tradutor (antes só mudava com `hunt.changed`).
 
 ### Problemas e soluções
 
@@ -45,14 +46,12 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 | Card mostra "Rejeitada" | status que ficou da tentativa no droplet; o simulador não mexe em status | normal; o worker atualiza quando rodar em casa (confirmado: virou `ready`) |
 | `dockerDesktopLinuxEngine: The system cannot find the file specified` | Docker Desktop fechado | abrir o Docker Desktop e esperar o engine subir |
 | Worker caiu em `NEEDS_LOGIN (close 4001)` | conta aberta no navegador para trocar de hunt | esperado (sessão única). Fechar a aba sem "Sair" e `docker compose up -d`; o token continua valendo |
-| `pkMud` não aparece em `state.patch.pokemon_changed` | o patch real é aninhado (`estado.pkMud`); o tradutor procura no topo | pendente: corrigir no tradutor v2 |
+| `pkMud` não aparece em `state.patch.pokemon_changed` | o patch real é aninhado (`estado.pkMud`); o tradutor procura no topo | corrigido no tradutor v2 |
 
 ### Pendente
 
 - Apagar o droplet da DigitalOcean e os *Actions secrets* que sobraram.
 - Esperar a resposta do suporte sobre VPS/proxy (ADR 0011).
-- **Tradutor v2**: spec e decisões aprovadas em [design/tradutor-v2.md](design/tradutor-v2.md); falta
-  aprovar os 14 casos de teste e implementar.
 - Ver uma captura real (para o `pokemon.captured`): a bola automática "sem parar" (exige VIP) já está
   ligada, mas as 100 Poké Balls acabaram sem captura (chance de 0,3% em Magikarp). Precisa comprar bolas.
 - Fase 4b: implementar os comandos seguindo o desenho.

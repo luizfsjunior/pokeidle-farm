@@ -58,7 +58,10 @@ class Drop(_Data):
 class KillData(_Data):
     wild_name: str | None = None
     xp: int = 0
-    gold: int = 0
+    xp_pokemon: int = 0
+    gold: int = 0  # já inclui o gold_loot (ver docs/protocolo.md)
+    gold_loot: int = 0
+    loot_boost: bool = False
     gold_autosell: int = 0
     drops: list[Drop] = Field(default_factory=list)
     hunt_slug: str | None = None  # hunt atual no momento do abate (carimbada pelo tradutor)
@@ -80,6 +83,34 @@ class HuntChangedData(_Data):
 class WildFledData(_Data):
     name: str | None = None
     level: int | None = None
+    shiny: bool | None = None
+
+
+class WildSpawnedData(_Data):
+    name: str | None = None
+    level: int | None = None
+    max_hp: int | None = None
+    species_id: int | None = None
+
+
+class LevelUpData(_Data):
+    who: str | None = None
+    level: int | None = None
+
+
+class FieldInitData(_Data):
+    slug: str | None = None
+    map: str | None = None
+    is_center: bool = False
+
+
+class GlobalShinyData(_Data):
+    """Anúncio global de shiny capturado por qualquer jogador. Não é captura nossa."""
+
+    nick: str | None = None
+    species: str | None = None
+    level: int | None = None
+    species_id: int | None = None
 
 
 class PokecenterData(_Data):
@@ -91,16 +122,31 @@ class StateSnapshotData(_Data):
     hunt_slug: str | None = None
     items: dict[str, int] = Field(default_factory=dict)
     active_pokemon_id: Any = None
+    balls: dict[str, int] = Field(default_factory=dict)
+    automation: dict[str, Any] | None = None
 
 
-class StatePatchData(_Data):
-    changed: dict[str, Any] = Field(default_factory=dict)
-    pokemon_changed: list[Any] = Field(default_factory=list)
-    pokemon_removed: list[Any] = Field(default_factory=list)
+# Escalares do patch `estado` que vão para `data` (o patch inteiro fica no `raw`).
+PATCH_FIELDS = {
+    "xp": "xp",
+    "gold": "gold",
+    "level": "level",
+    "balls": "balls",
+    "huntSlug": "hunt_slug",
+    "centroLivreEm": "centro_livre_em",
+}
 
+# Mensagens de alto volume: viram evento no barramento, mas não são gravadas.
+NOISE_TYPES = {
+    "campo": "field.tick",
+    "vivo": "keepalive",
+    "chat": "chat",
+    "chat.del": "chat",
+    "chat.fixada": "chat",
+}
 
-# Eventos de batalha que passam pelo barramento mas não são gravados.
-NOT_PERSISTED = frozenset({"attack"})
+# Eventos que passam pelo barramento mas não são gravados.
+NOT_PERSISTED = frozenset({"attack", "wild.spawned", *NOISE_TYPES.values()})
 
 
 class Translator:
@@ -138,6 +184,7 @@ class Translator:
                 server_now = datetime.fromtimestamp(st.servidor_agora / 1000, UTC)
                 self.server_offset = server_now - utcnow()
             self.hunt_slug = st.hunt_slug
+            estado = raw.get("estado") or {}
             return [
                 self._ev(
                     "state.snapshot",
@@ -146,35 +193,51 @@ class Translator:
                         hunt_slug=st.hunt_slug,
                         items=st.items,
                         active_pokemon_id=st.active_id,
+                        balls=estado.get("balls") or {},
+                        automation=st.automation,
                     ),
-                    raw,
+                    # só o estado da conta; as tabelas do jogo (hunts, mercado...) não são gravadas
+                    {"t": raw.get("t"), "estado": estado},
                 )
             ]
         if isinstance(msg, StatePatch):
-            if raw.get("huntSlug"):
-                self.hunt_slug = raw["huntSlug"]
-            changed = {k: v for k, v in raw.items() if k not in ("t", "pkMud", "pkFora")}
-            return [
-                self._ev(
-                    "state.patch",
-                    StatePatchData(
-                        changed=changed,
-                        pokemon_changed=raw.get("pkMud") or [],
-                        pokemon_removed=raw.get("pkFora") or [],
-                    ),
-                    raw,
-                )
-            ]
+            return [self._ev("state.patch", self._patch_data(raw), raw)]
         if isinstance(msg, Battle):
             return [self._battle(ev.model_dump(by_alias=True)) for ev in msg.ev]
         if isinstance(msg, FieldInit):
-            if msg.slug:
+            is_center = bool(raw.get("centro")) or msg.slug == "centro"
+            if msg.slug and not is_center:
                 self.hunt_slug = msg.slug
-            return [self._ev("field.init", {"slug": msg.slug}, raw)]
+            data = FieldInitData(slug=msg.slug, map=raw.get("mapa"), is_center=is_center)
+            return [self._ev("field.init", data, raw)]
         if isinstance(msg, UnknownMessage):
+            if msg.t in NOISE_TYPES:
+                return [self._ev(NOISE_TYPES[msg.t], {}, raw)]
+            if msg.t == "shiny.captura":
+                pk = raw.get("pokemon") or {}
+                data = GlobalShinyData(
+                    nick=raw.get("nick"),
+                    species=pk.get("nome"),
+                    level=pk.get("level"),
+                    species_id=pk.get("speciesId"),
+                )
+                return [self._ev("global.shiny_captured", data, raw)]
             return [self._ev("unknown", {"t": msg.t}, raw)]
         # SessionRenewed e GameError são tratados pela sessão (efeitos colaterais).
         return []
+
+    def _patch_data(self, raw: dict[str, Any]) -> dict[str, Any]:
+        # O formato real é aninhado ({t, estado: {...}}); o plano (no topo) ainda é aceito.
+        estado = raw.get("estado")
+        src = estado if isinstance(estado, dict) else raw
+        if src.get("huntSlug"):
+            self.hunt_slug = src["huntSlug"]
+        data = {ours: src[theirs] for theirs, ours in PATCH_FIELDS.items() if theirs in src}
+        data["pokemon_changed"] = [
+            p.get("id") for p in src.get("pkMud") or [] if isinstance(p, dict)
+        ]
+        data["pokemon_removed"] = list(src.get("pkFora") or [])
+        return data
 
     def _battle(self, ev: dict[str, Any]) -> Event:
         k = ev.get("k")
@@ -182,7 +245,10 @@ class Translator:
             data = KillData(
                 wild_name=ev.get("nome"),
                 xp=int(ev.get("xpTreinador", ev.get("xp", 0)) or 0),
+                xp_pokemon=int(ev.get("xpPokemon", 0) or 0),
                 gold=int(ev.get("ouro", 0) or 0),
+                gold_loot=int(ev.get("ouroLoot", 0) or 0),
+                loot_boost=bool(ev.get("lootBoost", False)),
                 gold_autosell=int(ev.get("ouroVendaAuto", 0) or 0),
                 drops=[
                     Drop(name=d.get("nome")) for d in ev.get("drops") or [] if isinstance(d, dict)
@@ -207,8 +273,20 @@ class Translator:
             )
         if k == "fugiu":
             return self._ev(
-                "wild_fled", WildFledData(name=ev.get("nome"), level=ev.get("level")), ev
+                "wild_fled",
+                WildFledData(name=ev.get("nome"), level=ev.get("level"), shiny=ev.get("shiny")),
+                ev,
             )
+        if k == "spawn":
+            data = WildSpawnedData(
+                name=ev.get("nome"),
+                level=ev.get("level"),
+                max_hp=ev.get("maxHp"),
+                species_id=ev.get("speciesId"),
+            )
+            return self._ev("wild.spawned", data, ev)
+        if k == "levelup":
+            return self._ev("level_up", LevelUpData(who=ev.get("quem"), level=ev.get("level")), ev)
         if k == "centro":
             return self._ev("pokecenter", PokecenterData(reason=ev.get("motivo")), ev)
         if k == "ataque":

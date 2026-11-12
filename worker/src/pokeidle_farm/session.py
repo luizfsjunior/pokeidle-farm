@@ -253,9 +253,10 @@ class AccountSession:
                 self._raise_for_error(msg)
                 await self.bus.publish(self._translator.system("game.error", {"key": msg.chave}))
                 continue
-            for ev in self._translator.translate(msg, raw):
-                if ev.type == "hunt.changed":
-                    self.state_view.hunt_slug = ev.data.get("slug")
+            events = self._translator.translate(msg, raw)
+            # o tradutor sabe a hunt atual (hunt, patch, campo.init); os plugins leem daqui
+            self.state_view.hunt_slug = self._translator.hunt_slug
+            for ev in events:
                 await self.bus.publish(ev)
 
     # --- tratamento de erros e fechamento -----------------------------------

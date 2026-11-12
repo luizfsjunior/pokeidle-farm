@@ -1,6 +1,6 @@
 # Tradutor v2: eventos no formato real do jogo
 
-Status: **decisões aprovadas** (12/11/2026); falta aprovar os casos de teste antes de implementar.
+Status: **implementado** (12/11/2026), com os 14 casos de teste aprovados em `worker/tests/test_protocol.py` (`test_v2_*`). Falta só a captura real (seção 8).
 
 Motivo: na primeira sessão real (12/11/2026, ver [protocolo.md](../protocolo.md#observado-na-sessão-real))
 o tradutor de `worker/src/pokeidle_farm/events.py` mostrou dois bugs, gravou muito ruído e não gerou
@@ -113,4 +113,4 @@ Todos em `worker/tests/test_protocol.py`, com frames no **formato real** observa
 11. **`fugiu`** com `shiny: false` → `wild_fled.data.shiny is False`.
 12. **`spawn`** → `wild.spawned` com `{name, level, max_hp, species_id}`, e `wild.spawned` está em `NOT_PERSISTED`.
 13. **`shiny.captura`** → `global.shiny_captured` com `{nick:"Elija", species:"Larvitar", level:20, species_id:246}`, fora de `NOT_PERSISTED`; **nunca** gera `pokemon.captured` nem `capture_attempt`.
-14. **Os testes atuais continuam passando** (`test_translate_kill_and_capture`, `test_kills_carry_current_hunt` etc.), exceto onde o formato de `state.patch.data` muda de propósito.
+14. **Os testes atuais continuam passando** (o `kill.data` de `test_translate_kill_and_capture` ganhou `xp_pokemon`, `gold_loot` e `loot_boost`) (`test_translate_kill_and_capture`, `test_kills_carry_current_hunt` etc.), exceto onde o formato de `state.patch.data` muda de propósito.
