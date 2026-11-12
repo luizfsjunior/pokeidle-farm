@@ -23,6 +23,9 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 - **Painel v1 no ar na Vercel** (`web/`): login por e-mail e senha, visão geral por conta, gráficos
   por hora e dia com filtro de conta e hunt, objetivos criados sem SQL com histórico.
 - **Desenho da fase 4b** (comandos do painel para o worker): [design/fase-4b-comandos.md](design/fase-4b-comandos.md).
+- **Primeira sessão real do worker** (à noite, no PC de casa, via Docker, `observe_only`): o IP residencial
+  passou, o handshake funcionou com o token do Vault e os abates reais de Magikarp chegaram ao Supabase com
+  `hunt_slug`. O que foi aprendido do protocolo está em [protocolo.md](protocolo.md#observado-na-sessão-real).
 
 ### Problemas e soluções
 
@@ -35,13 +38,20 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 | `PGRST202 refresh_metric_hourly` | migration de métricas não aplicada | rodar `20261112010000_metrics.sql` |
 | `relation "accounts" already exists` | migration inicial rodada de novo | cada migration roda uma vez só; aplicar só o arquivo novo |
 | Painel sem conectar na Vercel | variáveis `NEXT_PUBLIC_` entram no build | colocar antes do deploy ou dar **Redeploy** depois |
-| Card mostra "Rejeitada" | status que ficou da tentativa no droplet; o simulador não mexe em status | normal; o worker atualiza quando rodar em casa |
+| Card mostra "Rejeitada" | status que ficou da tentativa no droplet; o simulador não mexe em status | normal; o worker atualiza quando rodar em casa (confirmado: virou `ready`) |
+| `dockerDesktopLinuxEngine: The system cannot find the file specified` | Docker Desktop fechado | abrir o Docker Desktop e esperar o engine subir |
+| Worker caiu em `NEEDS_LOGIN (close 4001)` | conta aberta no navegador para trocar de hunt | esperado (sessão única). Fechar a aba sem "Sair" e `docker compose up -d`; o token continua valendo |
+| `pkMud` não aparece em `state.patch.pokemon_changed` | o patch real é aninhado (`estado.pkMud`); o tradutor procura no topo | pendente: corrigir no tradutor v2 |
 
 ### Pendente
 
 - Apagar o droplet da DigitalOcean e os *Actions secrets* que sobraram.
-- Testar o worker em casa (IP residencial) e confirmar o protocolo no DevTools.
 - Esperar a resposta do suporte sobre VPS/proxy (ADR 0011).
+- **Tradutor v2** (spec + testes antes de implementar): `estado` aninhado (`pkMud`, `huntSlug`), não
+  tratar `campo.init` do Centro (`slug: "centro"`) como hunt, `shiny.captura` global ≠ captura nossa,
+  `xp`/`ouro`/`ouroLoot` corretos em `morte`, e parar de gravar o ruído (`chat`, `campo`, `vivo`,
+  `welcome` inteiro, `pkMud` a cada abate).
+- Ver captura real: ligar a bola automática no jogo e observar `bola` e a mensagem de captura.
 - Fase 4b: implementar os comandos seguindo o desenho.
 - Depois: fase 3 (`auto.set`), telemetria de captura vinda do `pkMud` (`pokemon.captured` ainda é
   provisório), retenção dos eventos brutos, métricas do Mercado.

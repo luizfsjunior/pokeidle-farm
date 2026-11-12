@@ -1,6 +1,8 @@
 # Protocolo WebSocket do pokeidle.io
 
-> 🟡 Mapeamento inicial baseado no código do [DiuleJR/pokeidle-manager-online](https://github.com/DiuleJR/pokeidle-manager-online) (commit `ca6e7f0`, 10/11/2026). Créditos ao autor, que fez esse trabalho de engenharia reversa. **Ainda precisa ser confirmado por nós no DevTools** (coluna "Confirmado").
+> 🟡 Mapeamento inicial baseado no código do [DiuleJR/pokeidle-manager-online](https://github.com/DiuleJR/pokeidle-manager-online) (commit `ca6e7f0`, 10/11/2026). Créditos ao autor, que fez esse trabalho de engenharia reversa.
+>
+> ✅ Em **12/11/2026** o worker rodou pela primeira vez contra o jogo (IP residencial, `observe_only`, conta nível 2 na hunt `magikarp`). O que foi visto nessa sessão está marcado como confirmado, e a seção [Observado na sessão real](#observado-na-sessão-real) traz o que o mapeamento original não tinha. O resto continua ⬜.
 >
 > Este repositório também é AGPL-3.0 ([ADR 0009](decisions/0009-licenca-agpl.md)). Código reaproveitado de lá deve manter o aviso de origem no arquivo.
 
@@ -16,9 +18,9 @@
 
 | Item | Valor | Confirmado |
 |---|---|---|
-| URL | `wss://pokeidle.io` | ⬜ |
+| URL | `wss://pokeidle.io` | ✅ |
 | Heartbeat | ping de WebSocket a cada 30 s; sem pong em 90 s, a conexão é dada como morta (valores do DiuleJR) | ⬜ |
-| Tamanho de frame | o `welcome` é um snapshot grande, então é preciso desligar o limite de tamanho (`max_size=None`) | ⬜ |
+| Tamanho de frame | o `welcome` é um snapshot grande (**~450 KB** numa conta nível 2), então é preciso desligar o limite de tamanho (`max_size=None`) | ✅ |
 
 ## Sessão e token
 
@@ -51,7 +53,8 @@ As senhas ficam no gerenciador de senhas, nunca no worker (ver [ADR 0007](decisi
 Comportamento conhecido:
 - A sessão dura **cerca de 30 dias**.
 - O servidor renova o token sozinho com a mensagem `sessao.renovada`. **É preciso guardar o token novo**, senão o antigo vence.
-- O mesmo token aberto em dois lugares derruba o outro com o close code **4001** ("login externo"). Na prática: **não abra a conta de farm no navegador enquanto o worker estiver rodando**.
+- O mesmo token aberto em dois lugares derruba o outro com o close code **4001** ("login externo"). Na prática: **não abra a conta de farm no navegador enquanto o worker estiver rodando**. ✅ Confirmado: abrir o jogo no navegador derrubou o worker na hora, e ele parou em `NEEDS_LOGIN` sem reconectar.
+- ✅ Abrir a conta no navegador e fechar a aba **sem "Sair"** não invalidou o token do worker: ao religar, ele reconectou com o token do Vault. É o jeito seguro de mexer na conta na mão (trocar de hunt, configurar automação): parar o worker, usar o navegador, fechar sem sair e religar.
 - O `id-dispositivo` entra na detecção de multiconta (Termos, seção 9). Cada conta deve usar sempre o mesmo `dispositivo`. Não gere um novo a cada conexão.
 
 ## Handshake
@@ -108,9 +111,9 @@ Depois de uma rejeição, o DiuleJR espera 5 min antes de tentar de novo. Em que
 | `t` | Conteúdo |
 |---|---|
 | `welcome` | snapshot completo (ver acima) |
-| `estado` | patch parcial em `estado`; `pkMud` = pokémons alterados (merge por `id`), `pkFora` = ids que saíram da lista |
+| `estado` | patch parcial. ✅ O formato real é **aninhado**: `{ t: "estado", estado: { ...campos alterados } }`. `pkMud` (pokémons alterados, merge por `id`), `pkFora` (ids que saíram) e `huntSlug` ficam **dentro** de `estado`, não no topo |
 | `batalha` | `ev[]` com eventos de combate (ver abaixo) |
-| `campo.init` | entrou num mapa (`mapa`, `slug`) |
+| `campo.init` | entrou num mapa (`mapa`, `slug`). ✅ No Centro Pokémon vem `slug: "centro"` e `centro: true`, o que **não é uma hunt** |
 | `sessao.renovada` | token novo em `token` |
 | `erro` | recusa (ver acima) |
 | `orbs` | resposta da carteira de Gemas |
@@ -121,7 +124,7 @@ Depois de uma rejeição, o DiuleJR espera 5 min antes de tentar de novo. Em que
 |---|---|---|
 | `hunt` | `slug`, `nome` | confirmação da troca de hunt |
 | `ataque` | `slot`, `hpAlvo` | dano no selvagem |
-| `morte` | `quem` (`selvagem`), `slot`, `nome`, `xpTreinador`/`xp`, `ouro`, `ouroVendaAuto`, `drops[]` | abate: XP, gold e drops (**base da telemetria**) |
+| `morte` | `quem` (`selvagem`), `slot`, `nome`, `xpTreinador`/`xp`, `ouro`, `ouroVendaAuto`, `drops[]` | abate: XP, gold e drops (**base da telemetria**). ✅ Campos reais na [sessão real](#observado-na-sessão-real) |
 | `bola` | `slot`, `ballId`, `sucesso`, `shiny`, `chance` | resultado de captura |
 | `fugiu` | `nome`, `level` | o selvagem fugiu |
 | `centro` | `motivo` | foi para o Centro Pokémon |
@@ -134,7 +137,7 @@ Também aparecem `aviso`, `marketComprado` e `mktSorteio`, relacionados ao Merca
 
 | `t` | Campos | Uso | Confirmado |
 |---|---|---|---|
-| `hello` | `nick`, `token`, `delta`, `dispositivo` | handshake | ⬜ |
+| `hello` | `nick`, `token`, `delta`, `dispositivo` | handshake | ✅ |
 | `hunt.select` | `slug` | trocar de hunt (só funciona fora da trava de combate) | ⬜ |
 | `centro.ir` | — | ir ao Centro Pokémon | ⬜ |
 | `ball.throw` | `ballId`, `slot` | jogar bola no selvagem abatido (janela de ~30 s; intervalo de ~1,3 s entre arremessos) | ⬜ |
@@ -155,9 +158,61 @@ Também aparecem `aviso`, `marketComprado` e `mktSorteio`, relacionados ao Merca
 - **Uma compra por vez:** espere o `k: "compra"` antes da próxima, e trate o caso de a confirmação não chegar (timeout).
 - Nunca logar `token` nem credenciais.
 
-## Pendências para confirmar no DevTools
+## Observado na sessão real
 
-- [ ] Abrir pokeidle.io/app → F12 → Network → WS e conferir o `hello` e o `welcome`
+Sessão de 12/11/2026, conta nível 2, ~10 min no Centro de Cerulean e depois na hunt `magikarp`. Os números valem para essa amostra; hunts de nível alto podem ter outro ritmo.
+
+### `morte` de verdade
+
+```json
+{ "k": "morte", "quem": "selvagem", "slot": 12, "nome": "Magikarp",
+  "xp": 8, "xpPokemon": 11, "xpTreinador": 11,
+  "ouro": 41, "ouroLoot": 5, "lootBoost": true, "drops": [] }
+```
+
+- `xp` (8) é diferente de `xpPokemon`/`xpTreinador` (11). Hipótese: `xp` é a base e os outros dois já vêm com bônus. **A confirmar.**
+- `ouroLoot` (5) vem separado de `ouro` (41), junto com `lootBoost`. Não se sabe se `ouro` já inclui o `ouroLoot`. **A confirmar.**
+- `ouroVendaAuto` **não apareceu** nessa sessão (o tradutor grava 0).
+- Nenhum drop em 53 abates de Magikarp, então o formato de `drops[]` continua desconhecido.
+- **Ritmo:** 53 abates em 3 min, **~18 por minuto** (~1.000 por hora). O simulador usa 6 por minuto, que é um chute; com uma amostra só de Magikarp no nível 2 ainda não dá para trocar por um valor medido.
+
+### Eventos de `batalha` que o mapeamento não tinha
+
+| `k` | Exemplo | Uso |
+|---|---|---|
+| `spawn` | `slot`, `nome`, `level`, `hp`, `maxHp`, `tipos`, `speciesId`, `looktype` | um selvagem apareceu; vem um por abate |
+| `levelup` | `quem: "treinador"`, `level` | subida de nível do treinador (provavelmente também de pokémon, com outro `quem`) |
+
+### Mensagens que o mapeamento não tinha
+
+| `t` | Conteúdo | Observação |
+|---|---|---|
+| `campo` | `sl`, `ts`, `seq`, `alvo`, `fora[]` | tick de ~1 por segundo **no Centro**; não apareceu na hunt |
+| `vivo` | vazio | keepalive do servidor |
+| `chat` | mensagem do chat global, **de outros jogadores** | ~45 por minuto. Não serve para telemetria e guarda conversa de terceiros |
+| `chat.del`, `chat.fixada` | moderação do chat | — |
+| `amigos` | `max`, `lista[]`, `pedidos[]` | logo depois do `welcome` |
+| `pvp` | `fila`, `filaLogin` | logo depois do `welcome` |
+| `shiny.captura` | `nick`, `pokemon{nome, level, speciesId}` | **anúncio global** de shiny capturado por qualquer jogador. Não é captura nossa |
+
+### Volume (o que pesa na tabela `events`)
+
+- O `estado` chega a **cada abate** com `xp`, `gold`, `centroLivreEm`, `dexMud` e o `pkMud` completo do pokémon ativo (~1 KB). São ~1.000 patches por hora por conta.
+- O `welcome` tem ~450 KB e é gravado inteiro em cada conexão.
+- O `chat` tem ~50 KB por 3 min.
+
+### `welcome` além do que está na tabela acima
+
+- `estado.automation`: config da automação nativa. Na sessão: `ballIds: [1]`, `autoBallSemParar: false`, `autoBallAteCapturar: false`, `autoPotion`, `autoRevive`, `autoVoltarHunt`, `autoLockShiny`, `autoLockNotaMin` e outros. Com as duas flags de bola desligadas, **nenhuma bola foi jogada**, por isso ainda não há `bola` nem captura real.
+- `estado.balls` (`{id: quantidade}`), `estado.cheio`, `estado.noCentro`, `estado.selvagem`.
+- Tabelas do jogo: `captura` (`base`, `piso`, `teto`, `porDegrau`), `catalogoBolas` (`id`, `nome`, `catchRate`, `priceGold`), `hunts[]` (~1.000 hunts, com `area`, `nivel`, `especies[]` e `totalSpawns`), `potencias`, `chanceShiny`, `economia` e outras.
+
+## Pendências para confirmar
+
+- [x] Conferir o `hello` e o `welcome` (sessão real de 12/11/2026)
 - [ ] Ver se `delta` muda em algum caso
 - [ ] Confirmar o `sessao.renovada` (quando chega?)
-- [ ] Anotar o formato de `drops[]` dentro de `morte`
+- [ ] Anotar o formato de `drops[]` dentro de `morte` (nenhum drop em Magikarp)
+- [ ] Ver um `bola` real e a mensagem de captura (precisa ligar a bola automática)
+- [ ] Entender `xp` × `xpPokemon`/`xpTreinador` e `ouro` × `ouroLoot` em `morte`
+- [ ] Medir o ritmo de abates numa hunt de nível alto

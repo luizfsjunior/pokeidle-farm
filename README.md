@@ -6,7 +6,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
 
 ## Status
 
-🟡 Em planejamento: arquitetura definida, protocolo mapeado a partir de referência (falta confirmar).
+🟡 Em desenvolvimento: worker rodando contra o jogo em IP residencial (só observando), métricas e painel v1 no ar. Detalhes no [roadmap](docs/roadmap.md).
 
 ## Visão geral
 
