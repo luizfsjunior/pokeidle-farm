@@ -171,7 +171,7 @@ Sessão de 12/11/2026, conta nível 2, ~10 min no Centro de Cerulean e depois na
 ```
 
 - `xp` (8) é diferente de `xpPokemon`/`xpTreinador` (11). Hipótese: `xp` é a base e os outros dois já vêm com bônus. **A confirmar.**
-- `ouroLoot` (5) vem separado de `ouro` (41), junto com `lootBoost`. Não se sabe se `ouro` já inclui o `ouroLoot`. **A confirmar.**
+- `ouroLoot` (5) vem separado de `ouro` (41), junto com `lootBoost`. ✅ O `ouro` **já inclui** o `ouroLoot`: em 288 abates seguidos o `estado.gold` subiu exatamente 41 por abate. O `ouroLoot` é só a parte que veio do bônus de loot.
 - `ouroVendaAuto` **não apareceu** nessa sessão (o tradutor grava 0).
 - Nenhum drop em 53 abates de Magikarp, então o formato de `drops[]` continua desconhecido.
 - **Ritmo:** 53 abates em 3 min, **~18 por minuto** (~1.000 por hora). O simulador usa 6 por minuto, que é um chute; com uma amostra só de Magikarp no nível 2 ainda não dá para trocar por um valor medido.
@@ -228,5 +228,6 @@ Sessão de 12/11/2026, conta nível 2, ~10 min no Centro de Cerulean e depois na
 - [ ] Anotar o formato de `drops[]` dentro de `morte` (nenhum drop em Magikarp)
 - [x] Ver um `bola` real (bola automática "sem parar", com VIP)
 - [ ] Ver uma captura com sucesso e a mensagem que vem junto (pokémon novo no `pkMud`?)
-- [ ] Entender `xp` × `xpPokemon`/`xpTreinador` e `ouro` × `ouroLoot` em `morte`
+- [x] `ouro` × `ouroLoot` em `morte` (o `ouro` já inclui o `ouroLoot`)
+- [ ] Entender `xp` × `xpPokemon`/`xpTreinador` em `morte`
 - [ ] Medir o ritmo de abates numa hunt de nível alto

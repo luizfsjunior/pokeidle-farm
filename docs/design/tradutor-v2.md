@@ -1,6 +1,6 @@
 # Tradutor v2: eventos no formato real do jogo
 
-Status: **proposta**, aguardando aprovação das decisões e dos casos de teste antes de implementar.
+Status: **decisões aprovadas** (12/11/2026); falta aprovar os casos de teste antes de implementar.
 
 Motivo: na primeira sessão real (12/11/2026, ver [protocolo.md](../protocolo.md#observado-na-sessão-real))
 o tradutor de `worker/src/pokeidle_farm/events.py` mostrou dois bugs, gravou muito ruído e não gerou
@@ -64,7 +64,7 @@ Esses tipos são traduzidos e **passam pelo barramento** (um plugin pode querer 
 | `xp` | `xpTreinador`, senão `xp` | igual a hoje |
 | `xp_pokemon` | `xpPokemon` | novo |
 | `gold` | `ouro` | igual a hoje |
-| `gold_loot` | `ouroLoot` | novo; **não** entra na métrica de ouro até saber se `ouro` já o inclui |
+| `gold_loot` | `ouroLoot` | novo. É uma **parte** do `ouro`, não um valor a mais (ver D4); não entra na métrica de ouro |
 | `loot_boost` | `lootBoost` | novo |
 | `gold_autosell`, `drops`, `wild_name`, `hunt_slug` | como hoje | |
 
@@ -72,10 +72,10 @@ Esses tipos são traduzidos e **passam pelo barramento** (um plugin pode querer 
 
 | Mensagem | Tipo interno | `data` | Gravado? |
 |---|---|---|---|
-| `batalha` `k: spawn` | `wild.spawned` | `{name, level, max_hp, species_id}` | **a decidir (D2)** |
+| `batalha` `k: spawn` | `wild.spawned` | `{name, level, max_hp, species_id}` | não (D2) |
 | `batalha` `k: levelup` | `level_up` | `{who, level}` (`who` vem de `quem`) | sim |
 | `batalha` `k: fugiu` | `wild_fled` | `{name, level, shiny}` (ganha `shiny`) | sim |
-| `shiny.captura` | `global.shiny_captured` | `{nick, species, level, species_id}` | **a decidir (D3)** |
+| `shiny.captura` | `global.shiny_captured` | `{nick, species, level, species_id}` | sim (D3) |
 
 ### 8. Captura real (P8): fica para depois
 
@@ -85,12 +85,14 @@ escrever o teste. **Fora do escopo desta entrega.** Quando aparecer uma captura 
 entrega pequena: gerar `pokemon.captured` com `species`, `level`, `shiny`, `potency`, `quality`, `ivs`
 e `iv_sum`, no formato que o simulador e as métricas já usam.
 
-## Decisões em aberto
+## Decisões (aprovadas em 12/11/2026)
 
-- **D1. Ruído:** só não gravar (proposta acima), ou nem traduzir?
-- **D2. `wild.spawned`:** gravar? São ~1.000 por hora por conta, pequenos. Serve para medir o tempo entre o spawn e o abate. Proposta: **não gravar**.
-- **D3. `global.shiny_captured`:** gravar? É público, pequeno e raro, e daria um "feed de shinies do servidor". Proposta: **gravar**.
-- **D4. Métrica de ouro:** manter `gold + gold_autosell` (sem `gold_loot`) até confirmar? Proposta: **sim**.
+- **D1. Ruído:** traduzir e passar pelo barramento, mas **não gravar** (`NOT_PERSISTED`).
+- **D2. `wild.spawned`:** **não gravar** (~1.000 por hora por conta, pouco valor por enquanto).
+- **D3. `global.shiny_captured`:** **gravar**. É público, pequeno e raro, e dá um feed de shinies do servidor.
+- **D4. Métrica de ouro:** continua `gold + gold_autosell`, sem `gold_loot`. Confirmado com dados: em
+  288 abates seguidos o saldo do `estado.gold` subiu exatamente o `ouro` (41) de cada `morte`, então
+  o `ouroLoot` (5) já está dentro do `ouro`. Somar contaria em dobro.
 
 ## Casos de teste propostos
 
@@ -109,6 +111,6 @@ Todos em `worker/tests/test_protocol.py`, com frames no **formato real** observa
 9. **`welcome` enxuto:** um welcome com `hunts` e `mercado` → o `raw` do `state.snapshot` tem só as chaves `t` e `estado`; `data` tem `balls` e `automation`.
 10. **`levelup`** `{"k":"levelup","quem":"treinador","level":3}` → `level_up` com `{who:"treinador", level:3}`.
 11. **`fugiu`** com `shiny: false` → `wild_fled.data.shiny is False`.
-12. **`spawn`** → `wild.spawned` com `{name, level, max_hp, species_id}` (gravado ou não, conforme D2).
-13. **`shiny.captura`** → `global.shiny_captured` com `{nick:"Elija", species:"Larvitar", level:20, species_id:246}`; **nunca** gera `pokemon.captured` nem `capture_attempt`.
+12. **`spawn`** → `wild.spawned` com `{name, level, max_hp, species_id}`, e `wild.spawned` está em `NOT_PERSISTED`.
+13. **`shiny.captura`** → `global.shiny_captured` com `{nick:"Elija", species:"Larvitar", level:20, species_id:246}`, fora de `NOT_PERSISTED`; **nunca** gera `pokemon.captured` nem `capture_attempt`.
 14. **Os testes atuais continuam passando** (`test_translate_kill_and_capture`, `test_kills_carry_current_hunt` etc.), exceto onde o formato de `state.patch.data` muda de propósito.
