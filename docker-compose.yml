@@ -1,7 +1,10 @@
 services:
   worker:
     build: ./worker
-    restart: unless-stopped
+    # on-failure: reinicia só se o worker quebrar. Quando todas as contas terminam
+    # em estado terminal (needs_login/rejected), o worker sai com código 0 e o
+    # container NÃO volta, para não ficar reconectando contra um bloqueio.
+    restart: on-failure:5
     env_file: .env
     volumes:
       - worker-data:/app/data

@@ -17,7 +17,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
                                                      ▲
                     lê comandos / grava estado e métricas
                                                      │
-[Droplet DigitalOcean — Docker] worker Python (asyncio) ── WebSocket ──> pokeidle.io
+[Máquina com IP residencial — Docker] worker Python (asyncio) ── WebSocket ──> pokeidle.io
    ├─ AccountSession × 3
    ├─ Strategies (hunt, restock, venda)
    └─ RateLimiter + Telemetry
@@ -50,15 +50,14 @@ pokeidle-farm/
 | [0001](docs/decisions/0001-registrar-decisoes.md) | Registrar decisões em ADRs | Aceita |
 | [0002](docs/decisions/0002-worker-headless-websocket.md) | Worker headless via WebSocket (sem navegador) | Aceita |
 | [0003](docs/decisions/0003-supabase-como-intermediario.md) | Supabase como intermediário entre painel e worker | Aceita |
-| [0004](docs/decisions/0004-hospedagem-digitalocean.md) | Hospedagem do worker na DigitalOcean | Aceita |
+| [0004](docs/decisions/0004-hospedagem-digitalocean.md) | Hospedagem do worker na DigitalOcean | Substituída pela 0011 |
 | [0005](docs/decisions/0005-auth-por-token-de-sessao.md) | Auth no jogo por token de sessão reaproveitado | Proposta |
 | [0006](docs/decisions/0006-contas.md) | 4 contas: 3 de farm + 1 pessoal | Aceita (alterada pela 0007) |
 | [0007](docs/decisions/0007-contas-farm-email-senha.md) | Contas de farm com e-mail e senha; senhas fora do worker | Aceita |
 | [0008](docs/decisions/0008-escopo-completo-modular.md) | Escopo completo (até o Mercado), com estratégias plugáveis e métricas em camadas | Aceita |
 | [0009](docs/decisions/0009-licenca-agpl.md) | Licença AGPL-3.0 | Aceita |
 | [0010](docs/decisions/0010-supabase-desde-o-inicio.md) | Supabase desde o início do desenvolvimento | Aceita |
-
-**Pendente:** conexão do droplet (direta, proxy residencial ou local), a decidir antes da fase 5. Ver [ADR 0004](docs/decisions/0004-hospedagem-digitalocean.md).
+| [0011](docs/decisions/0011-worker-em-ip-residencial.md) | Worker em IP residencial (o jogo bloqueia a DigitalOcean) | Aceita |
 
 ## Referências e créditos
 

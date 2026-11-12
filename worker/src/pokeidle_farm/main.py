@@ -75,6 +75,8 @@ async def run(settings: Settings) -> int:
     results = await asyncio.gather(*(s.run() for s in sessions))
     for s, state in zip(sessions, results, strict=True):
         log.info("[%s] terminou em %s", s.account.nick, state.name)
+    # Código 0 mesmo com contas rejeitadas: estados terminais não devem ser
+    # "resolvidos" reiniciando o processo (ver docker-compose.yml).
     return 0
 
 

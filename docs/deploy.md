@@ -1,4 +1,6 @@
-# Deploy: Supabase + worker no droplet
+# Deploy: Supabase + worker
+
+> ⚠️ **O jogo bloqueia conexões da DigitalOcean** (`auth.provedorBanido`, ver [ADR 0011](decisions/0011-worker-em-ip-residencial.md)). O worker precisa rodar numa máquina com **IP residencial**. A seção 3 (droplet) fica só como referência de comandos: os mesmos passos valem para qualquer máquina Linux ou para o Docker Desktop em casa.
 
 Guia para subir tudo sem precisar abrir o jogo no computador. Dá para fazer só com o navegador (Supabase e console web da DigitalOcean) e com o celular (para pegar o token).
 
