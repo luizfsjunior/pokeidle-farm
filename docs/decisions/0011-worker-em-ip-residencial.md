@@ -24,6 +24,14 @@ Os Termos (seção 8) já diziam que a moderação pode consultar o tipo de cone
 - O limite por rede continua valendo: até 4 contas conectadas na rede de casa, contando a conta pessoal se ela estiver jogando ao mesmo tempo. Com 3 de farm + 1 pessoal, fica exatamente no limite.
 - O `docker-compose.yml` passou a usar `restart: on-failure`. Uma conta rejeitada encerra o worker com código 0, e o container não volta a reconectar sozinho contra um bloqueio.
 
+## Pendência: pedido formal ao suporte
+
+Em 2026-11-12, enviamos um e-mail para support@pokeidle.io perguntando:
+1. se a automação pode rodar a partir de um VPS próprio, com liberação do IP fixo (a seção 8 dos Termos menciona pedidos de liberação de rede);
+2. se não, se conectar por um proxy residencial dedicado é permitido ou se conta como burlar limites.
+
+Até a resposta, o worker roda só em IP residencial, sem VPS nem proxy. Uma resposta positiva vira um novo ADR que revisa este. Prazo de resposta pelos Termos: até 15 dias.
+
 ## Alternativas consideradas
 
 - **Outro provedor de nuvem (Vultr, Hetzner etc.):** provavelmente bloqueado pelo mesmo critério. Testar seria arriscar a conta sem necessidade.
