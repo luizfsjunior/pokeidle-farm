@@ -36,10 +36,11 @@ Postgres no Supabase, com RLS ligada em todas as tabelas.
 | `commands` | comandos do painel (ex.: trocar hunt, pausar), com status |
 | `account_state` | último estado de cada conta (nível, hunt, gold, inventário resumido) |
 | `events` | eventos brutos e imutáveis (drops, capturas, shinies, mortes, desconexões), a fonte da verdade |
-| `metrics_hourly` | agregados por hora e por conta (XP/h, gold/h, drops), recalculáveis a partir de `events` |
-| `metric_definitions` | métricas derivadas declaradas (nome, fórmula, janela, contas) |
-| `goals` | objetivos: métrica, valor-alvo, prazo e contas |
-| `goal_snapshots` | progresso periódico de cada objetivo (valor atual, ritmo, previsão de conclusão) |
+| `metric_hourly` | agregados por hora, conta, hunt e métrica base, recalculáveis a partir de `events` |
+| `metric_daily` | view: os mesmos agregados por dia (fuso de Brasília) |
+| `metric_definitions` | métricas base (soma) e razões (numerador ÷ denominador), declarativas |
+| `goals` | objetivos de métrica (somar até um alvo) ou de captura (N pokémon que batem com um filtro), com prazo e contas |
+| `goal_snapshots` | progresso de hora em hora de cada objetivo (valor atual, ritmo, previsão, chance até o prazo) |
 | `market_prices` | preços observados no Mercado, para dar valor aos drops |
 | `strategy_configs` | quais estratégias estão ligadas por conta, e com quais parâmetros |
 
@@ -47,12 +48,12 @@ Postgres no Supabase, com RLS ligada em todas as tabelas.
 
 ```
 events (brutos, imutáveis)
-   └─> metrics_hourly / diário (agregados recalculáveis)
-          └─> metric_definitions (métricas derivadas, declarativas)
-                 └─> goals + goal_snapshots (meta, progresso, ritmo, previsão)
+   └─> metric_hourly → metric_daily (agregados recalculáveis; pg_cron a cada 10 min)
+          └─> metric_definitions (base e razões, declarativas) → metric_series()
+                 └─> goals → goal_progress() → goal_snapshots (de hora em hora)
 ```
 
-Uma métrica nova é só uma linha em `metric_definitions`. Se a definição mudar, o histórico é recalculado a partir dos eventos brutos.
+Uma razão nova é só uma linha em `metric_definitions`. Uma métrica base nova é uma linha ali e uma coluna no `refresh_metric_hourly`. Se a definição mudar, o histórico é recalculado a partir dos eventos brutos. Detalhes e fórmulas da previsão: [ADR 0012](decisions/0012-metricas-em-camadas.md).
 
 ### 3. Painel (`web/`)
 
@@ -69,7 +70,7 @@ Next.js na Vercel, com Supabase Auth via Google e RLS restrita ao dono.
 
 **Comando do painel:** o painel grava em `commands` → o Realtime avisa o worker → o worker executa respeitando o RateLimiter → atualiza o status do comando e o `account_state`.
 
-**Telemetria:** a sessão recebe um evento do jogo → `Telemetry` grava em `events` → um job agrega em `metrics_hourly`.
+**Telemetria:** a sessão recebe um evento do jogo → `Telemetry` grava em `events` → o pg_cron agrega em `metric_hourly` a cada 10 minutos.
 
 **Token expirado:** o handshake falha → a conta é marcada como `needs_login` → o painel avisa → você faz o login no navegador e atualiza o token.
 

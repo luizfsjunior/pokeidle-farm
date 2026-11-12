@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Protocol
 from uuid import UUID
 
@@ -38,6 +39,10 @@ class Store(Protocol):
     async def set_status(self, account_id: UUID, status: str) -> None: ...
 
     async def insert_events(self, rows: list[dict[str, Any]]) -> None: ...
+
+    async def refresh_metrics(self, start: datetime, end: datetime) -> int:
+        """Recalcula os agregados por hora do intervalo. Retorna linhas gravadas."""
+        ...
 
     async def plugin_configs(self, account_id: UUID) -> dict[str, tuple[bool, dict[str, Any]]]:
         """{plugin: (enabled, config)} da tabela strategy_configs."""

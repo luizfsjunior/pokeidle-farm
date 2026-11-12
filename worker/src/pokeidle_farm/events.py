@@ -61,6 +61,7 @@ class KillData(_Data):
     gold: int = 0
     gold_autosell: int = 0
     drops: list[Drop] = Field(default_factory=list)
+    hunt_slug: str | None = None  # hunt atual no momento do abate (carimbada pelo tradutor)
 
 
 class CaptureAttemptData(_Data):
@@ -68,6 +69,7 @@ class CaptureAttemptData(_Data):
     success: bool | None = None
     shiny: bool | None = None
     chance: float | None = None
+    hunt_slug: str | None = None
 
 
 class HuntChangedData(_Data):
@@ -108,6 +110,8 @@ class Translator:
         self.account_id = account_id
         self.session_id = session_id
         self.server_offset: timedelta | None = None  # servidor − local
+        # Hunt atual, para carimbar abates e capturas (as métricas agregam por hunt).
+        self.hunt_slug: str | None = None
 
     def _ev(self, type_: str, data: BaseModel | dict[str, Any], raw: dict[str, Any]) -> Event:
         now = utcnow()
@@ -133,6 +137,7 @@ class Translator:
             if st.servidor_agora is not None:
                 server_now = datetime.fromtimestamp(st.servidor_agora / 1000, UTC)
                 self.server_offset = server_now - utcnow()
+            self.hunt_slug = st.hunt_slug
             return [
                 self._ev(
                     "state.snapshot",
@@ -146,6 +151,8 @@ class Translator:
                 )
             ]
         if isinstance(msg, StatePatch):
+            if raw.get("huntSlug"):
+                self.hunt_slug = raw["huntSlug"]
             changed = {k: v for k, v in raw.items() if k not in ("t", "pkMud", "pkFora")}
             return [
                 self._ev(
@@ -161,6 +168,8 @@ class Translator:
         if isinstance(msg, Battle):
             return [self._battle(ev.model_dump(by_alias=True)) for ev in msg.ev]
         if isinstance(msg, FieldInit):
+            if msg.slug:
+                self.hunt_slug = msg.slug
             return [self._ev("field.init", {"slug": msg.slug}, raw)]
         if isinstance(msg, UnknownMessage):
             return [self._ev("unknown", {"t": msg.t}, raw)]
@@ -178,6 +187,7 @@ class Translator:
                 drops=[
                     Drop(name=d.get("nome")) for d in ev.get("drops") or [] if isinstance(d, dict)
                 ],
+                hunt_slug=self.hunt_slug,
             )
             return self._ev("kill", data, ev)
         if k == "bola":
@@ -186,9 +196,12 @@ class Translator:
                 success=ev.get("sucesso"),
                 shiny=ev.get("shiny"),
                 chance=ev.get("chance"),
+                hunt_slug=self.hunt_slug,
             )
             return self._ev("capture_attempt", data, ev)
         if k == "hunt":
+            if ev.get("slug"):
+                self.hunt_slug = ev["slug"]
             return self._ev(
                 "hunt.changed", HuntChangedData(slug=ev.get("slug"), name=ev.get("nome")), ev
             )

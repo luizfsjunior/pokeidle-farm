@@ -129,6 +129,9 @@ async def simulate(settings: Settings, nick: str, days: float, live: bool, seed:
             await flush()
     await flush()
     log.info("gravados: %s", ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+    rows = await store.refresh_metrics(now - timedelta(days=days), now)
+    if rows:
+        log.info("métricas por hora recalculadas: %d linhas", rows)
 
     if live:
         log.info("modo ao vivo: gerando eventos em tempo real (Ctrl+C para parar)")
@@ -142,7 +145,10 @@ async def simulate(settings: Settings, nick: str, days: float, live: bool, seed:
                 await flush()
         except asyncio.CancelledError:
             await flush()
-    log.info("para apagar: delete from public.events where raw->>'_sim' = 'true';")
+    log.info(
+        "para apagar: delete from public.events where raw->>'_sim' = 'true'; "
+        "depois: select public.refresh_metric_hourly('2026-01-01', now());"
+    )
     return 0
 
 

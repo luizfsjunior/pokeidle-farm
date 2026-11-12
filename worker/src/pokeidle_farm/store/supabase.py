@@ -6,6 +6,7 @@ e `set_account_token`, que usam o Supabase Vault e só a service_role executa.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -75,6 +76,12 @@ class SupabaseStore:
                 .upsert(rows, on_conflict="id", ignore_duplicates=True)
                 .execute()
             )
+
+    async def refresh_metrics(self, start: datetime, end: datetime) -> int:
+        res = await self._db.rpc(
+            "refresh_metric_hourly", {"p_from": start.isoformat(), "p_to": end.isoformat()}
+        ).execute()
+        return int(res.data or 0)
 
     async def plugin_configs(self, account_id: UUID) -> dict[str, tuple[bool, dict[str, Any]]]:
         res = await (

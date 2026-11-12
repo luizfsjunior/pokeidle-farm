@@ -56,11 +56,23 @@ def test_translate_kill_and_capture():
         "gold": 7,
         "gold_autosell": 3,
         "drops": [{"name": "Pena"}],
+        "hunt_slug": None,
     }
     assert kill.raw["extra"] == "guardado no raw"
     assert cap.type == "capture_attempt" and cap.data["success"] is True
     assert atk.type == "attack"
     assert new.type == "battle.coisaNova"
+
+
+def test_kills_carry_current_hunt():
+    tr = Translator(uuid4(), uuid4())
+    tr.translate(*codec.decode(welcome()))  # huntSlug = rota-1
+    (k1,) = tr.translate(*codec.decode(battle({"k": "morte"})))
+    tr.translate(*codec.decode(battle({"k": "hunt", "slug": "caverna", "nome": "Caverna"})))
+    k2, cap = tr.translate(*codec.decode(battle({"k": "morte"}, {"k": "bola", "sucesso": False})))
+    assert k1.data["hunt_slug"] == "rota-1"
+    assert k2.data["hunt_slug"] == "caverna"
+    assert cap.data["hunt_slug"] == "caverna"
 
 
 def test_welcome_sets_server_offset():

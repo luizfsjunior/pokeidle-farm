@@ -9,7 +9,7 @@ Guia para subir tudo sem precisar abrir o jogo no computador. Dá para fazer só
 ## 1. Supabase
 
 1. Crie um projeto em https://supabase.com (plano grátis). Região: **South America (São Paulo)**.
-2. **SQL Editor** → cole e rode o conteúdo de [`supabase/migrations/20261112000000_init.sql`](../supabase/migrations/20261112000000_init.sql).
+2. **SQL Editor** → cole e rode, **nesta ordem**, cada arquivo de [`supabase/migrations/`](../supabase/migrations/): `20261112000000_init.sql` e depois `20261112010000_metrics.sql` (métricas e objetivos; liga o pg_cron sozinha).
 3. **Authentication → Users → Add user**: crie o seu usuário. Ele é o dono das contas, e é com ele que você vai entrar no painel depois. Copie o **User UID**.
 4. No **SQL Editor**, cadastre a conta de farm:
    ```sql

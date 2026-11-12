@@ -161,7 +161,14 @@ class EventSimulator:
         yield self._ev(
             t,
             "kill",
-            {"wild_name": wild, "xp": xp, "gold": gold, "gold_autosell": 0, "drops": drops},
+            {
+                "wild_name": wild,
+                "xp": xp,
+                "gold": gold,
+                "gold_autosell": 0,
+                "drops": drops,
+                "hunt_slug": s.hunt.slug,
+            },
         )
         s.xp += xp
         while s.xp >= s.level * 2000:  # curva de nível inventada
@@ -179,6 +186,7 @@ class EventSimulator:
                     "success": success,
                     "shiny": roll.shiny,
                     "chance": cfg.capture_success,
+                    "hunt_slug": s.hunt.slug,
                 },
             )
             if success:

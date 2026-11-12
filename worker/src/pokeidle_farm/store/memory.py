@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -53,6 +54,9 @@ class MemoryStore:
         if self.fail_inserts:
             raise ConnectionError("falha simulada")
         self.events.extend(rows)
+
+    async def refresh_metrics(self, start: datetime, end: datetime) -> int:
+        return 0  # agregados só existem no Postgres
 
     async def plugin_configs(self, account_id: UUID) -> dict[str, tuple[bool, dict[str, Any]]]:
         return self.configs.get(account_id, {})

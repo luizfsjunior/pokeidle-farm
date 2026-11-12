@@ -31,7 +31,7 @@ Detalhes em [docs/arquitetura.md](docs/arquitetura.md).
 pokeidle-farm/
 ├─ worker/            # Python: sessão, protocolo, estratégias, telemetria
 ├─ web/               # Next.js (Vercel)
-├─ supabase/          # migrations SQL + policies RLS
+├─ supabase/          # migrations SQL + policies RLS; tests/ para validar num Postgres local
 ├─ docs/
 │  ├─ arquitetura.md
 │  ├─ protocolo.md    # mapa das mensagens WebSocket do jogo
@@ -58,6 +58,7 @@ pokeidle-farm/
 | [0009](docs/decisions/0009-licenca-agpl.md) | Licença AGPL-3.0 | Aceita |
 | [0010](docs/decisions/0010-supabase-desde-o-inicio.md) | Supabase desde o início do desenvolvimento | Aceita |
 | [0011](docs/decisions/0011-worker-em-ip-residencial.md) | Worker em IP residencial (o jogo bloqueia a DigitalOcean) | Aceita |
+| [0012](docs/decisions/0012-metricas-em-camadas.md) | Métricas em camadas no Postgres, com objetivos e previsão | Aceita |
 
 ## Referências e créditos
 
