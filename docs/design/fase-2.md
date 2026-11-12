@@ -1,6 +1,6 @@
 # Design — Fase 2: núcleo do worker
 
-- **Status:** Rascunho para revisão
+- **Status:** Revisado (2026-11-12)
 - **Data:** 2026-11-12
 - **Relacionado:** [ADR 0002](../decisions/0002-worker-headless-websocket.md), [0003](../decisions/0003-supabase-como-intermediario.md), [0005](../decisions/0005-auth-por-token-de-sessao.md), [0008](../decisions/0008-escopo-completo-modular.md), [0010](../decisions/0010-supabase-desde-o-inicio.md)
 
@@ -123,6 +123,7 @@ Regras:
 - **Na fase 2, o `ActionGateway` está em modo `observe_only`:** qualquer ação é recusada e registrada em log. Isso garante o "só escutando".
 - **A config é validada com Pydantic** a partir da tabela `strategy_configs`. Config inválida desliga o plugin e mostra o erro no painel, em vez de derrubar o worker.
 - **Ciclo de vida:** o `registry` sobe os plugins ligados quando a sessão recebe o `welcome`, e os para quando a sessão cai ou recebe o comando de desligar.
+- **Ações descritas por schema:** cada ação do `ActionGateway` (trocar hunt, comprar, anunciar...) tem um modelo Pydantic de entrada e um de resultado, com descrição. Isso deixa o terreno pronto para expor as ações como *tools* de um agente no futuro (ver [roadmap](../roadmap.md), "Ideias futuras"), sem retrabalho.
 - **Descoberta:** entry points do Python (`[project.entry-points."pokeidle_farm.plugins"]`). Plugin novo é um módulo e uma linha no `pyproject.toml`, sem mexer no núcleo.
 
 ### Plugin da fase 2: `telemetry`
@@ -165,12 +166,19 @@ create table accounts (
   created_at  timestamptz not null default now()
 );
 
--- Token e dispositivo. Só o worker (service_role) lê e escreve.
+-- Token no Supabase Vault; aqui fica só a referência ao segredo.
 create table account_tokens (
+  account_id      uuid primary key references accounts(id) on delete cascade,
+  token_secret_id uuid not null,      -- id em vault.secrets
+  device_id       text not null,
+  renewed_at      timestamptz not null default now()
+);
+
+-- Lease: só uma instância do worker por conta ao mesmo tempo.
+create table account_leases (
   account_id  uuid primary key references accounts(id) on delete cascade,
-  token_enc   bytea not null,         -- criptografado com pgsodium/Vault ou no worker
-  device_id   text not null,
-  renewed_at  timestamptz not null default now()
+  holder      text not null,          -- ex.: "local-notebook", "droplet-1"
+  expires_at  timestamptz not null    -- renovado a cada ~30 s pelo dono do lease
 );
 
 create table events (
@@ -198,6 +206,7 @@ create table strategy_configs (
 -- RLS: o dono lê as próprias contas, eventos e configs; tokens só via service_role.
 alter table accounts         enable row level security;
 alter table account_tokens   enable row level security;  -- sem policies = só service_role
+alter table account_leases   enable row level security;  -- sem policies = só service_role
 alter table events           enable row level security;
 alter table strategy_configs enable row level security;
 
@@ -209,6 +218,31 @@ create policy own_configs on strategy_configs
   for all using (account_id in (select id from accounts where owner_id = auth.uid()));
 ```
 
+### Token no Supabase Vault
+
+O token fica criptografado no [Supabase Vault](https://supabase.com/docs/guides/database/vault). Qualquer worker que tenha a `SUPABASE_SERVICE_ROLE_KEY` (local, droplet, outro PC) pega o token atual, sem precisar logar de novo. E quando um worker recebe `sessao.renovada`, todos passam a usar o token novo.
+
+Acesso só por funções `security definer`, executáveis apenas pela `service_role`:
+
+```sql
+-- grava/atualiza o token (cria ou atualiza o segredo no Vault)
+create function set_account_token(p_account uuid, p_token text, p_device text) returns void ...
+-- lê o token em texto (via vault.decrypted_secrets)
+create function get_account_token(p_account uuid) returns table (token text, device_id text) ...
+
+revoke all on function set_account_token, get_account_token from public, anon, authenticated;
+grant execute on function set_account_token, get_account_token to service_role;
+```
+
+Consequência: a `service_role key` vira a chave-mestra. Quem tiver ela lê os tokens. Ela fica só no `.env` dos workers, nunca no painel nem na Vercel.
+
+### Lease por conta
+
+O mesmo token aberto em dois lugares derruba um deles (close 4001). Como agora o worker pode rodar em qualquer lugar, **duas instâncias não podem pegar a mesma conta**:
+- Antes de conectar, o worker tenta pegar o lease da conta (`insert ... on conflict do update where expires_at < now()`).
+- Quem tem o lease renova a cada ~30 s. Se o worker morrer, o lease expira em ~90 s e outra instância pode assumir.
+- Sem lease, o worker não conecta a conta e registra que ela está com outro `holder`.
+
 As tabelas `commands`, `account_state`, `metrics_hourly`, `metric_definitions`, `goals` e `goal_snapshots` ficam para as fases 3, 4 e 7.
 
 ### Volume de `events`
@@ -218,11 +252,11 @@ Estimativa grosseira: com uma conta abatendo a cada ~10 s, são ~8.600 eventos `
 - gravar `raw` só para `unknown` e por amostragem;
 - mover eventos antigos para arquivo (Parquet no Storage) depois que os agregados forem calculados.
 
-## Questões em aberto
+## Decisões tomadas na revisão (2026-11-12)
 
-1. **Criptografia do token:** usar o Supabase Vault (pgsodium) ou criptografar no worker com uma chave do `.env`? Proposta: criptografar no worker, porque assim o banco nunca vê o token em texto.
-2. **Política de `raw`:** qual das mitigações acima adotar já na fase 2? Proposta: guardar `raw` em tudo durante a fase 2 (1 conta, poucos dias, para aprender o protocolo) e decidir antes da fase 5.
-3. **Python 3.12 ou 3.13?** Proposta: 3.12, pela compatibilidade das bibliotecas.
+1. **Criptografia do token: Supabase Vault.** Permite rodar o worker em qualquer lugar sem relogar. Exige o lease por conta (ver acima).
+2. **`raw`: guardar tudo por enquanto.** Revisar a política de armazenamento antes da fase 5.
+3. **Python 3.12.**
 
 ## Critério de pronto
 
@@ -232,3 +266,5 @@ Estimativa grosseira: com uma conta abatendo a cada ~10 s, são ~8.600 eventos `
 - [ ] Eventos aparecem em `events` com `data` e `raw`
 - [ ] Nenhuma ação é enviada ao jogo (teste garantindo o `observe_only`)
 - [ ] Mensagens desconhecidas aparecem como `unknown`
+- [ ] Uma segunda instância do worker não conecta uma conta cujo lease está com outra
+- [ ] Token lido e gravado só pelo Vault, via `get_account_token` e `set_account_token`

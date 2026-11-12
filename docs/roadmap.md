@@ -23,3 +23,17 @@ lucro = renda_mensal_usd − custo_do_droplet
 ```
 
 Os créditos da DigitalOcean só começam a ser usados na fase 5. Até lá tudo roda localmente.
+
+## Ideias futuras
+
+### Agente orquestrador (depois que tudo estiver estável)
+
+Um agente de IA que controla as contas usando os plugins e as ações como *tools*: escolher estratégias, ajustar configs, reagir a eventos e perseguir os objetivos (`goals`).
+
+O que já deixamos preparado, para não ter retrabalho:
+- Toda ação passa pelo `ActionGateway`, com schema Pydantic de entrada e de resultado. Isso vira, direto, a definição das tools.
+- O agente usaria o mesmo gateway, com o mesmo rate limiter e as mesmas travas. Ele nunca fala direto com o WebSocket.
+- O `ActionGateway` já tem modos (`observe_only` na fase 2). Dá para acrescentar um modo "o agente propõe, a pessoa aprova" antes de liberar autonomia.
+- Os objetivos e métricas em camadas ([ADR 0008](decisions/0008-escopo-completo-modular.md)) dão ao agente algo mensurável para otimizar.
+
+Pré-requisito: as fases até a 9 estáveis.
