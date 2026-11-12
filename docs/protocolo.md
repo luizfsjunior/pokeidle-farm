@@ -194,6 +194,7 @@ Sessão de 12/11/2026, conta nível 2, ~10 min no Centro de Cerulean e depois na
 - A `chance` de 0,003 é o `piso` da tabela `captura` do `welcome` (Poké Ball em Magikarp), ou seja, uma captura a cada ~330 bolas.
 - O estoque de bolas chega em `estado.balls` (`{"1": 56}`) a cada arremesso.
 - **A bola automática exige VIP** no jogo. Sem VIP, as duas flags de bola da `automation` não ligam.
+- **Quando as bolas acabam** (`estado.balls` = `{"1": 0}`), o jogo simplesmente para de jogar: não compra sozinho e não manda `aviso`. A hunt continua normalmente. Repor bolas fica por conta da fase 3 (`shop.buy`).
 
 ### Mensagens que o mapeamento não tinha
 
