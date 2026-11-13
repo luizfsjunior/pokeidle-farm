@@ -23,11 +23,13 @@ export function LineChart({ points, bucket, unit, label }: { points: Point[]; bu
 
   const geo = useMemo(() => {
     const vals = points.map((p) => p.v).filter((v): v is number => v !== null);
+    // gold_net pode ser negativo: o eixo inclui o zero e desce quando precisa.
     const yMax = niceMax(Math.max(0, ...vals));
+    const yMin = -niceMax(Math.max(0, ...vals.map((v) => -v))) * (vals.some((v) => v < 0) ? 1 : 0);
     const iw = W - M.left - M.right;
     const ih = H - M.top - M.bottom;
     const x = (i: number) => M.left + (points.length <= 1 ? iw / 2 : (i * iw) / (points.length - 1));
-    const y = (v: number) => M.top + ih - (v / yMax) * ih;
+    const y = (v: number) => M.top + ih - ((v - yMin) / (yMax - yMin)) * ih;
     // Quebra a linha onde não há valor (razão sem denominador).
     const segs: string[] = [];
     let cur = "";
@@ -36,7 +38,7 @@ export function LineChart({ points, bucket, unit, label }: { points: Point[]; bu
       cur += `${cur ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`;
     });
     if (cur) segs.push(cur);
-    const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * yMax);
+    const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => yMin + f * (yMax - yMin));
     const step = Math.max(1, Math.ceil(points.length / 7));
     const xTicks = points.map((_, i) => i).filter((i) => i % step === 0);
     return { x, y, segs, ticks, xTicks, ih };

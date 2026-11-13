@@ -5,7 +5,7 @@ import { STATUS_LABEL, type Account } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const TODAY_METRICS = ["kills", "xp", "gold", "captures", "capture_attempts", "active_minutes"] as const;
+const TODAY_METRICS = ["kills", "xp", "gold", "gold_net", "captures", "capture_attempts", "active_minutes"] as const;
 type Totals = Record<(typeof TODAY_METRICS)[number], number>;
 
 export default async function Overview() {
@@ -64,6 +64,7 @@ export default async function Overview() {
                 <Stat label="Abates/h" value={num(perHour(t?.kills ?? 0, mins))} />
                 <Stat label="XP/h" value={num(perHour(t?.xp ?? 0, mins), { compact: true })} />
                 <Stat label="Gold/h" value={num(perHour(t?.gold ?? 0, mins), { compact: true })} />
+                <Stat label="Gold líquido/h" value={num(perHour(t?.gold_net ?? 0, mins), { compact: true })} />
                 <Stat label="Capturas/h" value={num(perHour(t?.captures ?? 0, mins))} />
                 <Stat label="Taxa de captura" value={t?.capture_attempts ? `${num((t.captures * 100) / t.capture_attempts)}%` : "—"} />
                 <Stat label="Tempo ativo" value={mins ? `${num(mins / 60)} h` : "—"} />
