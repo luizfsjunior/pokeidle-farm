@@ -72,10 +72,12 @@ Next.js na Vercel, com Supabase Auth por e-mail e senha (Google pode entrar depo
 
 **Telemetria:** a sessão recebe um evento do jogo → `Telemetry` grava em `events` → o pg_cron agrega em `metric_hourly` a cada 10 minutos.
 
+**Ação de um plugin:** um plugin (ex.: `restock`) recebe eventos → decide → `ActionGateway.submit` → o gateway recusa se `ACTION_MODE=observe_only` ou se o RateLimiter barrar, e senão manda ao jogo → tudo vira `action.sent`/`action.blocked` em `events`. A confirmação vem pelo `estado` seguinte (estoque, `automation`), não por uma resposta própria.
+
 **Token expirado:** o handshake falha → a conta é marcada como `needs_login` → o painel avisa → você faz o login no navegador e atualiza o token.
 
 ## Questões em aberto
 
-- Formato do handshake e das mensagens WebSocket (ver [protocolo.md](protocolo.md)).
+- Mensagens WebSocket ainda não confirmadas (ver as pendências em [protocolo.md](protocolo.md)). Handshake, abates, captura, `shop.buy` e `auto.set` já foram confirmados no jogo.
 - Quanto tempo dura o token de sessão.
 - Quantos MB de RAM as 3 sessões usam de fato (512 MB bastam?).

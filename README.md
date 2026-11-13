@@ -6,7 +6,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
 
 ## Status
 
-🟡 Em desenvolvimento: worker rodando contra o jogo em IP residencial (só observando), métricas e painel v1 no ar. Detalhes no [roadmap](docs/roadmap.md).
+🟡 Em desenvolvimento: worker rodando contra o jogo em IP residencial, com o primeiro plugin que age no jogo (`restock`: escolhe a bola e repõe consumíveis), métricas (incluindo ouro líquido) e painel v1 no ar. Detalhes no [roadmap](docs/roadmap.md).
 
 ## Visão geral
 

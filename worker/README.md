@@ -2,7 +2,7 @@
 
 Worker headless do pokeidle-farm. A visão geral, as decisões e o design estão em [../README.md](../README.md) e [../docs/](../docs/). O design desta fase está em [../docs/design/fase-2.md](../docs/design/fase-2.md).
 
-> Fase 2: o worker **só observa**. Ele conecta, mantém a sessão, salva tokens renovados e grava eventos. Nenhuma ação é enviada ao jogo (`ACTION_MODE=observe_only`).
+> O worker conecta, mantém a sessão, salva tokens renovados e grava eventos. Ações no jogo só saem por plugins ligados na conta **e** com `ACTION_MODE=enabled`. Com `observe_only` (o padrão), toda ação é recusada e registrada como `action.blocked`, o que serve para conferir as decisões de um plugin sem risco.
 
 ## Instalação
 
@@ -37,6 +37,23 @@ Nesse modo os eventos ficam só em memória e no log. Serve para validar o hands
    .venv/bin/pokeidle-farm set-token --nick <nick> --device <id-dispositivo>
    ```
 5. `.venv/bin/pokeidle-farm run`
+
+## Ligando um plugin que age no jogo
+
+Plugins que não são `always_on` (hoje, o `restock`) só sobem se estiverem ligados na tabela `strategy_configs`:
+
+```sql
+insert into public.strategy_configs (account_id, plugin, enabled, config)
+select id, 'restock', true, '{"items": [{"id": 200, "min": 50, "target": 100}]}'
+  from public.accounts where nick = '<nick>';
+```
+
+A config é lida quando a sessão fica `READY`; depois de mudar, reinicie o worker (`docker compose restart`).
+Config inválida desliga o plugin (aparece no log). Os campos do `restock` estão na seção 7 do design.
+
+Ordem segura para ligar algo novo: primeiro com `ACTION_MODE=observe_only`, conferindo os `action.blocked`
+na tabela `events`; depois `ACTION_MODE=enabled` (com "d") e `docker compose up -d --force-recreate`, porque
+o `restart` não relê o `.env`.
 
 ## Simulador (desenvolver sem o jogo)
 
@@ -81,9 +98,10 @@ Os testes usam um servidor WebSocket falso que imita o jogo (handshake, renovaç
 | `protocol/` | modelos e codec das mensagens do jogo; o único lugar que conhece o formato delas |
 | `events.py` | eventos internos e o tradutor protocolo → evento |
 | `bus.py` | barramento assíncrono com fila por assinante |
-| `actions.py` | `ActionGateway` e `RateLimiter`; ações com schema Pydantic |
+| `actions.py` | `ActionGateway` e `RateLimiter`; ações com schema Pydantic (`ShopBuy`, `AutoSet`) |
+| `catalog.py` | preços da loja do NPC (bolas, poções, revives) e chance das bolas |
 | `session.py` | `AccountSession`: handshake, heartbeat, reconexão, lease, renovação de token |
-| `plugins/` | interface, registry (entry points) e o plugin `telemetry` |
+| `plugins/` | interface, registry (entry points), `telemetry` (grava os eventos) e `restock` (fase 3a, ver [docs/design/fase-3-reposicao.md](../docs/design/fase-3-reposicao.md)) |
 | `store/` | interface `Store`, implementação em memória e no Supabase |
 | `sim/` | sorteios dos Termos (`rolls.py`) e gerador de eventos simulados |
 | `main.py` | CLI (`run`, `set-token`, `simulate`) |
