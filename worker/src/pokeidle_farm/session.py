@@ -108,6 +108,8 @@ class AccountSession:
         self._translator = Translator(account.id, uuid4())
         self._has_lease = False
         self._stopping = asyncio.Event()
+        self._wake = asyncio.Event()  # acorda o backoff (reconexão pedida)
+        self._reconnect_requested = False
         self._online_limit_retries = 0
         self._backoff = settings.reconnect_min_s
         self._ws: ClientConnection | None = None
@@ -144,11 +146,29 @@ class AccountSession:
         if self._ws is not None:
             asyncio.get_running_loop().create_task(self._ws.close())
 
+    def reconnect(self) -> None:
+        """Derruba a conexão e reconecta logo (comando session.reconnect)."""
+        self._reconnect_requested = True
+        self._wake.set()
+        if self._ws is not None:
+            asyncio.get_running_loop().create_task(self._ws.close())
+
+    async def restart_plugin(self, name: str) -> bool:
+        """Relê a config do plugin e o reinicia. False se a sessão não está pronta
+        (aí a config nova vale na próxima conexão)."""
+        if self.state != State.READY:
+            return False
+        configs = await self.store.plugin_configs(self.account.id)
+        await self.plugins.stop_one(name)
+        await self.plugins.start_all(self.bus, configs, self._make_ctx)
+        return True
+
     async def _connect_once(self) -> None:
         token = await self.store.get_token(self.account.id)
         if token is None:
             raise _Stop(State.NEEDS_LOGIN, "sem token cadastrado")
 
+        self._reconnect_requested = False
         await self._set_state(State.CONNECTING)
         self._translator = Translator(self.account.id, uuid4())
         try:
@@ -173,9 +193,13 @@ class AccountSession:
             await self._handshake(ws, token.token, token.device_id)
             await self._on_ready(ws)
             await self._receive_loop(ws)
+            if self._reconnect_requested:
+                raise _Retry("reconexão pedida", delay=1.0)
             if not self._stopping.is_set():
                 raise _Retry("conexão encerrada pelo servidor")
         except ConnectionClosed as exc:
+            if self._reconnect_requested:
+                raise _Retry("reconexão pedida", delay=1.0) from exc
             if not self._stopping.is_set():
                 self._raise_for_close(exc)
         finally:
@@ -370,5 +394,12 @@ class AccountSession:
         return delay * random.uniform(0.8, 1.2)
 
     async def _sleep(self, seconds: float) -> None:
-        with contextlib.suppress(TimeoutError):
-            await asyncio.wait_for(self._stopping.wait(), timeout=seconds)
+        """Espera `seconds`, ou menos se pedirem para parar ou reconectar."""
+        self._wake.clear()
+        stop = asyncio.ensure_future(self._stopping.wait())
+        wake = asyncio.ensure_future(self._wake.wait())
+        try:
+            await asyncio.wait({stop, wake}, timeout=seconds, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            stop.cancel()
+            wake.cancel()

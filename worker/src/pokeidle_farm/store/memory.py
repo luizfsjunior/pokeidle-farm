@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 from datetime import datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from .base import AccountRecord, TokenRecord
+from .base import AccountRecord, CommandRecord, TokenRecord
 
 
 class MemoryStore:
@@ -18,6 +19,8 @@ class MemoryStore:
         self.status: dict[UUID, str] = {}
         self.events: list[dict[str, Any]] = []
         self.configs: dict[UUID, dict[str, tuple[bool, dict[str, Any]]]] = {}
+        # comandos: id -> {"account_id", "type", "params", "status", "result", "error", "holder"}
+        self.commands: dict[UUID, dict[str, Any]] = {}
         self.fail_inserts = False  # para testar o buffer da telemetria
         self._clock = clock
 
@@ -25,8 +28,8 @@ class MemoryStore:
         self.accounts[account.id] = account
         self.tokens[account.id] = TokenRecord(token=token, device_id=device_id)
 
-    async def list_accounts(self) -> list[AccountRecord]:
-        return list(self.accounts.values())
+    async def list_accounts(self, *, include_disabled: bool = False) -> list[AccountRecord]:
+        return [a for a in self.accounts.values() if include_disabled or a.enabled]
 
     async def get_token(self, account_id: UUID) -> TokenRecord | None:
         return self.tokens.get(account_id)
@@ -73,3 +76,52 @@ class MemoryStore:
             if at is not None and at >= since:
                 out.append((at, row.get("data") or {}))
         return sorted(out, key=lambda x: x[0])
+
+    # --- comandos -----------------------------------------------------------
+
+    def add_command(
+        self, account_id: UUID, type_: str, params: dict[str, Any] | None = None
+    ) -> UUID:
+        cid = uuid4()
+        self.commands[cid] = {
+            "account_id": account_id,
+            "type": type_,
+            "params": params or {},
+            "status": "pending",
+            "result": None,
+            "error": None,
+            "holder": None,
+        }
+        return cid
+
+    async def set_account_enabled(self, account_id: UUID, enabled: bool) -> None:
+        acc = self.accounts[account_id]
+        self.accounts[account_id] = replace(acc, enabled=enabled)
+
+    async def set_plugin_config(
+        self, account_id: UUID, plugin: str, enabled: bool, config: dict[str, Any]
+    ) -> None:
+        self.configs.setdefault(account_id, {})[plugin] = (enabled, config)
+
+    async def claim_commands(self, holder: str, account_ids: list[UUID]) -> list[CommandRecord]:
+        out = []
+        for cid, c in self.commands.items():
+            if c["status"] == "pending" and c["account_id"] in account_ids:
+                c["status"], c["holder"] = "running", holder
+                out.append(CommandRecord(cid, c["account_id"], c["type"], c["params"]))
+        return out
+
+    async def finish_command(
+        self, command_id: UUID, status: str, result: dict[str, Any] | None, error: str | None
+    ) -> None:
+        c = self.commands[command_id]
+        if c["status"] == "running":
+            c.update(status=status, result=result, error=error)
+
+    async def recover_commands(self, holder: str) -> int:
+        n = 0
+        for c in self.commands.values():
+            if c["status"] == "running" and c["holder"] == holder:
+                c.update(status="failed", error="interrompido (o worker reiniciou)")
+                n += 1
+        return n

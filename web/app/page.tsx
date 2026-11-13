@@ -1,3 +1,4 @@
+import { CommandButtons } from "@/components/CommandButtons";
 import { Shell } from "@/components/Shell";
 import { requireUser } from "@/lib/supabase/server";
 import { ago, num, todaySP } from "@/lib/format";
@@ -69,6 +70,7 @@ export default async function Overview() {
                 <Stat label="Taxa de captura" value={t?.capture_attempts ? `${num((t.captures * 100) / t.capture_attempts)}%` : "—"} />
                 <Stat label="Tempo ativo" value={mins ? `${num(mins / 60)} h` : "—"} />
               </div>
+              <CommandButtons account={a} />
             </section>
           );
         })}

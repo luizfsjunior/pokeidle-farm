@@ -3,6 +3,32 @@
 Registro curto do que foi feito em cada dia, o que deu errado e o que ficou pendente.
 As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
+## 2026-11-13
+
+### Feito
+
+- **Revisão do que veio de casa** (19 commits da noite de 12/11): testes e lint ok. Painel ajustado para o
+  gold líquido (eixo do gráfico aceita negativo, "Gold líquido/h" no card).
+- **`restock` mais seguro**: o teto de gasto por hora agora sobrevive a reinícios (lê os `restock.bought` da
+  última hora) e compra confirmada depois do prazo conta no teto (`late_confirm_s`, sem recomprar o item).
+- **Fase 4b, comandos**: migration `20261113010000_commands.sql` (tabela, RLS, claim atômico, expiração,
+  recuperação, retenção), `Supervisor` e `CommandLoop` no worker (`ping`, ligar/desligar conta, reconectar,
+  `plugin.set`), `listen --fake` para testar sem o jogo, e no painel os botões no card, `/comandos` e
+  `/contas/<id>` com os plugins. Testes: SQL em Postgres local e 82 no worker.
+
+### Problemas e soluções
+
+| Sintoma | Causa | Solução |
+|---|---|---|
+| Commits aparecem como `unknown <gmail>` | git do PC de casa sem `user.name` e com o e-mail pessoal | `git config --global user.name/user.email` com o noreply do GitHub |
+| `plugin desconhecido: restock` nos testes locais | pacote instalado antes do entry point do `restock` | reinstalar (`pip install -e './worker[dev]'`); no Docker o build já reinstala |
+
+### Pendente
+
+- Aplicar `20261113010000_commands.sql` no Supabase, `git pull` + `docker compose up -d --build` em casa e
+  testar Ping, Reconectar e um `plugin.set` pelo painel.
+- Desenhar a fase 3b (rank semanal de espécies).
+
 ## 2026-11-12
 
 ### Feito

@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     telemetry_flush_s: float = 2.0
     telemetry_buffer_path: str = "data/telemetry-buffer.jsonl"
 
+    # Comandos do painel (fase 4b): intervalo da busca por pendentes.
+    commands_poll_s: float = 5.0
+
     # Ações. Na fase 2 o gateway só observa.
     action_mode: str = "observe_only"
 

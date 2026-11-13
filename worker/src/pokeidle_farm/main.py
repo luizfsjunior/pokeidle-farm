@@ -3,6 +3,7 @@
     pokeidle-farm run                       # sobe as sessões das contas de farm
     pokeidle-farm set-token --nick NICK     # grava token e dispositivo no Vault
     pokeidle-farm simulate --nick NICK      # grava eventos simulados (dev sem o jogo)
+    pokeidle-farm listen --fake             # só os comandos do painel, sem conectar no jogo
 
 Sem SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente, o `run` usa o modo
 memória com a conta ACCOUNT_1_* do .env (só para desenvolvimento).
@@ -18,6 +19,7 @@ import signal
 import sys
 from uuid import NAMESPACE_URL, uuid5
 
+from .commands import CommandError, CommandLoop, FakeSession, SessionLike, Supervisor
 from .config import Settings
 from .plugins.registry import PluginHost, discover
 from .session import AccountSession
@@ -50,34 +52,54 @@ async def _make_store(settings: Settings) -> Store:
     return store
 
 
-async def run(settings: Settings) -> int:
-    store = await _make_store(settings)
-    accounts = [a for a in await store.list_accounts() if a.enabled and a.role == "farm"]
-    if not accounts:
-        log.error("nenhuma conta de farm habilitada")
-        return 1
-    if len(accounts) > 3:
-        # 4 contas por pessoa no total (Termos, seção 5); uma é a pessoal, fora do worker.
-        log.error("%d contas de farm configuradas; o máximo é 3", len(accounts))
-        return 1
+async def run(settings: Settings, *, fake: bool = False) -> int:
+    """Sobe as sessões das contas habilitadas e atende os comandos do painel.
 
+    Com `fake=True` (`listen --fake`) as sessões não conectam no jogo: serve para
+    testar os comandos de ponta a ponta.
+    """
+    store = await _make_store(settings)
     available = discover()
     log.info("plugins disponíveis: %s", ", ".join(sorted(available)) or "nenhum")
 
-    sessions = [AccountSession(a, store, settings, PluginHost(available)) for a in accounts]
+    def make_session(acc: AccountRecord) -> SessionLike:
+        if fake:
+            return FakeSession(acc, PluginHost(available))
+        return AccountSession(acc, store, settings, PluginHost(available))
+
+    sup = Supervisor(store, make_session, available, settings.worker_holder)
+    try:
+        await sup.load()
+    except CommandError as exc:
+        log.error("%s", exc)
+        return 1
+    if not sup.accounts:
+        log.error("nenhuma conta de farm cadastrada")
+        return 1
+    if not any(a.enabled for a in sup.accounts.values()):
+        log.warning("nenhuma conta de farm habilitada; esperando comandos do painel")
+
+    sup.start_enabled()
+    commands = CommandLoop(sup, store, poll_s=settings.commands_poll_s)
 
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
-            loop.add_signal_handler(sig, lambda: [s.stop() for s in sessions])
+            loop.add_signal_handler(sig, commands.stop)
         except NotImplementedError:  # Windows
             pass
 
-    results = await asyncio.gather(*(s.run() for s in sessions))
-    for s, state in zip(sessions, results, strict=True):
-        log.info("[%s] terminou em %s", s.account.nick, state.name)
-    # Código 0 mesmo com contas rejeitadas: estados terminais não devem ser
-    # "resolvidos" reiniciando o processo (ver docker-compose.yml).
+    try:
+        if settings.uses_supabase:
+            # Fica no ar mesmo com as sessões paradas (needs_login, rejected):
+            # um comando pode religá-las. Estados terminais não se resolvem
+            # reiniciando o processo (ver docker-compose.yml).
+            await commands.run()
+        else:
+            # modo memória: sem painel, termina quando as sessões terminam
+            await asyncio.gather(*(live.task for live in sup.live.values()))
+    finally:
+        await sup.stop_all()
     return 0
 
 
@@ -163,7 +185,9 @@ async def simulate(settings: Settings, nick: str, days: float, live: bool, seed:
 def cli() -> None:
     parser = argparse.ArgumentParser(prog="pokeidle-farm")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("run", help="sobe as sessões das contas de farm")
+    sub.add_parser("run", help="sobe as sessões das contas de farm e atende os comandos")
+    ls = sub.add_parser("listen", help="atende os comandos do painel com sessões falsas")
+    ls.add_argument("--fake", action="store_true", required=True, help="não conecta no jogo")
     st = sub.add_parser("set-token", help="grava o token de uma conta no Vault")
     st.add_argument("--nick", required=True)
     st.add_argument("--device", required=True, help="valor de localStorage['id-dispositivo']")
@@ -188,6 +212,11 @@ def cli() -> None:
         logging.getLogger(noisy).setLevel(logging.WARNING)
     if args.cmd == "run":
         code = asyncio.run(run(settings))
+    elif args.cmd == "listen":
+        if not settings.uses_supabase:
+            log.error("listen precisa de SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY")
+            sys.exit(1)
+        code = asyncio.run(run(settings, fake=True))
     elif args.cmd == "simulate":
         try:
             code = asyncio.run(simulate(settings, args.nick, args.days, args.live, args.seed))

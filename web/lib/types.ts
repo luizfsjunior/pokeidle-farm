@@ -71,3 +71,39 @@ export const STATUS_LABEL: Record<Account["status"], string> = {
 };
 
 export const IV_STATS = ["hp", "atk", "def", "spa", "spd", "spe"] as const;
+
+export type CommandType = "ping" | "account.enable" | "account.disable" | "session.reconnect" | "plugin.set";
+export type CommandStatus = "pending" | "running" | "done" | "failed" | "cancelled" | "expired";
+
+export type Command = {
+  id: string;
+  account_id: string;
+  type: CommandType;
+  params: Record<string, unknown>;
+  status: CommandStatus;
+  result: Record<string, unknown> | null;
+  error: string | null;
+  holder: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+};
+
+export const COMMAND_LABEL: Record<CommandType, string> = {
+  ping: "Ping",
+  "account.enable": "Ligar conta",
+  "account.disable": "Desligar conta",
+  "session.reconnect": "Reconectar",
+  "plugin.set": "Configurar plugin",
+};
+
+export const COMMAND_STATUS_LABEL: Record<CommandStatus, string> = {
+  pending: "na fila",
+  running: "executando",
+  done: "feito",
+  failed: "falhou",
+  cancelled: "cancelado",
+  expired: "expirou",
+};
+
+export const FINAL_STATUSES: CommandStatus[] = ["done", "failed", "cancelled", "expired"];

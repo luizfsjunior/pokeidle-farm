@@ -9,11 +9,12 @@ psql -h /tmp -U postgres -d t -v ON_ERROR_STOP=1 -f supabase/tests/stubs.sql
 for f in supabase/migrations/*.sql; do psql -h /tmp -U postgres -d t -v ON_ERROR_STOP=1 -f "$f"; done
 psql -h /tmp -U postgres -d t -v ON_ERROR_STOP=1 -f supabase/tests/metrics_test.sql
 psql -h /tmp -U postgres -d t -v ON_ERROR_STOP=1 -f supabase/tests/ouro_liquido_test.sql
+psql -h /tmp -U postgres -d t -v ON_ERROR_STOP=1 -f supabase/tests/commands_test.sql
 ```
 
 `stubs.sql` imita só o que as migrations usam do Supabase: os papéis `anon`, `authenticated` e `service_role`, `auth.users`, `auth.uid()` e o Vault. O pg_cron é pulado se não estiver instalado.
 
-O `metrics_test.sql` precisa de eventos do simulador no banco. O `ouro_liquido_test.sql` cria os próprios
+O `metrics_test.sql` precisa de eventos do simulador no banco. O `ouro_liquido_test.sql` e o `commands_test.sql` criam os próprios
 dados (numa hora de 2001) e apaga no fim, então roda num banco vazio.
 
 Sem Postgres instalado (Windows), dá para usar a imagem `postgres:16`. O entrypoint reinicia o servidor

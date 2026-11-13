@@ -1,15 +1,17 @@
 services:
   worker:
     build: ./worker
-    # on-failure: reinicia só se o worker quebrar. Quando todas as contas terminam
-    # em estado terminal (needs_login/rejected), o worker sai com código 0 e o
-    # container NÃO volta, para não ficar reconectando contra um bloqueio.
+    # on-failure: reinicia só se o worker quebrar. Contas em estado terminal
+    # (needs_login/rejected) ficam paradas, sem reconectar contra um bloqueio;
+    # o worker continua no ar esperando comandos do painel (ex.: Reconectar
+    # depois de um token novo).
     restart: on-failure:5
     env_file: .env
     volumes:
       - worker-data:/app/data
-    # Para o lease ficar estável entre reinícios, defina WORKER_HOLDER no .env
-    # (ex.: droplet-1). Sem isso, o nome é o hostname do container, que muda.
+    # Para o lease e a recuperação de comandos ficarem estáveis entre reinícios,
+    # defina WORKER_HOLDER no .env (ex.: pc-casa). Sem isso, o nome é o hostname
+    # do container, que muda.
     stop_grace_period: 20s
     logging:
       driver: json-file

@@ -82,6 +82,18 @@ class PluginHost:
         name = subscriber.split(":", 1)[-1]
         self.degraded[name] = repr(exc)
 
+    async def stop_one(self, name: str) -> None:
+        unsub = self._unsubs.pop(name, None)
+        plugin = self.running.pop(name, None)
+        self.degraded.pop(name, None)
+        if unsub is not None:
+            await unsub()
+        if plugin is not None:
+            try:
+                await plugin.stop()
+            except Exception:
+                log.exception("plugin %s: falha ao parar", name)
+
     async def stop_all(self) -> None:
         for name, unsub in list(self._unsubs.items()):
             await unsub()  # drena a fila antes de parar

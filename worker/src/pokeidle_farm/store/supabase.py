@@ -6,13 +6,13 @@ e `set_account_token`, que usam o Supabase Vault e só a service_role executa.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from supabase import AsyncClient, acreate_client
 
-from .base import AccountRecord, TokenRecord
+from .base import AccountRecord, CommandRecord, TokenRecord
 
 
 class SupabaseStore:
@@ -23,14 +23,11 @@ class SupabaseStore:
     async def connect(cls, url: str, service_role_key: str) -> SupabaseStore:
         return cls(await acreate_client(url, service_role_key))
 
-    async def list_accounts(self) -> list[AccountRecord]:
-        res = await (
-            self._db.table("accounts")
-            .select("id,nick,role,enabled")
-            .eq("enabled", True)
-            .eq("role", "farm")
-            .execute()
-        )
+    async def list_accounts(self, *, include_disabled: bool = False) -> list[AccountRecord]:
+        q = self._db.table("accounts").select("id,nick,role,enabled").eq("role", "farm")
+        if not include_disabled:
+            q = q.eq("enabled", True)
+        res = await q.execute()
         return [
             AccountRecord(id=UUID(r["id"]), nick=r["nick"], role=r["role"], enabled=r["enabled"])
             for r in res.data or []
@@ -106,3 +103,53 @@ class SupabaseStore:
             .execute()
         )
         return [(datetime.fromisoformat(r["received_at"]), r["data"] or {}) for r in res.data or []]
+
+    # --- comandos -----------------------------------------------------------
+
+    async def set_account_enabled(self, account_id: UUID, enabled: bool) -> None:
+        await (
+            self._db.table("accounts")
+            .update({"enabled": enabled})
+            .eq("id", str(account_id))
+            .execute()
+        )
+
+    async def set_plugin_config(
+        self, account_id: UUID, plugin: str, enabled: bool, config: dict[str, Any]
+    ) -> None:
+        await (
+            self._db.table("strategy_configs")
+            .upsert(
+                {
+                    "account_id": str(account_id),
+                    "plugin": plugin,
+                    "enabled": enabled,
+                    "config": config,
+                    "updated_at": datetime.now(UTC).isoformat(),
+                },
+                on_conflict="account_id,plugin",
+            )
+            .execute()
+        )
+
+    async def claim_commands(self, holder: str, account_ids: list[UUID]) -> list[CommandRecord]:
+        res = await self._db.rpc(
+            "claim_commands",
+            {"p_holder": holder, "p_accounts": [str(a) for a in account_ids]},
+        ).execute()
+        return [
+            CommandRecord(UUID(r["id"]), UUID(r["account_id"]), r["type"], r["params"] or {})
+            for r in res.data or []
+        ]
+
+    async def finish_command(
+        self, command_id: UUID, status: str, result: dict[str, Any] | None, error: str | None
+    ) -> None:
+        await self._db.rpc(
+            "finish_command",
+            {"p_id": str(command_id), "p_status": status, "p_result": result, "p_error": error},
+        ).execute()
+
+    async def recover_commands(self, holder: str) -> int:
+        res = await self._db.rpc("recover_commands", {"p_holder": holder}).execute()
+        return int(res.data or 0)

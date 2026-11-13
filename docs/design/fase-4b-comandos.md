@@ -1,6 +1,6 @@
 # Fase 4b — comandos do painel para o worker
 
-Status: **desenho**, ainda não implementado. Segue o [ADR 0003](../decisions/0003-supabase-como-intermediario.md):
+Status: **implementado** em 13/11 (migration `20261113010000_commands.sql`, `worker/.../commands.py`, painel). Segue o [ADR 0003](../decisions/0003-supabase-como-intermediario.md):
 o painel nunca fala direto com o worker; tudo passa pelo Supabase.
 
 ## Objetivo
@@ -47,16 +47,17 @@ ver o status mudando e o worker receber o INSERT.
 
 No worker (`commands.py`):
 
-- Assina o Realtime (`postgres_changes`, INSERT em `commands`, filtro `account_id=eq.<id>`).
-  O evento só **acorda** o loop; quem decide é sempre o `claim_commands` (atômico, sem duplicar).
-- Chama `claim_commands` também ao subir, ao reconectar e a cada 60 s, para não perder nada
-  se o Realtime cair.
+- **Decidido na implementação: só polling**, `claim_commands` a cada `COMMANDS_POLL_S` (5 s) para todas as
+  contas do worker numa chamada. Comando é raro e 5 s de espera não incomodam; evita depender do cliente
+  Realtime assíncrono do `supabase-py`. O Realtime fica habilitado na tabela para o futuro.
+- Um `Supervisor` cuida das sessões de todas as contas de farm, inclusive as desligadas (para `account.enable`).
+  O processo não termina quando as sessões param: espera comandos.
 - Um `CommandRouter` com handlers por `type`. `params` validado com Pydantic; tipo desconhecido
   ou params inválidos → `failed` com o motivo.
 - Limite: no máximo 10 comandos por minuto por conta (o excedente fica `failed: rate_limited`).
 - Cada execução vira também um evento `command.executed` em `events`, para a auditoria e as métricas.
-- Se o worker morrer no meio, o comando fica `running`. Ao subir, o que estiver `running` com o
-  mesmo `holder` há mais de 5 min vira `failed: interrompido`. Não reexecuta sozinho.
+- Se o worker morrer no meio, o comando fica `running`. Ao subir, `recover_commands(holder)` marca
+  todos os `running` daquele `holder` como `failed: interrompido`. Não reexecuta sozinho.
 
 ## 3. Comandos da v1
 
@@ -74,8 +75,8 @@ e passam pelo RateLimiter.
 ## 4. Painel
 
 - No card da visão geral: botões **Ligar/Desligar**, **Reconectar** e **Ping**.
-- Ao clicar: `insert` em `commands` e assinatura Realtime daquela linha. O botão mostra
-  "enviado → executando → feito/falhou".
+- Ao clicar: `insert` em `commands` e consulta da linha a cada 1,5 s até terminar. O botão mostra
+  "na fila → executando → feito/falhou".
 - Página `/comandos`: histórico (últimos 100) com status, quem pegou, duração e erro;
   botão **Cancelar** nos pendentes.
 - Página da conta (nova): plugins com liga/desliga e a config em JSON (vira `plugin.set`).
@@ -102,6 +103,6 @@ pg_cron diário apaga comandos finalizados com mais de 30 dias.
 
 ## Em aberto
 
-- Confirmar se o cliente Realtime do `supabase-py` assíncrono está estável; se não, só polling
-  a cada 5 s na v1 (o comando é raro, o custo é baixo).
 - Comandos para "todas as contas" de uma vez: por ora o painel insere um por conta.
+- A lista de plugins disponíveis vem do worker (entry points); o painel ainda sugere só `restock`.
+  Um `ping` poderia devolver a lista.

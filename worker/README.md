@@ -48,12 +48,31 @@ select id, 'restock', true, '{"items": [{"id": 200, "min": 50, "target": 100}]}'
   from public.accounts where nick = '<nick>';
 ```
 
-A config é lida quando a sessão fica `READY`; depois de mudar, reinicie o worker (`docker compose restart`).
+Pelo painel é mais simples: **conta → Plugins**, que manda um comando `plugin.set`. O worker valida a config,
+grava em `strategy_configs` e reinicia só aquele plugin, sem derrubar a sessão. Mudando direto no SQL, a config
+só é lida quando a sessão fica `READY` (reinicie com `docker compose restart`).
 Config inválida desliga o plugin (aparece no log). Os campos do `restock` estão na seção 7 do design.
 
 Ordem segura para ligar algo novo: primeiro com `ACTION_MODE=observe_only`, conferindo os `action.blocked`
 na tabela `events`; depois `ACTION_MODE=enabled` (com "d") e `docker compose up -d --force-recreate`, porque
 o `restart` não relê o `.env`.
+
+## Comandos do painel
+
+O `run` também atende os comandos criados no painel (tabela `commands`, fase 4b): **Ping**, **Ligar/Desligar**
+conta, **Reconectar** e **Configurar plugin**. O worker busca os pendentes a cada `COMMANDS_POLL_S` (5 s);
+um comando que ninguém pega em 5 min expira. O processo fica no ar mesmo com todas as sessões paradas
+(desligadas, `needs_login`), para poder religá-las por comando. Depois de gravar um token novo com `set-token`,
+**Reconectar** sobe a sessão de novo sem reiniciar o Docker.
+
+Para testar o caminho todo sem conectar no jogo (no codespace, por exemplo):
+
+```bash
+.venv/bin/pokeidle-farm listen --fake
+```
+
+As sessões ficam "prontas" de mentira; clique **Ping** no painel e o comando deve voltar `feito` em até 5 s.
+Não rode o `listen --fake` ao mesmo tempo que o `run` de verdade: os dois pegariam os mesmos comandos.
 
 ## Simulador (desenvolver sem o jogo)
 
@@ -104,4 +123,5 @@ Os testes usam um servidor WebSocket falso que imita o jogo (handshake, renovaç
 | `plugins/` | interface, registry (entry points), `telemetry` (grava os eventos) e `restock` (fase 3a, ver [docs/design/fase-3-reposicao.md](../docs/design/fase-3-reposicao.md)) |
 | `store/` | interface `Store`, implementação em memória e no Supabase |
 | `sim/` | sorteios dos Termos (`rolls.py`) e gerador de eventos simulados |
-| `main.py` | CLI (`run`, `set-token`, `simulate`) |
+| `commands.py` | `Supervisor` (sessões de todas as contas de farm) e `CommandLoop` (comandos do painel, fase 4b) |
+| `main.py` | CLI (`run`, `listen --fake`, `set-token`, `simulate`) |

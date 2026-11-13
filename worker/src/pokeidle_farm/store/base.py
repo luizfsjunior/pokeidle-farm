@@ -23,8 +23,18 @@ class TokenRecord:
         return f"TokenRecord(token=***, device_id={self.device_id!r})"
 
 
+@dataclass(frozen=True)
+class CommandRecord:
+    id: UUID
+    account_id: UUID
+    type: str
+    params: dict[str, Any]
+
+
 class Store(Protocol):
-    async def list_accounts(self) -> list[AccountRecord]: ...
+    async def list_accounts(self, *, include_disabled: bool = False) -> list[AccountRecord]:
+        """Contas de farm (só as habilitadas, a menos que include_disabled)."""
+        ...
 
     async def get_token(self, account_id: UUID) -> TokenRecord | None: ...
 
@@ -52,4 +62,24 @@ class Store(Protocol):
         self, account_id: UUID, type_: str, since: datetime
     ) -> list[tuple[datetime, dict[str, Any]]]:
         """(received_at, data) dos eventos do tipo desde `since`, do mais antigo ao mais novo."""
+        ...
+
+    # --- comandos (fase 4b) -------------------------------------------------
+
+    async def set_account_enabled(self, account_id: UUID, enabled: bool) -> None: ...
+
+    async def set_plugin_config(
+        self, account_id: UUID, plugin: str, enabled: bool, config: dict[str, Any]
+    ) -> None: ...
+
+    async def claim_commands(self, holder: str, account_ids: list[UUID]) -> list[CommandRecord]:
+        """Pega os comandos pendentes (atômico) e os marca como running."""
+        ...
+
+    async def finish_command(
+        self, command_id: UUID, status: str, result: dict[str, Any] | None, error: str | None
+    ) -> None: ...
+
+    async def recover_commands(self, holder: str) -> int:
+        """Marca como failed os comandos running deste holder (o worker reiniciou)."""
         ...
