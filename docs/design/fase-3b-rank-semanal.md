@@ -122,8 +122,8 @@ Plano B:
 
 O `auto.set` e as compras não podem ter dois donos. Proposta:
 
-- O `restock` ganha o foco `rank`: **não** escolhe a bola nem mexe nas flags de bola; só mantém estoque da
-  bola definida em `rank_ball` (padrão Ultra Ball) e das poções.
+- O `restock` ganha o foco `rank`: **não** mexe nas flags de bola; mantém estoque das bolas de `rank_balls`
+  (a escolhida pela `rank_ball_rule` primeiro) e das poções.
 - Um plugin novo, **`rank`**, é dono da escolha de hunt (`hunt.select`) e dos `ball.throw`.
 - Só sobe se o foco da conta for `rank`; com outro foco ele fica parado.
 
@@ -164,12 +164,26 @@ As duas passam pelo `ActionGateway` (modo, rate limiter, `action.sent`). Teto de
      from public.events where type = 'state.snapshot' order by received_at desc limit 1;
    ```
 
-## 7. Decisões em aberto
+## 7. Decisões
 
-- Quais contas ficam no foco `rank` (uma, todas, revezando)?
-- Orçamento semanal de bolas (`weekly_ball_budget`) e a bola do rank (`rank_ball`).
+**Tomadas em 13/11:**
+
+- **Bolas parametrizáveis.** A config do foco rank tem a lista de bolas permitidas (`rank_balls`, em ordem de
+  preferência) e a regra de escolha (`rank_ball_rule`):
+  - `se_paga` (padrão): a melhor bola permitida cujo preço cabe no ouro líquido por abate da conta, a mesma regra
+    do foco captura. Na prática, a Ultra entra quando o abate rende ≥ 130 de ouro, que é quando a conta abate
+    rápido em hunt alta; em hunt baixa, cai para Great ou Poke.
+  - `fixa`: sempre a primeira da lista com estoque.
+  O `weekly_ball_budget` continua como teto.
+- **Foco escolhido no painel.** Na página da conta (`/contas/<id>`), um seletor de foco (captura, ouro-xp-drop,
+  rank) que manda os `plugin.set` certos: o foco do `restock` e o `rank` ligado ou desligado. Os parâmetros do
+  rank (bolas, regra, orçamento, fallback) ficam no mesmo lugar.
+
+**Em aberto:**
+
+- Quais contas ficam no foco `rank`: decide-se no painel, conta por conta.
+- Valor padrão do `weekly_ball_budget`.
 - Foco de volta quando acabarem as espécies alcançáveis (`fallback`).
-- Bola do rank: tempo (Ultra) × ouro (Poke/Great). Pela conta acima, depende do ouro por abate da conta.
 - **Safari Ticket**: comprar no Mercado e usar uma vez por semana pode render dezenas de espécies numa hora.
   Vale avaliar quando a fase 7 (preços do Mercado) estiver pronta.
 - Se vale capturar espécies que só aparecem em hunts acima do nível da conta subindo de nível antes
