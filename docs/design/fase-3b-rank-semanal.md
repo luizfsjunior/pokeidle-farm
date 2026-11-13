@@ -16,6 +16,12 @@ mais lenta, fica em cada uma com o `autoBallAteCapturar` até capturar e passa p
   (provavelmente só a primeira de cada espécie na semana). Hoje é gravado como `battle.topCatchNova`, sem `data`.
 - **`welcome.hunts[]`**: ~1.000 hunts com `area`, `nivel`, `especies[]` e `totalSpawns`. É o catálogo para
   planejar. O `welcome` inteiro fica no `raw` do `state.snapshot` a cada conexão.
+- **Formato de `especies[]`** (pela referência DiuleJR/pokeidle-manager-online, não confirmado por nós):
+  `{pokeId, nome, pontos}`, com `totalSpawns` na hunt. Numa hunt de uma espécie, `pontos` = `totalSpawns`
+  (15), então `pontos / totalSpawns` deve ser a fração de spawns daquela espécie, que é o `P(spawn)` da conta
+  da seção 3.2. O código da referência soma `pontos` de espécies de gerações diferentes na mesma hunt, o que
+  indica que **existem hunts com mais de uma espécie**; nas iniciais de Kanto é uma só. Há também hunts com
+  `especies` vazio (ex.: `lapras`, `totalSpawns: 5`), provavelmente especiais.
 - **`estado.dexMud`**: capturas (`c`) e abates (`k`) por espécie, mas de sempre, não da semana.
 - **`hunt.select {slug}`** troca de hunt, só fora da trava de combate (`estado.centroLivreEm`; cada golpe
   recebido renova a trava). Ainda não confirmado no DevTools.
