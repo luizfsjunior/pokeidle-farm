@@ -155,9 +155,8 @@ Com o worker parado (`docker compose stop`):
   começo da `ballIds`, mantendo as outras na ordem. Se **nenhuma bola se paga**, desliga a bola.
 - O `auto.set` não é repetido por `retry_after_s` (60 s) enquanto o servidor não devolve a `automation` nova.
   Confirmado em 13/11/2026: o servidor devolve a `automation` no `estado`, então o `auto.set` sai uma vez só.
-- **Limitação conhecida:** a regra supõe uma bola por abate, mas o medido foi ~1,2 com a Great. Com o preço
-  muito perto do ouro líquido por abate, a bola escolhida pode dar um prejuízo pequeno. Melhoria possível:
-  comparar `preço × bolas por abate` (medido na janela) com o líquido.
+- A regra supõe uma bola por abate, e isso foi confirmado: o "sem parar" joga exatamente uma bola por selvagem
+  abatido (cruzando os `slot`s).
 - A confirmação da compra é o estoque subir no `estado`. Sem isso em `confirm_timeout_s`, `restock.failed`
   com `reason: timeout`, e a regra espera `retry_after_s`.
 - Uma falha (`sem_ouro`, `observe_only`, `timeout`) é registrada uma vez e a regra espera `retry_after_s`

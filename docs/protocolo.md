@@ -190,7 +190,7 @@ Sessão de 12/11/2026, conta nível 2, ~10 min no Centro de Cerulean e depois na
 { "k": "fugiu", "nome": "Magikarp", "level": 1, "shiny": false }
 ```
 
-- No modo "sem parar" sai **cerca de uma bola por abate** (medido: 1,0 com Poké e 1,2 com Great), e cada bola que falha vem seguida de um `fugiu`. Quando as bolas voltam depois de acabar, o jogo joga uma rajada nos selvagens abatidos que ainda estão na janela de captura.
+- No modo "sem parar" sai **exatamente uma bola por selvagem abatido**: cruzando o `slot` do `bola` com o da `morte`, 94 bolas foram em 94 selvagens diferentes, e nenhum abate ficou sem bola. Cada bola que falha vem seguida de um `fugiu`. Quando as bolas voltam depois de acabar, o jogo joga uma rajada nos selvagens abatidos sem bola que ainda estão na janela de captura (por isso a contagem de bolas ÷ abates numa janela curta pode passar de 1).
 - A `chance` de 0,003 é o `piso` da tabela `captura` do `welcome` (Poké Ball em Magikarp), ou seja, uma captura a cada ~330 bolas.
 - O estoque de bolas chega em `estado.balls` (`{"1": 56}`) a cada arremesso.
 - ✅ **Captura com sucesso** (Ultra Ball, `ballId: 4`, chance de 0,012 em Magikarp): no mesmo frame vem o `bola` com `sucesso: true` e o `topCatchNova`, e uns 250 ms depois chega o `capturado` com o pokémon completo:

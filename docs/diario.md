@@ -63,7 +63,7 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 - Apagar o droplet da DigitalOcean e os *Actions secrets* que sobraram.
 - Esperar a resposta do suporte sobre VPS/proxy (ADR 0011).
-- Fase 3a: confirmar os ids 203, 204 e 206; considerar bolas por abate na regra da bola (medido ~1,2).
+- Fase 3a: confirmar os ids 203, 204 e 206.
 - Fase 3b (rank semanal de espécies): desenhar.
 - Ver uma captura real (para o `pokemon.captured`): a bola automática "sem parar" (exige VIP) já está
   ligada, mas as 100 Poké Balls acabaram sem captura (chance de 0,3% em Magikarp). Resolvido: com Ultra Balls veio a primeira captura, e o `capturado` virou
