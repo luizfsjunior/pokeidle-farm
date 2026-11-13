@@ -30,7 +30,7 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 - Conferir que a integração aplicou `20261113010000_commands.sql`, `git pull` + `docker compose up -d --build` em casa e
   testar Ping, Reconectar e um `plugin.set` pelo painel.
-- Desenhar a fase 3b (rank semanal de espécies).
+- Fase 3b: rascunho em [design/fase-3b-rank-semanal.md](design/fase-3b-rank-semanal.md); falta confirmar o ranking, `hunt.select` e `ball.throw` no jogo.
 
 ## 2026-11-12
 
