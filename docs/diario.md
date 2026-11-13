@@ -15,6 +15,20 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   recuperação, retenção), `Supervisor` e `CommandLoop` no worker (`ping`, ligar/desligar conta, reconectar,
   `plugin.set`), `listen --fake` para testar sem o jogo, e no painel os botões no card, `/comandos` e
   `/contas/<id>` com os plugins. Testes: SQL em Postgres local e 82 no worker.
+- **Migrations automáticas**: integração GitHub do Supabase ligada (deploy para produção a cada push em
+  `main`), com as migrations antigas registradas à mão no histórico ([deploy.md](deploy.md), seção 6).
+  Testado: o push aplicou a de comandos (histórico termina em `commands` e a tabela existe).
+- **Wiki do jogo**: as regras que importam para o worker (captura por estágio evolutivo, automações de bola,
+  Top Catch, níveis das regiões, troca de área, Safari) resumidas em [regras-do-jogo.md](regras-do-jogo.md).
+- **Fase 3b, rank semanal (desenho)**: [design/fase-3b-rank-semanal.md](design/fase-3b-rank-semanal.md).
+  - Top Catch = espécies diferentes capturadas com bola na semana; vira sábado 23h59 (Brasília); paga
+    50/20/5 💎 para 1º, 2º–10º e 11º–100º.
+  - Catálogo do `welcome`: **1.043 hunts, uma espécie cada**, do nível 1 ao 160.300.
+  - Estratégia (decidida): fila de hunts, da mais rápida para a mais lenta pelo tempo esperado até a captura;
+    em cada uma, **Lançar até Capturar** (desliga na primeira captura) e, capturou, próxima hunt.
+  - Bolas parametrizáveis: lista permitida + regra `se_paga` (padrão; Ultra quando o abate rende ≥ 130 de
+    ouro) ou `fixa`, com teto semanal de gasto.
+  - Foco por conta escolhido no painel (captura, ouro-xp-drop, rank).
 
 ### Problemas e soluções
 
@@ -22,15 +36,28 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 |---|---|---|
 | Commits aparecem como `unknown <gmail>` | git do PC de casa sem `user.name` e com o e-mail pessoal | `git config --global user.name/user.email` com o noreply do GitHub |
 | `plugin desconhecido: restock` nos testes locais | pacote instalado antes do entry point do `restock` | reinstalar (`pip install -e './worker[dev]'`); no Docker o build já reinstala |
+| Consulta do catálogo de hunts voltou só "1" | desde o tradutor v2 o `welcome` não grava as tabelas do jogo | ler de um `state.snapshot` antigo (`raw ? 'hunts'`); a 3b vai gravar o catálogo numa tabela própria |
 
-- **Migrations automáticas**: integração GitHub do Supabase ligada (deploy para produção a cada push em
-  `main`), com as migrations antigas registradas à mão no histórico ([deploy.md](deploy.md), seção 6).
+### Próximos passos (em casa)
 
-### Pendente
-
-- Conferir que a integração aplicou `20261113010000_commands.sql`, `git pull` + `docker compose up -d --build` em casa e
-  testar Ping, Reconectar e um `plugin.set` pelo painel.
-- Fase 3b: rascunho em [design/fase-3b-rank-semanal.md](design/fase-3b-rank-semanal.md); falta confirmar o ranking, `hunt.select` e `ball.throw` no jogo.
+1. **Worker atualizado**
+   - `git config --global user.name "Luiz Fernando"` e
+     `git config --global user.email "luizfsjunior@users.noreply.github.com"`.
+   - `WORKER_HOLDER=pc-casa` no `.env`.
+   - `git pull` e `docker compose up -d --build`.
+   - No painel: **Ping** no card (esperado: "feito — sessão ready em pc-casa"), depois **Reconectar** e um
+     `plugin.set` pela página de Plugins.
+2. **DevTools, conta pessoal** (aba Network → WS; não copiar o `hello`; fechar a aba sem clicar em "Sair"):
+   - Trocar de hunt pelo Mapa: anotar a mensagem enviada e o que chega depois (`hunt.select`).
+   - Lançar até Capturar ligado até uma captura: anotar o `estado` que chega em seguida (a `automation` volta
+     com `autoBallAteCapturar: false`?) e o `topCatchNova` da captura.
+3. **Implementar a 3b**, nesta ordem:
+   - tabela do catálogo do jogo (hunts, `captura`, `catalogoBolas`), gravada só quando muda;
+   - fila de hunts ordenada pelo tempo até a captura, com testes;
+   - plugin `rank` em `observe_only` (grava `rank.plan` e o que faria) e o foco `rank` no `restock`;
+   - seletor de foco e parâmetros do rank no painel;
+   - depois de conferir alguns dias: ligar o `hunt.select` e o Lançar até Capturar de verdade.
+4. **Pendências antigas**: apagar o droplet da DigitalOcean e os Actions secrets que sobraram.
 
 ## 2026-11-12
 
