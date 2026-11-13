@@ -1,8 +1,21 @@
 # Fase 3a: reposição automática de consumíveis
 
-Status: **rascunho**. Decisões tomadas (seção 6). `shop.buy` e `auto.set` confirmados no DevTools (ver
-[protocolo.md](../protocolo.md)). Faltam os preços de poções e revives; depois vêm os casos de teste e só então
-a implementação.
+Status: **implementado** (12/11/2026), ainda **não ligado contra o jogo**. `shop.buy` e `auto.set` foram
+confirmados no DevTools (ver [protocolo.md](../protocolo.md)) e os preços vieram dos prints da loja
+(`worker/src/pokeidle_farm/catalog.py`). Testes: `worker/tests/test_restock.py`, os `test_*` da fase 3a em
+`worker/tests/test_protocol.py` e `supabase/tests/ouro_liquido_test.sql`.
+
+## Como ligar
+
+1. Aplicar a migration `supabase/migrations/20261113000000_ouro_liquido.sql` no SQL Editor.
+2. Ligar o plugin na conta (o `config` pode ficar `{}` para usar os padrões da seção 7):
+   ```sql
+   insert into public.strategy_configs (account_id, plugin, enabled, config)
+   select id, 'restock', true, '{"items": [{"id": 205, "min": 10, "target": 30}]}'
+     from public.accounts where nick = '<nick>';
+   ```
+3. Com `ACTION_MODE=observe_only` o plugin só registra o que faria (`action.blocked` e `restock.failed` com
+   `reason: observe_only`). Para agir de verdade: `ACTION_MODE=enabled` no `.env` e `docker compose up -d`.
 Depois disso vêm os casos de teste e só então a implementação.
 
 ## Objetivo
@@ -134,6 +147,19 @@ Com o worker parado (`docker compose stop`):
   Fica **só na memória** do plugin, calculada dos `kill` e `capture_attempt` que já passam por ele; nada novo é
   gravado. Com **menos de 50 abates** na janela (hunt nova ou worker reiniciado), o worker **não mexe na bola**.
 
+### Escolhas de implementação (sem pedido explícito, todas na config)
+
+- **Foco captura** liga o `autoBallSemParar` (e desliga o `autoBallAteCapturar`) e põe a bola escolhida no
+  começo da `ballIds`, mantendo as outras na ordem. Se **nenhuma bola se paga**, desliga a bola.
+- O `auto.set` não é repetido por `retry_after_s` (60 s) enquanto o servidor não devolve a `automation` nova.
+  **A confirmar:** se o servidor manda a `automation` no `estado` depois do `auto.set`. Se não mandar, o worker
+  reenvia o mesmo `auto.set` a cada minuto (inofensivo, mas é ruído).
+- A confirmação da compra é o estoque subir no `estado`. Sem isso em `confirm_timeout_s`, `restock.failed`
+  com `reason: timeout`, e a regra espera `retry_after_s`.
+- Uma falha (`sem_ouro`, `observe_only`, `timeout`) é registrada uma vez e a regra espera `retry_after_s`
+  antes de tentar de novo, para não gerar uma enxurrada de eventos.
+- `item.consumed` sai do tradutor quando o estoque de um item da loja **cai** (compra só faz subir).
+
 ### Métricas de ouro no painel
 
 O ouro bruto já existe (`gold` em `metric_hourly`). Para o líquido, o custo dos consumíveis precisa virar dado:
@@ -153,3 +179,16 @@ O ouro bruto já existe (`gold` em `metric_hourly`). Para o líquido, o custo do
 - **D3. Poções e revives:** quais ids repor (200 a 204 e 205/206 são da automação nativa) e com quais limites.
 - **D4. Ligar onde:** só na conta `luizfsjunior_1`, pelo `strategy_configs`?
 - **D5. Tempos:** intervalo mínimo entre compras (sugestão: 10 s) e quanto esperar a confirmação (sugestão: 15 s).
+
+## 7. Config do plugin `restock`
+
+| Campo | Padrão | O que faz |
+|---|---|---|
+| `focus` | `"capture"` | `"capture"` ou `"gold_xp_drop"` |
+| `items` | `[]` | regras de poções e revives: `{"id", "min", "target"}` |
+| `ball_min` / `ball_target` | 100 / 1.000 | estoque da bola escolhida |
+| `gold_reserve` | 5.000 | ouro que nunca é gasto |
+| `max_gold_per_hour` | 50.000 | teto de gasto em compras por hora |
+| `window_kills` / `min_kills` | 200 / 50 | janela da média de ouro e mínimo para agir sobre a bola |
+| `confirm_timeout_s` | 15 | espera pela confirmação da compra |
+| `retry_after_s` | 60 | espera depois de uma falha ou de um `auto.set` |

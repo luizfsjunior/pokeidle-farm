@@ -31,6 +31,13 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 - **Spec do tradutor v2** ([design/tradutor-v2.md](design/tradutor-v2.md)): corrige o `estado` aninhado e
   o Centro tratado como hunt, e tira o ruído do banco. Implementado com os 14 casos de teste aprovados. A sessão
   passou a copiar a hunt atual do tradutor (antes só mudava com `hunt.changed`).
+- **Primeira captura real** (Ultra Ball): o `capturado` virou `pokemon.captured` e as duas capturas gravadas
+  no formato antigo foram convertidas no banco.
+- **`shop.buy` e `auto.set` confirmados no DevTools** (pela conta pessoal) e preços da loja tirados de prints.
+- **Fase 3a implementada** ([design/fase-3-reposicao.md](design/fase-3-reposicao.md)): plugin `restock`
+  (escolha da melhor bola que se paga pelo ouro líquido, foco ouro-xp-drop, reposição de bolas, poções e
+  revives), `item.consumed` e preço da bola nos eventos, métricas `consumables_gold`, `gold_net` e
+  `gold_net_per_hour`. Ainda não ligada contra o jogo.
 
 ### Problemas e soluções
 
@@ -52,6 +59,10 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 - Apagar o droplet da DigitalOcean e os *Actions secrets* que sobraram.
 - Esperar a resposta do suporte sobre VPS/proxy (ADR 0011).
+- **Fase 3a**: aplicar a migration `20261113000000_ouro_liquido.sql`, ligar o `restock` na conta e
+  testar contra o jogo (primeiro em `observe_only`, depois `enabled`). Confirmar os ids 203, 204 e 206 e se
+  o servidor devolve a `automation` depois do `auto.set`.
+- Fase 3b (rank semanal de espécies): desenhar.
 - Ver uma captura real (para o `pokemon.captured`): a bola automática "sem parar" (exige VIP) já está
   ligada, mas as 100 Poké Balls acabaram sem captura (chance de 0,3% em Magikarp). Resolvido: com Ultra Balls veio a primeira captura, e o `capturado` virou
   `pokemon.captured` real.
