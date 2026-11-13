@@ -1,8 +1,9 @@
 # Fase 3b — foco "rank semanal" (rascunho)
 
 Status: **rascunho**, 13/11/2026. As regras do Top Catch e do "Lançar até Capturar" foram confirmadas pela wiki
-do jogo ([regras-do-jogo.md](../regras-do-jogo.md#da-wiki-do-jogo-13112026)). Faltam o protocolo do
-`hunt.select`, o catálogo e as decisões da seção 7.
+do jogo ([regras-do-jogo.md](../regras-do-jogo.md#da-wiki-do-jogo-13112026)). Uma espécie por hunt
+confirmada pelo catálogo. Faltam o protocolo do `hunt.select`, o aviso do fim do "até capturar" e as decisões
+da seção 7.
 
 ## 1. Objetivo
 
@@ -11,6 +12,11 @@ capturas capturando **um de cada espécie** e passando para a próxima. O worker
 mais lenta, fica em cada uma com o `autoBallAteCapturar` até capturar e passa para a próxima.
 
 ## 2. O que já sabemos
+
+**Pelo catálogo do `welcome` (consultado em 13/11):** as **1.043 hunts têm exatamente uma espécie cada**, do
+nível 1 ao 160.300. Então cada hunt da fila vale uma espécie, e o Lançar até Capturar desligar na primeira
+captura é exatamente o sinal de "pronto, próxima hunt". A mesma espécie pode aparecer em mais de uma hunt
+(níveis diferentes); entra na fila só a mais rápida.
 
 **Pela wiki do jogo (confirmado):**
 
@@ -150,7 +156,8 @@ As duas passam pelo `ActionGateway` (modo, rate limiter, `action.sent`). Teto de
    de trocar de hunt e religar.
 5. ~~Hunts alcançáveis~~: pelo nível do treinador por região (wiki). Falta confirmar se dá para ir direto de
    uma hunt para outra de outra região sem passar pelo Centro.
-6. **Catálogo**: rodar no SQL Editor e me mandar o resultado (não tem token nem dado da conta):
+6. ~~Catálogo~~: 1.043 hunts, uma espécie cada (13/11). Desde o tradutor v2 o `welcome` não grava mais as
+   tabelas do jogo; a 3b vai gravar o catálogo numa tabela própria, só quando mudar. Consulta original (não tem token nem dado da conta):
    ```sql
    select jsonb_pretty(raw->'hunts'->0) as exemplo, jsonb_array_length(raw->'hunts') as total,
           jsonb_pretty(raw->'captura') as captura
