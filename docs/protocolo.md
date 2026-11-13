@@ -143,7 +143,7 @@ Também aparecem `aviso`, `marketComprado` e `mktSorteio`, relacionados ao Merca
 | `ball.throw` | `ballId`, `slot` | jogar bola no selvagem abatido (janela de ~30 s; intervalo de ~1,3 s entre arremessos) | ⬜ |
 | `shop.buy` | `kind` (`item` ou `ball`), `id`, `qty` | comprar na loja do NPC. Ex.: `{"t":"shop.buy","kind":"ball","id":1,"qty":1}` e `{"t":"shop.buy","kind":"item","id":200,"qty":1}`. A resposta é um `estado` com `gold` e o mapa **inteiro** de `balls` (inclusive as zeradas) ou de `items`. Ainda não se sabe se vem também um `batalha` `k: compra` | ✅ (DevTools, 12/11/2026) |
 | `shop.sellAllPokemons` | — | vender todos os pokémons do Depot | ⬜ |
-| `auto.set` | o objeto `estado.automation` inteiro, com os campos alterados | configurar a automação nativa do jogo. **Sempre parta do objeto atual**, nunca monte do zero | ⬜ |
+| `auto.set` | o objeto `estado.automation` inteiro, com os campos alterados | configurar a automação nativa do jogo. **Sempre parta do objeto atual**, nunca monte do zero. ✅ Os campos vão **achatados no topo** da mensagem, não dentro de `automation`: `{"t":"auto.set","autoBallSemParar":false,"ballIds":[1,2,3,4],"autoPotion":true,"potionIds":[...],"hpLimiar":0.6,...}`, com **todos** os campos da `automation` (o navegador manda tudo mesmo mudando um só) | ✅ (DevTools, 12/11/2026) |
 | `market.itens` | `elemento`, `categoria`, `elementos?` | listar itens do Mercado | ⬜ |
 | `market.medias` | — | médias de preço | ⬜ |
 | `market.item` | `itemId`, `moeda` | detalhe de um item | ⬜ |

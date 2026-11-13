@@ -1,7 +1,8 @@
 # Fase 3a: reposição automática de consumíveis
 
-Status: **rascunho**. Decisões tomadas (seção 6). Falta a captura do `shop.buy` e do `auto.set` no DevTools
-(seção 5); depois vêm os casos de teste e só então a implementação.
+Status: **rascunho**. Decisões tomadas (seção 6). `shop.buy` e `auto.set` confirmados no DevTools (ver
+[protocolo.md](../protocolo.md)). Faltam os preços de poções e revives; depois vêm os casos de teste e só então
+a implementação.
 Depois disso vêm os casos de teste e só então a implementação.
 
 ## Objetivo
@@ -35,7 +36,7 @@ só compra na loja do NPC, com teto de gasto, uma compra por vez e tudo registra
 Primeira `ActionSpec` concreta, em `actions.py`:
 
 - Entrada: `kind` (`"ball"` ou `"item"`), `id` e `qty`.
-- `to_wire()`: `{t: "shop.buy", kind, id, qty}`. **A confirmar na seção 5.**
+- `to_wire()`: `{t: "shop.buy", kind, id, qty}` (confirmado no DevTools).
 - `min_interval_s`: a definir (D5).
 
 ### Plugin `restock`
