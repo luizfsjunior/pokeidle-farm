@@ -101,9 +101,34 @@ Com o worker parado (`docker compose stop`):
 4. Na loja, anotar o preço de cada poção e revive e o id, se aparecer.
 5. Fechar a aba **sem "Sair"**.
 
-## 6. Decisões em aberto
+## 6. Decisões
 
-- **D1. Bola:** repor qual? A Ultra Ball (130, 1,2% em Magikarp) captura 4× mais que a Poké Ball (5, 0,3%),
+### Tomadas em 12/11/2026
+
+- **Foco por conta.** Cada conta tem um foco, e ele decide o que fazer com as bolas:
+  - **captura**: usa a **melhor bola que não dá prejuízo** (regra abaixo);
+  - **ouro-xp-drop**: não usa bola;
+  - **rank semanal**: captura um de cada espécie e passa para a próxima, para subir no ranking semanal de
+    espécies diferentes (o `topCatch`). Exige trocar de hunt sozinho (`hunt.select`) e entender o `topCatch`,
+    então fica para uma **fase própria (3b)**. Nesta entrega só os dois primeiros focos.
+- **Regra da bola (foco captura):** a bola de maior `catchRate` cujo preço é **≤ 100% do ouro médio por abate**
+  (empate, sem margem). Em Magikarp (41 por abate) → Great Ball (20). Como o "sem parar" joga uma bola por
+  abate, isso garante que as bolas não consomem mais ouro do que a hunt rende.
+- **Duas métricas de ouro, porque cada uma conta uma coisa:**
+  - **ouro médio por abate (bruto)**: o `ouro` das `morte`;
+  - **ouro líquido**: o bruto menos o custo dos consumíveis gastos (bolas, poções, revives).
+- **Trocar a bola é com o worker, via `auto.set`.** O jogo usa a primeira bola da lista `automation.ballIds`
+  que tem estoque. O worker reescreve essa lista com a bola escolhida, partindo sempre do objeto
+  `automation` atual. É a segunda ação nova desta entrega, e a mais delicada.
+
+### Ainda em aberto
+
+- **D1b.** A regra da bola usa o ouro **bruto** ou o **líquido**?
+- **D1c.** No foco ouro-xp-drop, o worker também desliga o `autoBallSemParar` via `auto.set`, ou isso fica com você?
+- **D1d.** Quantos abates entram na média de ouro (ex.: os últimos 200 da hunt atual)? E qual bola usar antes
+  de ter média, logo depois de trocar de hunt?
+
+- **D1 (contexto da decisão acima). Bola:** repor qual? A Ultra Ball (130, 1,2% em Magikarp) captura 4× mais que a Poké Ball (5, 0,3%),
   mas custa 26× mais. Em Magikarp, cada captura sai por ~10.800 de ouro com Ultra e ~1.700 com Poké.
   Como o "sem parar" joga uma bola por abate (~1.000 por hora), a **Ultra gasta ~130.000 de ouro por hora**
   e a hunt rende **~41.000**: com Ultra a conta perde ouro. A Poké gasta ~5.000 por hora.
