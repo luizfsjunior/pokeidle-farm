@@ -60,3 +60,16 @@ class MemoryStore:
 
     async def plugin_configs(self, account_id: UUID) -> dict[str, tuple[bool, dict[str, Any]]]:
         return self.configs.get(account_id, {})
+
+    async def recent_events(
+        self, account_id: UUID, type_: str, since: datetime
+    ) -> list[tuple[datetime, dict[str, Any]]]:
+        out = []
+        for row in self.events:
+            if row.get("type") != type_ or str(row.get("account_id")) != str(account_id):
+                continue
+            at = row.get("received_at")
+            at = datetime.fromisoformat(at) if isinstance(at, str) else at
+            if at is not None and at >= since:
+                out.append((at, row.get("data") or {}))
+        return sorted(out, key=lambda x: x[0])

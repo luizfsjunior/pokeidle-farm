@@ -158,7 +158,10 @@ Com o worker parado (`docker compose stop`):
 - A regra supõe uma bola por abate, e isso foi confirmado: o "sem parar" joga exatamente uma bola por selvagem
   abatido (cruzando os `slot`s).
 - A confirmação da compra é o estoque subir no `estado`. Sem isso em `confirm_timeout_s`, `restock.failed`
-  com `reason: timeout`, e a regra espera `retry_after_s`.
+  com `reason: timeout`. A compra segue observada por `late_confirm_s`: se o estoque subir nesse tempo, sai
+  `restock.bought` com `late: true` e o gasto entra no teto. O mesmo item não é recomprado nesse meio-tempo.
+- O teto por hora sobrevive a reinícios: ao subir, o plugin lê os `restock.bought` da última hora em `events`.
+  Se a leitura falhar, ele segue com o teto zerado e avisa no log.
 - Uma falha (`sem_ouro`, `observe_only`, `timeout`) é registrada uma vez e a regra espera `retry_after_s`
   antes de tentar de novo, para não gerar uma enxurrada de eventos.
 - `item.consumed` sai do tradutor quando o estoque de um item da loja **cai** (compra só faz subir).
@@ -194,4 +197,5 @@ O ouro bruto já existe (`gold` em `metric_hourly`). Para o líquido, o custo do
 | `max_gold_per_hour` | 50.000 | teto de gasto em compras por hora |
 | `window_kills` / `min_kills` | 200 / 50 | janela da média de ouro e mínimo para agir sobre a bola |
 | `confirm_timeout_s` | 15 | espera pela confirmação da compra |
+| `late_confirm_s` | 300 | quanto tempo uma compra que passou do prazo ainda pode confirmar (e bloqueia recompra do item) |
 | `retry_after_s` | 60 | espera depois de uma falha ou de um `auto.set` |

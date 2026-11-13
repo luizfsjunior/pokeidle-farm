@@ -91,3 +91,18 @@ class SupabaseStore:
             .execute()
         )
         return {r["plugin"]: (r["enabled"], r["config"] or {}) for r in res.data or []}
+
+    async def recent_events(
+        self, account_id: UUID, type_: str, since: datetime
+    ) -> list[tuple[datetime, dict[str, Any]]]:
+        res = await (
+            self._db.table("events")
+            .select("received_at, data")
+            .eq("account_id", str(account_id))
+            .eq("type", type_)
+            .gte("received_at", since.isoformat())
+            .order("received_at")
+            .limit(1000)
+            .execute()
+        )
+        return [(datetime.fromisoformat(r["received_at"]), r["data"] or {}) for r in res.data or []]

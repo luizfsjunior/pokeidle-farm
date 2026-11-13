@@ -6,13 +6,17 @@ Ver docs/design/fase-3-reposicao.md. Resumo:
   se paga, desliga a bola. Foco "gold_xp_drop": desliga a bola e não compra bola.
 - compra uma coisa por vez e espera o estoque subir no `estado` antes da próxima,
   respeitando a reserva de ouro e o teto de gasto por hora.
+- o teto por hora sobrevive a reinícios: ao subir, lê os `restock.bought` da última hora.
+- compra que passa do prazo de confirmação continua sendo observada por `late_confirm_s`;
+  se o estoque subir depois, o gasto entra no teto (e o mesmo item não é recomprado nesse meio-tempo).
 """
 
 from __future__ import annotations
 
 import time
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -43,6 +47,7 @@ class RestockConfig(BaseModel):
     window_kills: int = 200
     min_kills: int = 50
     confirm_timeout_s: float = 15.0
+    late_confirm_s: float = 300.0
     retry_after_s: float = 60.0
 
 
@@ -76,6 +81,23 @@ class RestockPlugin(Plugin):
         self._cooldown: dict[tuple[str, int], float] = {}
         self._auto_sent: dict[str, Any] | None = None
         self._auto_sent_at = 0.0
+        self._late: list[_Pending] = []  # passaram do prazo, mas ainda podem confirmar
+        await self._load_spent()
+
+    async def _load_spent(self) -> None:
+        """Recupera o gasto da última hora, para o teto valer mesmo depois de reiniciar."""
+        now_wall = datetime.now(UTC)
+        try:
+            rows = await self.ctx.store.recent_events(
+                self.ctx.account_id, "restock.bought", now_wall - timedelta(seconds=HOUR_S)
+            )
+        except Exception as exc:  # sem o histórico, segue com o teto zerado (e avisa)
+            self.ctx.log.warning("restock: não consegui ler o gasto da última hora (%s)", exc)
+            return
+        now = self.clock()
+        for at, data in rows:
+            age = (now_wall - at).total_seconds()
+            self._spent.append((now - age, int(data.get("gold_spent") or 0)))
 
     async def on_event(self, event: Event) -> None:
         d = event.data
@@ -149,24 +171,40 @@ class RestockPlugin(Plugin):
             self._spent.popleft()
         return sum(cost for _, cost in self._spent)
 
-    async def _fail(self, kind: str, id_: int, reason: str) -> None:
-        self._cooldown[(kind, id_)] = self.clock() + self.cfg.retry_after_s
+    async def _fail(
+        self, kind: str, id_: int, reason: str, cooldown_s: float | None = None
+    ) -> None:
+        self._cooldown[(kind, id_)] = self.clock() + (cooldown_s or self.cfg.retry_after_s)
         await self.ctx.actions.note("restock.failed", {"kind": kind, "id": id_, "reason": reason})
 
+    async def _confirm(self, p: _Pending, late: bool) -> None:
+        cost = p.qty * p.price
+        self._spent.append((self.clock(), cost))
+        data: dict[str, Any] = {"kind": p.kind, "id": p.id, "qty": p.qty, "gold_spent": cost}
+        if late:
+            data["late"] = True
+        await self.ctx.actions.note("restock.bought", data)
+
     async def _check_pending(self) -> None:
+        now = self.clock()
         p = self._pending
-        if p is None:
-            return
-        if self._stock(p.kind, p.id) > p.before:
-            self._pending = None
-            cost = p.qty * p.price
-            self._spent.append((self.clock(), cost))
-            await self.ctx.actions.note(
-                "restock.bought", {"kind": p.kind, "id": p.id, "qty": p.qty, "gold_spent": cost}
-            )
-        elif self.clock() > p.deadline:
-            self._pending = None
-            await self._fail(p.kind, p.id, "timeout")
+        if p is not None:
+            if self._stock(p.kind, p.id) > p.before:
+                self._pending = None
+                await self._confirm(p, late=False)
+            elif now > p.deadline:
+                self._pending = None
+                self._late.append(replace(p, deadline=now + self.cfg.late_confirm_s))
+                # não recompra o mesmo item enquanto a confirmação ainda pode chegar
+                await self._fail(
+                    p.kind, p.id, "timeout", max(self.cfg.retry_after_s, self.cfg.late_confirm_s)
+                )
+        for q in list(self._late):
+            if now > q.deadline:
+                self._late.remove(q)
+            elif self._stock(q.kind, q.id) > q.before:
+                self._late.remove(q)
+                await self._confirm(q, late=True)
 
     def _rules(self) -> list[tuple[str, int, int, int, int]]:
         cfg = self.cfg

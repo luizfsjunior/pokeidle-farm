@@ -47,3 +47,9 @@ class Store(Protocol):
     async def plugin_configs(self, account_id: UUID) -> dict[str, tuple[bool, dict[str, Any]]]:
         """{plugin: (enabled, config)} da tabela strategy_configs."""
         ...
+
+    async def recent_events(
+        self, account_id: UUID, type_: str, since: datetime
+    ) -> list[tuple[datetime, dict[str, Any]]]:
+        """(received_at, data) dos eventos do tipo desde `since`, do mais antigo ao mais novo."""
+        ...

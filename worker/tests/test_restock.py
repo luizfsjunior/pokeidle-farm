@@ -288,3 +288,69 @@ async def test_observe_only_reports_without_storm():
     h.now = 61.0
     await h.send_ev(ev("state.patch"))
     assert len(h.events("restock.failed")) == 2  # tenta de novo depois do retry_after_s
+
+
+async def test_late_confirmation_counts_toward_cap_and_blocks_rebuy():
+    h = await Harness(
+        items=[{"id": 205, "min": 25, "target": 40}], confirm_timeout_s=15, max_gold_per_hour=20_000
+    ).start()
+    await h.send_ev(ev("state.patch"))  # compra 20 revives (12.000)
+    h.now = 16.0
+    await h.send_ev(ev("state.patch"))  # passou do prazo
+    assert h.events("restock.failed")[-1]["reason"] == "timeout"
+    h.now = 90.0
+    await h.send_ev(ev("state.patch"))
+    assert len(h.wires("shop.buy")) == 1  # não recompra enquanto pode chegar
+    await h.patch(items={"200": 100, "205": 40}, gold=88_000)  # chegou atrasada
+    assert h.events("restock.bought") == [
+        {"kind": "item", "id": 205, "qty": 20, "gold_spent": 12_000, "late": True}
+    ]
+    h.now = 400.0
+    await h.patch(items={"200": 100, "205": 10})  # gastou revives de novo
+    (_, second) = h.wires("shop.buy")
+    assert second["qty"] == 13  # sobrou 8.000 do teto: 13 × 600
+
+
+async def test_late_window_expires():
+    h = await Harness(items=[{"id": 205, "min": 25, "target": 40}], confirm_timeout_s=15).start()
+    await h.send_ev(ev("state.patch"))
+    h.now = 16.0
+    await h.send_ev(ev("state.patch"))
+    h.now = 400.0  # passou late_confirm_s (300)
+    await h.patch(items={"200": 100, "205": 40})
+    assert h.events("restock.bought") == []
+
+
+async def test_hourly_cap_survives_restart():
+    from datetime import UTC, datetime, timedelta
+
+    h = Harness(items=[{"id": 205, "min": 25, "target": 40}], max_gold_per_hour=1_200)
+    now = datetime.now(UTC)
+    for minutes_ago, spent in ((30, 1_200), (90, 50_000)):  # a de 90 min não conta
+        h.ctx.store.events.append(
+            {
+                "account_id": str(h.ctx.account_id),
+                "type": "restock.bought",
+                "received_at": (now - timedelta(minutes=minutes_ago)).isoformat(),
+                "data": {"kind": "item", "id": 205, "qty": 2, "gold_spent": spent},
+            }
+        )
+    await h.start()
+    await h.send_ev(ev("state.patch"))
+    assert h.wires("shop.buy") == []  # o teto já foi gasto antes do reinício
+    assert h.events("restock.failed")[-1]["reason"] == "sem_ouro"
+    h.now = 31 * 60.0  # a compra de 30 min atrás sai da janela
+    await h.send_ev(ev("state.patch"))
+    assert h.wires("shop.buy")[0]["qty"] == 2
+
+
+async def test_store_failure_on_start_does_not_break_plugin():
+    h = Harness(items=[{"id": 205, "min": 25, "target": 40}])
+
+    async def boom(*_a: Any, **_k: Any) -> Any:
+        raise ConnectionError("fora do ar")
+
+    h.ctx.store.recent_events = boom  # type: ignore[method-assign]
+    await h.start()
+    await h.send_ev(ev("state.patch"))
+    assert len(h.wires("shop.buy")) == 1
