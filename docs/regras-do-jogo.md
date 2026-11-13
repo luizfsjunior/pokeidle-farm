@@ -75,9 +75,64 @@ Exceções: o pokémon inicial nasce com P2, e os Mystery Eggs têm potência fi
 
 **Mercado:** só pode ser anunciado pokémon de nível ≥ 50 e "nota" ≥ 3,5. Shiny, P5, lendário e mítico entram em qualquer nível e nota. Os Termos não explicam como a nota é calculada.
 
+## Da wiki do jogo (13/11/2026)
+
+Resumo do que importa para o worker, tirado da wiki que o jogo publica (com os números do servidor). Não é cópia:
+para o texto completo, veja a wiki dentro do jogo.
+
+### Captura
+
+- Uma tentativa por corpo: o selvagem derrubado fica 30 s no chão e, se a bola falha, o corpo some.
+- A chance depende só do **estágio evolutivo** da espécie e da bola, igual em todas as regiões:
+
+  | Bola (preço) | 1º de três | meio, ou 1º de dois | última, ou não evolui |
+  |---|---|---|---|
+  | Poke Ball ×1 (5) | 0,37% | 0,30% | 0,30% |
+  | Great Ball ×2 (20) | 0,73% | 0,59% | 0,47% |
+  | Super Ball ×3 (50) | 1,10% | 0,88% | 0,70% |
+  | Ultra Ball ×4 (130) | 1,46% | 1,17% | 0,94% |
+  | Beast Ball ×8 (só diamante) | 2,93% | 2,35% | 1,88% |
+
+  Fórmula: `0,0075 × (eficiência / fator) × (1,4 − hpAtual/hpMáx)`, com fator 2,87 · 3,57 · 4,47 pelo estágio,
+  entre 0,30% e 10%. O Capture Boost da Loja dobra. Magikarp (1º de dois) com Ultra Ball dá 1,17%, o que bate
+  com a captura real de 12/11.
+- **Lançar até Capturar** (`autoBallAteCapturar`) e **Lançar sem Parar** (`autoBallSemParar`), só VIP: uma bola
+  por corpo, 1,2 s entre arremessos, sempre a primeira bola da lista com estoque. Ligar um desliga o outro.
+  O "até capturar" **desliga na primeira captura** (de qualquer espécie) ou quando acabam as bolas. O "sem parar"
+  continua ligado sem bolas e volta sozinho quando o estoque volta.
+
+### Top Catch (ranking semanal)
+
+- Conta **espécies diferentes capturadas com bola na semana** (na hunt, pela mão ou pelas automações, e na Arena
+  Mística). Não contam evolução, ovo nem compra no Mercado. Repetir a espécie na semana não soma.
+- A semana vai de domingo a sábado e **vira no sábado às 23h59 (Brasília)**. A Pokedex não zera, então a espécie
+  conta de novo na semana seguinte.
+- Prêmio pela posição final: 1º 50 💎, 2º–10º 20 💎, 11º–100º 5 💎 (só para usar na Loja). Desempate pelo nível do
+  treinador e depois pela conta mais antiga. Quem fecha com 0 não recebe.
+- O Mapa tem o filtro **"Top Catch: não capturados na semana"**, e a Pokedex tem o painel da semana.
+
+### Mapa e hunts
+
+- Cada região pede um nível mínimo do **treinador**: Kanto 1, Outland 150, Johto 200 (hunts de 30 em 30 até 470),
+  Hoenn 500, Sinnoh 1.000, Unova 5.000, Kalos 10.000, Alola 25.000, Galar 40.000, Paldea 75.000. Área acima do
+  nível fica trancada.
+- Cada hunt mostra a "espécie principal" e o ouro/hora vem "das espécies que spawnam lá": a wiki dá a entender
+  que uma hunt pode ter mais de uma espécie, mas não diz isso com todas as letras.
+- Toda área tem o mesmo ritmo de ondas (os selvagens nascem em bandos, calibrados para o mesmo time limpar a onda
+  no mesmo tempo); o que muda o abate/hora é a força do seu time contra aquela hunt.
+- **Trocar de área**: depois de entrar, só dá para escolher outra 10 s depois; chegar até 10 s depois de trocar
+  dano encontra a área vazia até completar o tempo.
+- **Safari** (ticket que cai dos bosses e se negocia no Mercado): 60 min num mapa onde cada aparição é uma
+  espécie sorteada entre 985. Captura normal com +15% de Capture Boost.
+
+### Automação de fora do jogo
+
+- Permitida pelos Termos (existe até uma extensão de automação oficial no Discord). As regras de conduta valem
+  igual. O servidor limita rajadas de ações por segundo **por conta**.
+
 ## Implicações para o código
 
-- O `RateLimiter` é obrigatório, não opcional.
+- O `RateLimiter` é obrigatório, não opcional. O servidor também limita rajadas por conta.
 - Nunca mais de 4 contas configuradas no total, contando a conta pessoal.
 - O sniper de Mercado, se existir, respeita a retenção e o sorteio, sem tentar contornar a janela.
 - Comportamento estranho do jogo (possível bug): o worker para a estratégia e registra o evento. O caminho é reportar no Bug Bounty, não explorar.

@@ -1,7 +1,8 @@
 # Fase 3b — foco "rank semanal" (rascunho)
 
-Status: **rascunho**, 13/11/2026. Tem decisões em aberto (seção 7) e coisas a confirmar no jogo (seção 6)
-antes de implementar.
+Status: **rascunho**, 13/11/2026. As regras do Top Catch e do "Lançar até Capturar" foram confirmadas pela wiki
+do jogo ([regras-do-jogo.md](../regras-do-jogo.md#da-wiki-do-jogo-13112026)). Faltam o protocolo do
+`hunt.select`, o catálogo e as decisões da seção 7.
 
 ## 1. Objetivo
 
@@ -10,6 +11,22 @@ capturas capturando **um de cada espécie** e passando para a próxima. O worker
 mais lenta, fica em cada uma com o `autoBallAteCapturar` até capturar e passa para a próxima.
 
 ## 2. O que já sabemos
+
+**Pela wiki do jogo (confirmado):**
+
+- O Top Catch conta **espécies diferentes capturadas com bola na semana**; vira no **sábado às 23h59 de Brasília**
+  e paga 50/20/5 💎 para 1º, 2º–10º e 11º–100º. A espécie conta de novo a cada semana.
+- O **Lançar até Capturar** desliga na **primeira captura**, de qualquer espécie. Numa hunt de uma espécie isso
+  é exatamente o que queremos: capturou, troca de hunt e religa (`auto.set`). Numa hunt de várias espécies, ele
+  pararia também numa espécie que já pontuou na semana.
+- A chance de captura depende só do estágio evolutivo e da bola (tabela em regras-do-jogo.md). Com Ultra Ball,
+  a média é ~68 abates para o 1º de três, ~85 para o meio (ou 1º de dois) e ~106 para a última forma.
+- Trocar de área tem espera de 10 s, e a área nova fica vazia se você trocou dano nos 10 s anteriores.
+- O **Safari** (60 min, cada aparição sorteada entre 985 espécies) é, de longe, o jeito mais rápido de somar
+  espécies novas; o ticket se negocia no Mercado. Fica como ideia para depois (seção 7).
+
+**Pelo protocolo e pela referência:**
+
 
 - **`topCatchNova`** chega no mesmo frame do `bola` com `sucesso: true`, com `sp`, `chave`, `n`, `m`, `s` e
   `pontua`. Parece ser a entrada no ranking da semana; `pontua` sugere que nem toda captura pontua
@@ -51,6 +68,10 @@ A estratégia é uma **fila de hunts**, não uma escolha contínua:
 3. Vai para a primeira hunt da fila e fica nela com o **`autoBallAteCapturar`** ligado.
 4. Quando captura (as espécies que faltavam naquela hunt), passa para a **próxima hunt** da fila.
 
+Como toda área tem o mesmo ritmo de ondas, o que muda o abate/hora entre hunts é a força do time contra elas
+(nível da hunt abaixo do treinador, vantagem de tipo). E a chance de captura só depende do estágio: espécies
+básicas (1º de três) saem ~1,5× mais rápido que formas finais.
+
 Para ordenar, "mais rápida" é o **tempo esperado até a captura**, que junta o ritmo de abates com a chance
 de a espécie aparecer e de a bola pegar:
 
@@ -87,6 +108,9 @@ Plano B:
 - Para numa captura com `pontua: true` daquela espécie.
 - Sem prejuízo de ouro aqui não faz sentido (uma espécie nova vale muito mais que o ouro do abate), então o
   limite é um **orçamento semanal de bolas** em ouro (`weekly_ball_budget`).
+- Custo médio por espécie (bolas ÷ chance): Poke Ball 1,4 mil–1,7 mil de ouro, Great Ball 2,7 mil–4,3 mil,
+  Ultra Ball 8,9 mil–13,8 mil, conforme o estágio. A Poke Ball é a mais barata por captura, mas leva ~4× mais
+  abates (tempo). Com o ouro de hunts baixas (41 por abate em Magikarp), Ultra Ball não se paga.
 
 ### 3.4 Quem manda em quê
 
@@ -116,18 +140,16 @@ As duas passam pelo `ActionGateway` (modo, rate limiter, `action.sent`). Teto de
 
 ## 6. A confirmar no jogo (DevTools, pela conta pessoal)
 
-1. **Como funciona o ranking**: o que pontua (espécie distinta? só a primeira captura de cada?), quando vira
-   a semana (dia e hora), se tem prêmio, onde aparece a posição. Prints da tela do ranking ajudam.
+1. ~~Como funciona o ranking~~: respondido pela wiki (seção 2).
 2. **`topCatchNova`**: o que são `n`, `m`, `s` e `chave`. Comparar com a tela do ranking logo depois de uma
    captura.
 3. **`hunt.select`**: trocar de hunt na mão e anotar a mensagem enviada e o que volta (`estado.huntSlug`?
    um `campo` novo?). Tentar durante a trava de combate para ver o erro.
-4. **`autoBallAteCapturar`** (antes do `ball.throw`): ligar só ele, numa hunt com uma espécie já capturada
-   e outra nunca capturada. Ver em quais selvagens sai `bola`, se para depois da captura e se volta a jogar
-   numa espécie capturada em outra semana. Se não servir: com a bola automática desligada, jogar uma bola na
-   mão e anotar a mensagem do `ball.throw` e o `slot`.
-5. **Hunts alcançáveis**: o que limita (nível da conta, área desbloqueada, viagem)? Dá para ir direto de uma
-   hunt para outra de outra área?
+4. **`autoBallAteCapturar`**: a wiki já diz que ele desliga na primeira captura. Falta ver no DevTools como o
+   servidor avisa isso (um `estado` com a `automation` nova, com a flag em `false`?), para o plugin saber a hora
+   de trocar de hunt e religar.
+5. ~~Hunts alcançáveis~~: pelo nível do treinador por região (wiki). Falta confirmar se dá para ir direto de
+   uma hunt para outra de outra região sem passar pelo Centro.
 6. **Catálogo**: rodar no SQL Editor e me mandar o resultado (não tem token nem dado da conta):
    ```sql
    select jsonb_pretty(raw->'hunts'->0) as exemplo, jsonb_array_length(raw->'hunts') as total,
@@ -140,6 +162,9 @@ As duas passam pelo `ActionGateway` (modo, rate limiter, `action.sent`). Teto de
 - Quais contas ficam no foco `rank` (uma, todas, revezando)?
 - Orçamento semanal de bolas (`weekly_ball_budget`) e a bola do rank (`rank_ball`).
 - Foco de volta quando acabarem as espécies alcançáveis (`fallback`).
+- Bola do rank: tempo (Ultra) × ouro (Poke/Great). Pela conta acima, depende do ouro por abate da conta.
+- **Safari Ticket**: comprar no Mercado e usar uma vez por semana pode render dezenas de espécies numa hora.
+  Vale avaliar quando a fase 7 (preços do Mercado) estiver pronta.
 - Se vale capturar espécies que só aparecem em hunts acima do nível da conta subindo de nível antes
   (fica fora da 3b; seria um plano de várias semanas).
 
