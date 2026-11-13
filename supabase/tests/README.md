@@ -1,5 +1,9 @@
 # Testar as migrations localmente
 
+No projeto Supabase as migrations rodam sozinhas no push para `main` (integração GitHub, ver
+[docs/deploy.md](../../docs/deploy.md), seção 6). Teste aqui antes de enviar: uma migration que falha lá
+não é aplicada, mas trava as seguintes até ser corrigida.
+
 Num Postgres 16 descartável (nunca no projeto Supabase):
 
 ```bash

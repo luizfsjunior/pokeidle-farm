@@ -23,9 +23,12 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 | Commits aparecem como `unknown <gmail>` | git do PC de casa sem `user.name` e com o e-mail pessoal | `git config --global user.name/user.email` com o noreply do GitHub |
 | `plugin desconhecido: restock` nos testes locais | pacote instalado antes do entry point do `restock` | reinstalar (`pip install -e './worker[dev]'`); no Docker o build já reinstala |
 
+- **Migrations automáticas**: integração GitHub do Supabase ligada (deploy para produção a cada push em
+  `main`), com as migrations antigas registradas à mão no histórico ([deploy.md](deploy.md), seção 6).
+
 ### Pendente
 
-- Aplicar `20261113010000_commands.sql` no Supabase, `git pull` + `docker compose up -d --build` em casa e
+- Conferir que a integração aplicou `20261113010000_commands.sql`, `git pull` + `docker compose up -d --build` em casa e
   testar Ping, Reconectar e um `plugin.set` pelo painel.
 - Desenhar a fase 3b (rank semanal de espécies).
 
