@@ -141,9 +141,9 @@ Também aparecem `aviso`, `marketComprado` e `mktSorteio`, relacionados ao Merca
 | `hunt.select` | `slug` | trocar de hunt (só funciona fora da trava de combate) | ⬜ |
 | `centro.ir` | — | ir ao Centro Pokémon | ⬜ |
 | `ball.throw` | `ballId`, `slot` | jogar bola no selvagem abatido (janela de ~30 s; intervalo de ~1,3 s entre arremessos) | ⬜ |
-| `shop.buy` | `kind` (`item` ou `ball`), `id`, `qty` | comprar na loja do NPC. Ex.: `{"t":"shop.buy","kind":"ball","id":1,"qty":1}` e `{"t":"shop.buy","kind":"item","id":200,"qty":1}`. A resposta é um `estado` com `gold` e o mapa **inteiro** de `balls` (inclusive as zeradas) ou de `items`. Ainda não se sabe se vem também um `batalha` `k: compra` | ✅ (DevTools, 12/11/2026) |
+| `shop.buy` | `kind` (`item` ou `ball`), `id`, `qty` | comprar na loja do NPC. Ex.: `{"t":"shop.buy","kind":"ball","id":1,"qty":1}` e `{"t":"shop.buy","kind":"item","id":200,"qty":1}`. A resposta é um `estado` com `gold` e o mapa **inteiro** de `balls` (inclusive as zeradas) ou de `items`. Ainda não se sabe se vem também um `batalha` `k: compra`. ✅ Enviado pelo worker em 13/11/2026 (1.000 Great Balls): o `estado` com o estoque novo chegou em menos de 1 s | ✅ (DevTools e worker) |
 | `shop.sellAllPokemons` | — | vender todos os pokémons do Depot | ⬜ |
-| `auto.set` | o objeto `estado.automation` inteiro, com os campos alterados | configurar a automação nativa do jogo. **Sempre parta do objeto atual**, nunca monte do zero. ✅ Os campos vão **achatados no topo** da mensagem, não dentro de `automation`: `{"t":"auto.set","autoBallSemParar":false,"ballIds":[1,2,3,4],"autoPotion":true,"potionIds":[...],"hpLimiar":0.6,...}`, com **todos** os campos da `automation` (o navegador manda tudo mesmo mudando um só) | ✅ (DevTools, 12/11/2026) |
+| `auto.set` | o objeto `estado.automation` inteiro, com os campos alterados | configurar a automação nativa do jogo. **Sempre parta do objeto atual**, nunca monte do zero. ✅ Os campos vão **achatados no topo** da mensagem, não dentro de `automation`: `{"t":"auto.set","autoBallSemParar":false,"ballIds":[1,2,3,4],"autoPotion":true,"potionIds":[...],"hpLimiar":0.6,...}`, com **todos** os campos da `automation` (o navegador manda tudo mesmo mudando um só). ✅ Enviado pelo worker em 13/11/2026: o servidor responde com um `estado` trazendo a `automation` nova | ✅ (DevTools e worker) |
 | `market.itens` | `elemento`, `categoria`, `elementos?` | listar itens do Mercado | ⬜ |
 | `market.medias` | — | médias de preço | ⬜ |
 | `market.item` | `itemId`, `moeda` | detalhe de um item | ⬜ |
@@ -190,7 +190,7 @@ Sessão de 12/11/2026, conta nível 2, ~10 min no Centro de Cerulean e depois na
 { "k": "fugiu", "nome": "Magikarp", "level": 1, "shiny": false }
 ```
 
-- No modo "sem parar" sai **uma bola por abate**, e cada bola que falha vem seguida de um `fugiu`.
+- No modo "sem parar" sai **cerca de uma bola por abate** (medido: 1,0 com Poké e 1,2 com Great), e cada bola que falha vem seguida de um `fugiu`. Quando as bolas voltam depois de acabar, o jogo joga uma rajada nos selvagens abatidos que ainda estão na janela de captura.
 - A `chance` de 0,003 é o `piso` da tabela `captura` do `welcome` (Poké Ball em Magikarp), ou seja, uma captura a cada ~330 bolas.
 - O estoque de bolas chega em `estado.balls` (`{"1": 56}`) a cada arremesso.
 - ✅ **Captura com sucesso** (Ultra Ball, `ballId: 4`, chance de 0,012 em Magikarp): no mesmo frame vem o `bola` com `sucesso: true` e o `topCatchNova`, e uns 250 ms depois chega o `capturado` com o pokémon completo:

@@ -37,7 +37,10 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 - **Fase 3a implementada** ([design/fase-3-reposicao.md](design/fase-3-reposicao.md)): plugin `restock`
   (escolha da melhor bola que se paga pelo ouro líquido, foco ouro-xp-drop, reposição de bolas, poções e
   revives), `item.consumed` e preço da bola nos eventos, métricas `consumables_gold`, `gold_net` e
-  `gold_net_per_hour`. Ainda não ligada contra o jogo.
+  `gold_net_per_hour`.
+- **Fase 3a ligada** (migration aplicada, `restock` na conta, `ACTION_MODE=enabled`): as primeiras ações reais
+  do worker, um `auto.set` (Great Ball primeiro) e um `shop.buy` de 1.000 Great Balls, deram certo e foram
+  confirmadas pelo `estado`. Antes, em `observe_only`, as decisões foram conferidas com os números reais.
 
 ### Problemas e soluções
 
@@ -53,15 +56,14 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 | Card mostra "Rejeitada" | status que ficou da tentativa no droplet; o simulador não mexe em status | normal; o worker atualiza quando rodar em casa (confirmado: virou `ready`) |
 | `dockerDesktopLinuxEngine: The system cannot find the file specified` | Docker Desktop fechado | abrir o Docker Desktop e esperar o engine subir |
 | Worker caiu em `NEEDS_LOGIN (close 4001)` | conta aberta no navegador para trocar de hunt | esperado (sessão única). Fechar a aba sem "Sair" e `docker compose up -d`; o token continua valendo |
+| Worker sai com `ValueError: 'enable' is not a valid ActionMode` | `ACTION_MODE=enable` no `.env` | o valor é `enabled` (com "d") |
 | `pkMud` não aparece em `state.patch.pokemon_changed` | o patch real é aninhado (`estado.pkMud`); o tradutor procura no topo | corrigido no tradutor v2 |
 
 ### Pendente
 
 - Apagar o droplet da DigitalOcean e os *Actions secrets* que sobraram.
 - Esperar a resposta do suporte sobre VPS/proxy (ADR 0011).
-- **Fase 3a**: aplicar a migration `20261113000000_ouro_liquido.sql`, ligar o `restock` na conta e
-  testar contra o jogo (primeiro em `observe_only`, depois `enabled`). Confirmar os ids 203, 204 e 206 e se
-  o servidor devolve a `automation` depois do `auto.set`.
+- Fase 3a: confirmar os ids 203, 204 e 206; considerar bolas por abate na regra da bola (medido ~1,2).
 - Fase 3b (rank semanal de espécies): desenhar.
 - Ver uma captura real (para o `pokemon.captured`): a bola automática "sem parar" (exige VIP) já está
   ligada, mas as 100 Poké Balls acabaram sem captura (chance de 0,3% em Magikarp). Resolvido: com Ultra Balls veio a primeira captura, e o `capturado` virou

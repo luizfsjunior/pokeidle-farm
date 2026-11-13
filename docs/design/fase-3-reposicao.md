@@ -1,6 +1,8 @@
 # Fase 3a: reposição automática de consumíveis
 
-Status: **implementado** (12/11/2026), ainda **não ligado contra o jogo**. `shop.buy` e `auto.set` foram
+Status: **implementado e ligado** na conta `luizfsjunior_1` em 13/11/2026 (`ACTION_MODE=enabled`). Primeira
+rodada: escolheu a Great Ball em Magikarp, fez o `auto.set` e comprou 1.000 Great Balls; os dois confirmados
+pelo `estado`. `shop.buy` e `auto.set` foram
 confirmados no DevTools (ver [protocolo.md](../protocolo.md)) e os preços vieram dos prints da loja
 (`worker/src/pokeidle_farm/catalog.py`). Testes: `worker/tests/test_restock.py`, os `test_*` da fase 3a em
 `worker/tests/test_protocol.py` e `supabase/tests/ouro_liquido_test.sql`.
@@ -152,8 +154,10 @@ Com o worker parado (`docker compose stop`):
 - **Foco captura** liga o `autoBallSemParar` (e desliga o `autoBallAteCapturar`) e põe a bola escolhida no
   começo da `ballIds`, mantendo as outras na ordem. Se **nenhuma bola se paga**, desliga a bola.
 - O `auto.set` não é repetido por `retry_after_s` (60 s) enquanto o servidor não devolve a `automation` nova.
-  **A confirmar:** se o servidor manda a `automation` no `estado` depois do `auto.set`. Se não mandar, o worker
-  reenvia o mesmo `auto.set` a cada minuto (inofensivo, mas é ruído).
+  Confirmado em 13/11/2026: o servidor devolve a `automation` no `estado`, então o `auto.set` sai uma vez só.
+- **Limitação conhecida:** a regra supõe uma bola por abate, mas o medido foi ~1,2 com a Great. Com o preço
+  muito perto do ouro líquido por abate, a bola escolhida pode dar um prejuízo pequeno. Melhoria possível:
+  comparar `preço × bolas por abate` (medido na janela) com o líquido.
 - A confirmação da compra é o estoque subir no `estado`. Sem isso em `confirm_timeout_s`, `restock.failed`
   com `reason: timeout`, e a regra espera `retry_after_s`.
 - Uma falha (`sem_ouro`, `observe_only`, `timeout`) é registrada uma vez e a regra espera `retry_after_s`
