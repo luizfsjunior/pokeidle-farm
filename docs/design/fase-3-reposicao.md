@@ -1,6 +1,7 @@
 # Fase 3a: reposição automática de consumíveis
 
-Status: **rascunho**. Faltam a captura do `shop.buy` no DevTools (seção 5) e as decisões da seção 6.
+Status: **rascunho**. Decisões tomadas (seção 6). Falta a captura do `shop.buy` e do `auto.set` no DevTools
+(seção 5); depois vêm os casos de teste e só então a implementação.
 Depois disso vêm os casos de teste e só então a implementação.
 
 ## Objetivo
@@ -95,7 +96,8 @@ então o efeito real é só esse plugin.
 Com o worker parado (`docker compose stop`):
 
 1. Abrir pokeidle.io/app → F12 → **Network** → filtro **WS** → clicar na conexão → aba **Messages**.
-2. Comprar na loja do NPC **1 Poké Ball** e depois **1 Potion**.
+2. Comprar na loja do NPC **1 Poké Ball** e depois **1 Potion**. Depois, mudar **uma opção qualquer da
+   automação** (para pegar o `auto.set`) e voltar ela como estava.
 3. Anotar as mensagens **enviadas** (seta para cima) e as **recebidas** logo depois (seta para baixo).
    Não precisa do `hello`, que tem o token.
 4. Na loja, anotar o preço de cada poção e revive e o id, se aparecer.
@@ -121,12 +123,26 @@ Com o worker parado (`docker compose stop`):
   que tem estoque. O worker reescreve essa lista com a bola escolhida, partindo sempre do objeto
   `automation` atual. É a segunda ação nova desta entrega, e a mais delicada.
 
-### Ainda em aberto
+- **D1b. A regra usa o ouro líquido.** Como a própria bola é um consumível, a comparação é
+  `preço da bola ≤ ouro bruto por abate − poções e revives por abate`. É a condição de o líquido, já contando
+  a bola, ficar ≥ 0 ("não perder ouro" ao pé da letra).
+- **D1c. No foco ouro-xp-drop o worker desliga a bola:** `autoBallSemParar` e `autoBallAteCapturar` em `false`,
+  via `auto.set`.
+- **D1d. Média em janela móvel:** os **últimos 200 abates da hunt atual** (~10 min em Magikarp), zerada quando a
+  hunt muda. Diferente da "média até reset" do jogo, ela acompanha mudanças de rendimento (VIP, boost) em minutos.
+  Fica **só na memória** do plugin, calculada dos `kill` e `capture_attempt` que já passam por ele; nada novo é
+  gravado. Com **menos de 50 abates** na janela (hunt nova ou worker reiniciado), o worker **não mexe na bola**.
 
-- **D1b.** A regra da bola usa o ouro **bruto** ou o **líquido**?
-- **D1c.** No foco ouro-xp-drop, o worker também desliga o `autoBallSemParar` via `auto.set`, ou isso fica com você?
-- **D1d.** Quantos abates entram na média de ouro (ex.: os últimos 200 da hunt atual)? E qual bola usar antes
-  de ter média, logo depois de trocar de hunt?
+### Métricas de ouro no painel
+
+O ouro bruto já existe (`gold` em `metric_hourly`). Para o líquido, o custo dos consumíveis precisa virar dado:
+
+- O tradutor já conhece os preços das bolas (`catalogoBolas` do `welcome`) e passa a gravar `ball_price` no
+  `capture_attempt`.
+- Poções e revives: um evento `item.consumed` (`item_id`, `qty`, `unit_price`) quando o estoque de
+  `estado.items` cai sem ter sido compra. Os preços vêm da captura do DevTools (seção 5).
+- Novas métricas: `consumables_gold` (soma dos custos) e `gold_net` (`gold − consumables_gold`), por hora e
+  por hunt, como as outras.
 
 - **D1 (contexto da decisão acima). Bola:** repor qual? A Ultra Ball (130, 1,2% em Magikarp) captura 4× mais que a Poké Ball (5, 0,3%),
   mas custa 26× mais. Em Magikarp, cada captura sai por ~10.800 de ouro com Ultra e ~1.700 com Poké.
