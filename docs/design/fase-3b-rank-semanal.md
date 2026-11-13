@@ -55,6 +55,14 @@ alcançável, cai para o foco `fallback` (ex.: captura ou ouro-xp-drop).
 
 ### 3.3 Bolas
 
+**Primeiro candidato: o `autoBallAteCapturar` do próprio jogo.** Pelo nome, joga bola numa espécie até
+capturá-la e depois para de jogar nela. Se for isso, resolve a 3b sem `ball.throw`: o jogo faz a escolha no
+servidor, com menos ações nossas. Falta saber (seção 6, item 4) se "já capturada" é pela semana ou pela dex
+de sempre, se ele joga em todo selvagem até a primeira captura da hunt, e se continua depois de trocar de hunt.
+Se não servir, o plano B é o `ball.throw` manual abaixo.
+
+Plano B:
+
 - **Bola automática desligada** (`auto.set` com `autoBallSemParar` e `autoBallAteCapturar` em `false`).
 - O plugin escuta `kill` e, se a espécie falta e o slot ainda está na janela, manda `ball.throw` com a
   melhor bola em estoque. Depois de cada `fugiu`, joga de novo se ainda houver janela.
@@ -96,8 +104,10 @@ As duas passam pelo `ActionGateway` (modo, rate limiter, `action.sent`). Teto de
    captura.
 3. **`hunt.select`**: trocar de hunt na mão e anotar a mensagem enviada e o que volta (`estado.huntSlug`?
    um `campo` novo?). Tentar durante a trava de combate para ver o erro.
-4. **`ball.throw`**: com a bola automática desligada, jogar uma bola na mão e anotar a mensagem e o `slot`.
-   Ver se funciona sem VIP.
+4. **`autoBallAteCapturar`** (antes do `ball.throw`): ligar só ele, numa hunt com uma espécie já capturada
+   e outra nunca capturada. Ver em quais selvagens sai `bola`, se para depois da captura e se volta a jogar
+   numa espécie capturada em outra semana. Se não servir: com a bola automática desligada, jogar uma bola na
+   mão e anotar a mensagem do `ball.throw` e o `slot`.
 5. **Hunts alcançáveis**: o que limita (nível da conta, área desbloqueada, viagem)? Dá para ir direto de uma
    hunt para outra de outra área?
 6. **Catálogo**: rodar no SQL Editor e me mandar o resultado (não tem token nem dado da conta):
