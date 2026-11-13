@@ -6,8 +6,8 @@ antes de implementar.
 ## 1. Objetivo
 
 Um terceiro foco por conta, além de **captura** e **ouro-xp-drop** (fase 3a): subir no ranking semanal de
-capturas capturando **um de cada espécie** e passando para a próxima. O worker escolhe a hunt, joga bola só
-nos selvagens que ainda contam para a semana e troca de hunt quando a atual não tem mais o que render.
+capturas capturando **um de cada espécie** e passando para a próxima. O worker monta uma fila de hunts, da mais rápida para a
+mais lenta, fica em cada uma com o `autoBallAteCapturar` até capturar e passa para a próxima.
 
 ## 2. O que já sabemos
 
@@ -35,23 +35,35 @@ nos selvagens que ainda contam para a semana e troca de hunt quando a atual não
   `restock` faz). Se o jogo mandar a lista da semana no `welcome`, usa ela e dispensa o histórico.
 - **Faltam**: espécies que aparecem em hunts alcançáveis e ainda não pontuaram.
 
-### 3.2 Escolha da hunt
+### 3.2 Roteiro de hunts (decidido em 13/11)
 
-Para cada hunt alcançável (nível e área liberados para a conta, seção 6), estima as **espécies novas por hora**:
+A estratégia é uma **fila de hunts**, não uma escolha contínua:
+
+1. No começo da semana (ou quando o plugin sobe), monta a lista de **todas as espécies disponíveis** nas
+   hunts alcançáveis que ainda não pontuaram na semana.
+2. Ordena as hunts pela **mais rápida de render a captura** e monta a fila.
+3. Vai para a primeira hunt da fila e fica nela com o **`autoBallAteCapturar`** ligado.
+4. Quando captura (as espécies que faltavam naquela hunt), passa para a **próxima hunt** da fila.
+
+Para ordenar, "mais rápida" é o **tempo esperado até a captura**, que junta o ritmo de abates com a chance
+de a espécie aparecer e de a bola pegar:
 
 ```
-novas/h(H) = Σ sobre espécies s que faltam em H:  abates/h × P(spawn de s em H) × P(captura de s com a bola)
+horas até capturar(s, H) ≈ 1 / (abates/h em H × P(spawn de s em H) × P(captura de s com a bola))
 ```
 
-- `abates/h`: medido na própria hunt quando há dados; senão, a média da conta em hunts de nível parecido.
-- `P(spawn)`: pelo peso da espécie em `especies[]` (ou uniforme, se não houver peso).
-- `P(captura)`: pela tabela `captura` e o `catchRate` da bola.
-- Na prática é uma soma que encolhe: cada espécie capturada sai da conta. Hunt com 3 espécies faltando rende
-  mais que uma com 1, mesmo que mais lenta.
+- `abates/h`: medido quando a conta já passou pela hunt; senão, estimado pelo nível da hunt e da conta
+  (e corrigido à medida que o worker mede).
+- Numa hunt com uma espécie só, isso é basicamente o ritmo de abates dividido pela chance de captura. Numa
+  hunt com várias espécies que faltam, conta o tempo até pegar todas, e uma hunt pode resolver várias de uma vez.
+- Se uma espécie aparece em mais de uma hunt, ela entra só na hunt em que sai mais rápido.
 
-Fica na hunt enquanto ela rende pelo menos `switch_ratio` (ex.: 70%) da melhor alternativa, com permanência
-mínima de `min_dwell_min` (ex.: 15 min) para não ficar pulando. Quando não sobra espécie nova em lugar nenhum
-alcançável, cai para o foco `fallback` (ex.: captura ou ouro-xp-drop).
+**Proteções:**
+- **Tempo máximo por hunt**: se passar de `max_hunt_factor` × o tempo esperado (ex.: 3×), pula para a
+  próxima e deixa a espécie para o fim da fila.
+- Recalcula a fila quando a conta sobe de nível (hunts novas ficam alcançáveis) ou quando uma captura
+  acontece fora da ordem.
+- Quando a fila acaba, cai para o foco `fallback` (ex.: captura ou ouro-xp-drop) até a semana virar.
 
 ### 3.3 Bolas
 
