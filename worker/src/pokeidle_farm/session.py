@@ -207,6 +207,7 @@ class AccountSession:
             if isinstance(msg, Welcome):
                 self._apply_state(msg)
                 for ev in self._translator.translate(msg, raw):
+                    self.state_view.apply(ev)
                     await self.bus.publish(ev)
                 return
             # frames antes do welcome são ignorados (comportamento da referência)
@@ -254,6 +255,8 @@ class AccountSession:
                 await self.bus.publish(self._translator.system("game.error", {"key": msg.chave}))
                 continue
             events = self._translator.translate(msg, raw)
+            for ev in events:
+                self.state_view.apply(ev)
             # o tradutor sabe a hunt atual (hunt, patch, campo.init); os plugins leem daqui
             self.state_view.hunt_slug = self._translator.hunt_slug
             for ev in events:
@@ -318,6 +321,7 @@ class AccountSession:
         self.state_view.level = st.level
         self.state_view.hunt_slug = st.hunt_slug
         self.state_view.items = dict(st.items)
+        self.state_view.balls = None  # o snapshot traz o mapa inteiro de novo
 
     def _make_ctx(self, cls: Any, cfg: Any) -> PluginContext:
         return PluginContext(

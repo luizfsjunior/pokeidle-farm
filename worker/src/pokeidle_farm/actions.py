@@ -4,7 +4,7 @@ Toda ação é descrita por um `ActionSpec` com schema Pydantic de entrada e de
 resultado. Isso deixa as ações prontas para serem expostas como *tools* de um
 agente no futuro (ver docs/roadmap.md, "Ideias futuras").
 
-Na fase 2 o gateway roda em `observe_only`: toda ação é recusada.
+Com `ACTION_MODE=observe_only` (o padrão) toda ação é recusada e registrada.
 """
 
 from __future__ import annotations
@@ -14,9 +14,9 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +46,39 @@ class ActionSpec(BaseModel):
     def to_wire(self) -> dict[str, Any]:
         """Mensagem do protocolo correspondente. Implementado por cada ação."""
         raise NotImplementedError
+
+
+class Ack(BaseModel):
+    """Resultado genérico: o jogo confirma pelo `estado`, não por uma resposta própria."""
+
+    ok: bool = True
+
+
+class ShopBuy(ActionSpec):
+    name: ClassVar[str] = "shop.buy"
+    description: ClassVar[str] = "Compra bolas ou itens na loja do NPC com ouro"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 10.0
+
+    kind: Literal["ball", "item"]
+    id: int
+    qty: int = Field(ge=1)
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "shop.buy", "kind": self.kind, "id": self.id, "qty": self.qty}
+
+
+class AutoSet(ActionSpec):
+    name: ClassVar[str] = "auto.set"
+    description: ClassVar[str] = "Configura a automação nativa (sempre o objeto inteiro)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 30.0
+
+    automation: dict[str, Any]
+
+    def to_wire(self) -> dict[str, Any]:
+        # o jogo espera os campos achatados no topo, não dentro de "automation"
+        return {"t": "auto.set", **self.automation}
 
 
 class RateLimiter:
@@ -102,6 +135,10 @@ class ActionGateway:
         self.limiter.mark(key)
         await self.send(action.to_wire())
         await self._record("action.sent", info)
+
+    async def note(self, type_: str, data: dict[str, Any]) -> None:
+        """Registra um evento de um plugin (ex.: restock.bought) no barramento."""
+        await self._record(type_, data)
 
     async def _record(self, type_: str, data: dict[str, Any]) -> None:
         log.info("%s %s", type_, data.get("action"))

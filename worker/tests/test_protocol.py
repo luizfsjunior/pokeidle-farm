@@ -342,3 +342,44 @@ def test_v2_capture_without_ivs():
     frame = {**CAPTURED, "pokemon": {k: v for k, v in CAPTURED["pokemon"].items() if k != "ivs"}}
     ev = _one(_tr_in_hunt(), battle_frame(frame))
     assert ev.data["ivs"] == {} and ev.data["iv_sum"] == 0
+
+
+# --- fase 3a: preço das bolas e consumo de itens ------------------------------
+
+
+def test_capture_attempt_carries_ball_price():
+    tr = _tr_in_hunt()
+    ev = _one(tr, battle_frame({"k": "bola", "ballId": 4, "sucesso": False, "chance": 0.012}))
+    assert ev.data["ball_price"] == 130
+    ev = _one(tr, battle_frame({"k": "bola", "ballId": 99, "sucesso": False}))
+    assert ev.data["ball_price"] is None
+
+
+def test_snapshot_and_patch_carry_items_gold_automation():
+    tr = Translator(uuid4(), uuid4())
+    (snap,) = tr.translate(
+        *codec.decode(welcome(gold=1000, items={"200": 100}, automation={"ballIds": [1]}))
+    )
+    assert snap.data["gold"] == 1000
+    ev = _one(tr, {"t": "estado", "estado": {"automation": {"ballIds": [2]}}})
+    assert ev.data["automation"] == {"ballIds": [2]}
+
+
+def test_item_consumed_when_stock_drops():
+    tr = Translator(uuid4(), uuid4())
+    tr.translate(*codec.decode(welcome(huntSlug="caverna", items={"200": 100, "205": 20, "2": 8})))
+    evs = tr.translate(
+        *codec.decode(json.dumps({"t": "estado", "estado": {"items": {"200": 97, "205": 20}}}))
+    )
+    assert [e.type for e in evs] == ["state.patch", "item.consumed"]
+    assert evs[1].data == {"item_id": 200, "qty": 3, "unit_price": 50, "hunt_slug": "caverna"}
+    # compra (estoque subindo) não é consumo; item fora da loja (id 2) também não
+    evs = tr.translate(
+        *codec.decode(json.dumps({"t": "estado", "estado": {"items": {"200": 150, "2": 1}}}))
+    )
+    assert [e.type for e in evs] == ["state.patch"]
+    # a próxima queda conta a partir do estoque novo
+    evs = tr.translate(
+        *codec.decode(json.dumps({"t": "estado", "estado": {"items": {"200": 149}}}))
+    )
+    assert evs[1].data["qty"] == 1

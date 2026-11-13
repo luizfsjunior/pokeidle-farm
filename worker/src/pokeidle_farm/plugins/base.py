@@ -29,11 +29,30 @@ class EmptyConfig(BaseModel):
 
 @dataclass
 class AccountStateView:
-    """Último estado conhecido da conta (somente leitura para plugins)."""
+    """Último estado conhecido da conta (somente leitura para plugins).
+
+    A sessão chama `apply` com cada evento antes de publicá-lo, então um plugin
+    que recebe um `state.patch` já enxerga o estado atualizado.
+    """
 
     level: int | None = None
     hunt_slug: str | None = None
     items: dict[str, int] | None = None
+    balls: dict[str, int] | None = None
+    gold: int | None = None
+    automation: dict[str, Any] | None = None
+
+    def apply(self, event: Event) -> None:
+        if event.type not in ("state.snapshot", "state.patch"):
+            return
+        d = event.data
+        for name in ("level", "hunt_slug", "gold", "automation"):
+            if d.get(name) is not None:
+                setattr(self, name, d[name])
+        # bolas e itens: merge, porque um patch pode trazer só parte do mapa
+        for name in ("items", "balls"):
+            if isinstance(d.get(name), dict):
+                setattr(self, name, {**(getattr(self, name) or {}), **d[name]})
 
 
 @dataclass

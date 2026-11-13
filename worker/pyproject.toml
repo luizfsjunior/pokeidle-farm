@@ -25,6 +25,7 @@ pokeidle-farm = "pokeidle_farm.main:cli"
 # Plugins são descobertos por entry points: plugin novo = módulo + uma linha aqui.
 [project.entry-points."pokeidle_farm.plugins"]
 telemetry = "pokeidle_farm.plugins.telemetry:TelemetryPlugin"
+restock = "pokeidle_farm.plugins.restock:RestockPlugin"
 
 [build-system]
 requires = ["hatchling"]

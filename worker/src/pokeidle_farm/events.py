@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .catalog import ITEM_PRICES, ball_price
 from .protocol.messages import (
     Battle,
     FieldInit,
@@ -69,6 +70,7 @@ class KillData(_Data):
 
 class CaptureAttemptData(_Data):
     ball_id: Any = None
+    ball_price: int | None = None  # custo da bola, para o ouro líquido
     success: bool | None = None
     shiny: bool | None = None
     chance: float | None = None
@@ -120,6 +122,15 @@ class FieldInitData(_Data):
     is_center: bool = False
 
 
+class ItemConsumedData(_Data):
+    """Poção ou revive gasto: o estoque de `estado.items` caiu (compra só faz subir)."""
+
+    item_id: int
+    qty: int
+    unit_price: int
+    hunt_slug: str | None = None
+
+
 class GlobalShinyData(_Data):
     """Anúncio global de shiny capturado por qualquer jogador. Não é captura nossa."""
 
@@ -139,10 +150,11 @@ class StateSnapshotData(_Data):
     items: dict[str, int] = Field(default_factory=dict)
     active_pokemon_id: Any = None
     balls: dict[str, int] = Field(default_factory=dict)
+    gold: int | None = None
     automation: dict[str, Any] | None = None
 
 
-# Escalares do patch `estado` que vão para `data` (o patch inteiro fica no `raw`).
+# Campos do patch `estado` que vão para `data` (o patch inteiro fica no `raw`).
 PATCH_FIELDS = {
     "xp": "xp",
     "gold": "gold",
@@ -150,6 +162,8 @@ PATCH_FIELDS = {
     "balls": "balls",
     "huntSlug": "hunt_slug",
     "centroLivreEm": "centro_livre_em",
+    "items": "items",
+    "automation": "automation",
 }
 
 # Mensagens de alto volume: viram evento no barramento, mas não são gravadas.
@@ -174,6 +188,8 @@ class Translator:
         self.server_offset: timedelta | None = None  # servidor − local
         # Hunt atual, para carimbar abates e capturas (as métricas agregam por hunt).
         self.hunt_slug: str | None = None
+        # Último estoque de itens conhecido, para detectar consumo de poções e revives.
+        self.items: dict[str, int] = {}
 
     def _ev(self, type_: str, data: BaseModel | dict[str, Any], raw: dict[str, Any]) -> Event:
         now = utcnow()
@@ -200,6 +216,7 @@ class Translator:
                 server_now = datetime.fromtimestamp(st.servidor_agora / 1000, UTC)
                 self.server_offset = server_now - utcnow()
             self.hunt_slug = st.hunt_slug
+            self.items = dict(st.items)
             estado = raw.get("estado") or {}
             return [
                 self._ev(
@@ -210,6 +227,7 @@ class Translator:
                         items=st.items,
                         active_pokemon_id=st.active_id,
                         balls=estado.get("balls") or {},
+                        gold=estado.get("gold"),
                         automation=st.automation,
                     ),
                     # só o estado da conta; as tabelas do jogo (hunts, mercado...) não são gravadas
@@ -217,7 +235,8 @@ class Translator:
                 )
             ]
         if isinstance(msg, StatePatch):
-            return [self._ev("state.patch", self._patch_data(raw), raw)]
+            data = self._patch_data(raw)
+            return [self._ev("state.patch", data, raw), *self._consumed(data.get("items"))]
         if isinstance(msg, Battle):
             return [self._battle(ev.model_dump(by_alias=True)) for ev in msg.ev]
         if isinstance(msg, FieldInit):
@@ -255,6 +274,21 @@ class Translator:
         data["pokemon_removed"] = list(src.get("pkFora") or [])
         return data
 
+    def _consumed(self, items: Any) -> list[Event]:
+        if not isinstance(items, dict):
+            return []
+        out = []
+        for key, new in items.items():
+            old = self.items.get(key)
+            price = ITEM_PRICES.get(int(key)) if str(key).isdigit() else None
+            if price and isinstance(old, int) and isinstance(new, int) and new < old:
+                data = ItemConsumedData(
+                    item_id=int(key), qty=old - new, unit_price=price, hunt_slug=self.hunt_slug
+                )
+                out.append(self._ev("item.consumed", data, {}))
+        self.items.update(items)
+        return out
+
     def _battle(self, ev: dict[str, Any]) -> Event:
         k = ev.get("k")
         if k == "morte":
@@ -275,6 +309,7 @@ class Translator:
         if k == "bola":
             data = CaptureAttemptData(
                 ball_id=ev.get("ballId"),
+                ball_price=ball_price(ev.get("ballId")),
                 success=ev.get("sucesso"),
                 shiny=ev.get("shiny"),
                 chance=ev.get("chance"),
