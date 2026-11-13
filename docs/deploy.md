@@ -10,6 +10,7 @@ Guia para subir tudo sem precisar abrir o jogo no computador. Dá para fazer só
 
 1. Crie um projeto em https://supabase.com (plano grátis). Região: **South America (São Paulo)**.
 2. **SQL Editor** → cole e rode, **nesta ordem**, cada arquivo de [`supabase/migrations/`](../supabase/migrations/): `20261112000000_init.sql`, depois `20261112010000_metrics.sql` (métricas e objetivos; liga o pg_cron sozinha) e depois `20261113000000_ouro_liquido.sql` (gasto com consumíveis e ouro líquido) e por último `20261113010000_commands.sql` (comandos do painel). Cada arquivo roda **uma vez só**: num projeto que já existe, aplique só os que faltam.
+   Com a integração do GitHub ligada (seção 6), as migrations novas rodam sozinhas no push para `main`: não cole mais nenhuma à mão.
 3. **Authentication → Users → Add user**: crie o seu usuário. Ele é o dono das contas, e é com ele que você vai entrar no painel depois. Copie o **User UID**.
 4. No **SQL Editor**, cadastre a conta de farm:
    ```sql
@@ -106,4 +107,42 @@ Para parar: `docker compose down`. Para atualizar o código: `git pull && docker
 3. **Deploy**. Entre com o e-mail e a senha do usuário do passo 1.3.
 
 Detalhes e como rodar no Codespaces: [web/README.md](../web/README.md).
+
+## 6. Migrations automáticas (integração GitHub do Supabase)
+
+Com isso, todo push para `main` que traz um arquivo novo em `supabase/migrations/` aplica esse arquivo no banco.
+
+1. **Registre as migrations que já foram aplicadas à mão.** A integração compara os arquivos com a tabela
+   `supabase_migrations.schema_migrations` e roda todo arquivo sem registro. Como as primeiras foram coladas no
+   SQL Editor, essa tabela não existe: sem este passo, ela tentaria rodar tudo de novo e falharia em
+   `relation "accounts" already exists`. No **SQL Editor**, uma vez só:
+   ```sql
+   create schema if not exists supabase_migrations;
+   create table if not exists supabase_migrations.schema_migrations (
+     version text primary key, statements text[], name text
+   );
+   insert into supabase_migrations.schema_migrations (version, name) values
+     ('20261112000000', 'init'),
+     ('20261112010000', 'metrics'),
+     ('20261113000000', 'ouro_liquido')
+   on conflict (version) do nothing;
+   -- a de comandos só entra no registro se já tiver sido aplicada à mão
+   insert into supabase_migrations.schema_migrations (version, name)
+   select '20261113010000', 'commands' where to_regclass('public.commands') is not null
+   on conflict (version) do nothing;
+   select version, name from supabase_migrations.schema_migrations order by version;
+   ```
+2. **Project Settings → Integrations → GitHub Integration**: repositório `luizfsjunior/pokeidle-farm`,
+   **Working directory** `.` (a pasta `supabase/` fica na raiz), ligue **Deploy to production** com o branch
+   de produção `main`. Deixe **Automatic branching** desligado (branches de preview são pagos e não precisamos).
+3. Teste com um push qualquer em `main`. O resultado aparece no próprio commit no GitHub (check do Supabase) e
+   no Supabase em **Branches**/**Integrations**.
+
+Regras daqui em diante:
+- Migration nova é sempre um arquivo novo com timestamp **maior** que o último (`AAAAMMDDHHMMSS_nome.sql`).
+  Nunca edite uma migration que já foi aplicada; corrija com outra.
+- Não cole migrations no SQL Editor: o registro fica sem a entrada e o próximo deploy tenta rodar de novo.
+- Cada migration roda numa transação: se falhar, nada dela fica no banco. Teste antes no Postgres local
+  ([supabase/tests/README.md](../supabase/tests/README.md)).
+- Arquivo apagado do repo com registro no banco faz o deploy falhar.
 
