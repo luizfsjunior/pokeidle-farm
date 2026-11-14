@@ -228,12 +228,13 @@ Gravado no navegador, pela conta pessoal (gravador na página que ignora o `hell
   - `sp`: id da espécie; `chave`: o mesmo id em texto.
   - `n`: espécies diferentes da semana, já contando esta (bateu com as 12 da tela).
   - `m`: **minutos desde o início da semana** (domingo 00:00 de Brasília) em que o `n` foi alcançado.
-    9502 min = sábado 14/11 às 14:22 de Brasília, a hora exata da captura. Deve ser o desempate do ranking.
+    9502 min = sábado 14/11 às 14:22 de Brasília, a hora exata da captura. Para que serve não se sabe: pela
+    wiki, o desempate do ranking é pelo nível do treinador e depois pela conta mais antiga.
   - `pontua`: a espécie era nova na semana e contou ponto.
   - A posição no ranking não vem na mensagem.
 - **`estado.topCatch`** (`s`, `n`, `m`, `ini`): resumo da semana. O `m` aqui veio 12, não 9502; significado
-  ainda não conferido, assim como o `ini`. Falta ver se o `welcome` traz o `topCatch` e a lista das espécies
-  da semana.
+  ainda não conferido, assim como o `ini`. O `welcome` traz o `topCatch` no mesmo formato
+  (`{"m":0,"n":0,"s":"2026-11-08","ini":false}` em 12/11), **sem a lista** das espécies da semana.
 - Chance da Ultra Ball (`ballId: 4`): 0,015 em Machop e em Caterpie (contra 0,012 em Magikarp).
 
 ### Mensagens que o mapeamento não tinha
