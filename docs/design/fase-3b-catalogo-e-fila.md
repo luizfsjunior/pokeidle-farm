@@ -1,7 +1,6 @@
 # Fase 3b: catálogo de hunts, Pokedex e fila por tempo até a captura
 
-Status: **rascunho v2** (14/11/2026). As decisões D1 a D4 da v1 foram respondidas; faltam aprovar os casos de
-teste e as decisões novas (seção "Decisões").
+Status: **aprovado** (14/11/2026), decisões D1 a D6 tomadas.
 
 É o passo 3 da [ordem de implementação da 3b](fase-3b-rank-semanal.md#8-ordem-de-implementação). Entrega as
 peças que o plugin `rank` (passo 4) vai usar. A única mensagem nova para o jogo é um pedido de leitura
@@ -59,9 +58,13 @@ A sessão guarda o catálogo do último `welcome` e o expõe aos plugins (`ctx.c
   `last`; senão → `middle`. Fator: `by_step[0]`, `by_step[1]` e `by_step[2]`, respectivamente.
 - `version`: sha256 do conteúdo, como no catálogo de hunts.
 
-Busca (`fetch_species`): o worker baixa os quatro arquivos por HTTP (GET simples, sem login), **na subida e
-no máximo uma vez a cada 24 h** (olha o `updated_at` da linha `species` em `game_catalog`). Se falhar, registra
-um evento `species.fetch_failed` e segue sem a Pokedex: a fila usa a chance pior (seção 4).
+Busca (`SpeciesSync`, D5): o worker confere os quatro arquivos por HTTP **na subida e a cada 24 h**, com GET
+condicional: manda o `If-None-Match` com o `ETag` guardado (o servidor responde `ETag` fraco, como
+`W/"10a9cb-1a09bb53ff0"`, e `max-age=14400`). `304` em todos → nada muda. Algum `200` → remonta o
+`SpeciesCatalog` com os quatro arquivos e grava. Os `ETag`s ficam no `data` da linha `species` de
+`game_catalog`. Assim a Pokedex se atualiza sozinha quando o jogo atualiza, sem baixar ~230 KB todo dia. Se
+falhar, registra `species.fetch_failed` e segue com a última Pokedex gravada (ou sem ela: a fila usa a chance
+pior, seção 5). Uma busca só por worker, não por conta.
 
 ### 3. Espécies da semana
 
@@ -137,12 +140,8 @@ vira a chance da espécie da hunt (`hunts[hunt_slug].species_id`), convertida pa
 - **D3.** Catálogo e Pokedex no Supabase.
 - **D4.** Espécies da semana pelo `topcatch.pedir` (achado no código do jogo), mais os `rank.catch`.
 
-**A tomar:**
-
-- **D5.** O worker baixar a Pokedex por HTTP de `pokeidle.io/assets` (proposto: na subida, no máximo 1×/dia),
-  ou um comando manual (`pokeidle-farm sync-species`) rodado quando o jogo atualizar.
-- **D6.** `topcatch.pedir` pelo `ActionGateway`, contando como ação (proposto, respeita `ACTION_MODE`), ou
-  liberado mesmo em `observe_only` por ser só leitura. Pelo `ActionGateway`, em `observe_only` a fila só conhece
+- **D5.** Pokedex atualizada sozinha quando o jogo atualizar: GET condicional por `ETag` na subida e a cada 24 h.
+- **D6.** `topcatch.pedir` pelo `ActionGateway`, respeitando o `ACTION_MODE`. Em `observe_only` a fila só conhece
   as espécies dos `rank.catch`.
 
 ## Casos de teste propostos
@@ -171,16 +170,17 @@ Gravação (`MemoryStore`):
 
 11. Dois `welcome` iguais gravam uma vez; um `welcome` com uma hunt a menos regrava e apaga a que sumiu; uma
     `version` já no store não regrava ao reiniciar. O mesmo para a Pokedex.
-12. **Busca da Pokedex** com HTTP falso: busca na subida; não busca de novo antes de 24 h; erro HTTP gera
-    `species.fetch_failed` e não derruba a sessão.
+12. **Busca da Pokedex** com HTTP falso: a primeira busca manda GET sem `If-None-Match` e grava os `ETag`s; a
+    segunda manda `If-None-Match` com eles e, com `304` em todos, não regrava; com `200` em um só, remonta com os
+    quatro (os outros vêm do que já estava gravado ou de um GET sem condição) e grava; erro HTTP ou JSON inválido
+    gera `species.fetch_failed`, mantém a Pokedex anterior e não levanta exceção.
 
 Semana (`worker/tests/test_protocol.py` e `test_bus_actions.py`):
 
 13. **`topCatch` real** (`e: [["10",9502],["66",8630]]`, `n: 12`, `s: "2026-11-08"`) → `rank.week` com
     `data == {"week_start": "2026-11-08", "week_species": 12, "species": {"10": 9502, "66": 8630}}`, fora de
     `NOT_PERSISTED`. `topCatch` sem `e` → `species == {}`.
-14. **`TopCatchRequest`** → wire `{"t":"topcatch.pedir"}`; em `observe_only` não é enviado (se D6 ficar como
-    proposto); dois pedidos em menos de 5 min → o segundo é barrado pelo rate limiter.
+14. **`TopCatchRequest`** → wire `{"t":"topcatch.pedir"}`; em `observe_only` não é enviado; dois pedidos em menos de 5 min → o segundo é barrado pelo rate limiter.
 
 Fila (`worker/tests/test_rank_queue.py`):
 
