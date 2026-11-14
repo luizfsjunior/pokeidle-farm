@@ -34,9 +34,10 @@ captura é exatamente o sinal de "pronto, próxima hunt". A mesma espécie pode 
 **Pelo protocolo e pela referência:**
 
 
-- **`topCatchNova`** chega no mesmo frame do `bola` com `sucesso: true`, com `sp`, `chave`, `n`, `m`, `s` e
-  `pontua`. Parece ser a entrada no ranking da semana; `pontua` sugere que nem toda captura pontua
-  (provavelmente só a primeira de cada espécie na semana). Hoje é gravado como `battle.topCatchNova`, sem `data`.
+- **`topCatchNova`** (confirmado em 14/11) chega no mesmo frame do `bola` com `sucesso: true`: `s` = início da
+  semana (domingo), `sp` = espécie, `n` = espécies da semana já contando esta, `m` = minutos desde o início da
+  semana (desempate), `pontua` = era nova na semana. A posição no ranking não vem. Hoje é gravado como
+  `battle.topCatchNova`, sem `data`. Detalhes em [protocolo.md](../protocolo.md#observado-em-14112026-troca-de-hunt-e-lançar-até-capturar).
 - **`welcome.hunts[]`**: ~1.000 hunts com `area`, `nivel`, `especies[]` e `totalSpawns`. É o catálogo para
   planejar. O `welcome` inteiro fica no `raw` do `state.snapshot` a cada conexão.
 - **Formato de `especies[]`** (pela referência DiuleJR/pokeidle-manager-online, não confirmado por nós):
@@ -46,8 +47,12 @@ captura é exatamente o sinal de "pronto, próxima hunt". A mesma espécie pode 
   indica que **existem hunts com mais de uma espécie**; nas iniciais de Kanto é uma só. Há também hunts com
   `especies` vazio (ex.: `lapras`, `totalSpawns: 5`), provavelmente especiais.
 - **`estado.dexMud`**: capturas (`c`) e abates (`k`) por espécie, mas de sempre, não da semana.
-- **`hunt.select {slug}`** troca de hunt, só fora da trava de combate (`estado.centroLivreEm`; cada golpe
-  recebido renova a trava). Ainda não confirmado no DevTools.
+- **`hunt.select {slug}`** troca de hunt (confirmado em 14/11), só fora da trava de combate
+  (`estado.centroLivreEm`; cada golpe recebido renova a trava). Vai direto de uma hunt para outra, sem passar
+  pelo Centro. A resposta traz `batalha` `k:"hunt"` com `trocaLivreEm` (+10 s até a próxima troca); o
+  `estado.huntSlug` só vem quando muda, então a hunt atual sai do `k:"hunt"`.
+- **Lançar até Capturar** (confirmado em 14/11): na captura, o servidor manda um `estado` com
+  `automation.autoBallAteCapturar: false`. É o sinal para o plugin trocar de hunt e religar com `auto.set`.
 - **`ball.throw {ballId, slot}`** joga uma bola num selvagem abatido: janela de ~30 s, ~1,3 s entre
   arremessos. Ainda não confirmado. É o que permite jogar bola **só** nas espécies que faltam, em vez da bola
   automática, que joga em todo selvagem.
@@ -59,8 +64,8 @@ captura é exatamente o sinal de "pronto, próxima hunt". A mesma espécie pode 
 
 ### 3.1 Estado da semana
 
-- **Espécies que já pontuaram na semana**: dos `topCatchNova` com `pontua: true` desde o início da semana
-  (data de virada a confirmar). Na subida do plugin, lê os eventos da semana em `events` (como o teto do
+- **Espécies que já pontuaram na semana**: dos `topCatchNova` com `pontua: true` da semana atual (campo `s`,
+  domingo 00:00 de Brasília). Na subida do plugin, lê os eventos da semana em `events` (como o teto do
   `restock` faz). Se o jogo mandar a lista da semana no `welcome`, usa ela e dispensa o histórico.
 - **Faltam**: espécies que aparecem em hunts alcançáveis e ainda não pontuaram.
 
@@ -147,15 +152,14 @@ As duas passam pelo `ActionGateway` (modo, rate limiter, `action.sent`). Teto de
 ## 6. A confirmar no jogo (DevTools, pela conta pessoal)
 
 1. ~~Como funciona o ranking~~: respondido pela wiki (seção 2).
-2. **`topCatchNova`**: o que são `n`, `m`, `s` e `chave`. Comparar com a tela do ranking logo depois de uma
-   captura.
-3. **`hunt.select`**: trocar de hunt na mão e anotar a mensagem enviada e o que volta (`estado.huntSlug`?
-   um `campo` novo?). Tentar durante a trava de combate para ver o erro.
-4. **`autoBallAteCapturar`**: a wiki já diz que ele desliga na primeira captura. Falta ver no DevTools como o
-   servidor avisa isso (um `estado` com a `automation` nova, com a flag em `false`?), para o plugin saber a hora
-   de trocar de hunt e religar.
-5. ~~Hunts alcançáveis~~: pelo nível do treinador por região (wiki). Falta confirmar se dá para ir direto de
-   uma hunt para outra de outra região sem passar pelo Centro.
+2. ~~`topCatchNova`~~ (14/11): `s` início da semana, `sp`/`chave` espécie, `n` espécies da semana, `m` minutos
+   desde o início da semana, `pontua` nova na semana. Falta: o `m` e o `ini` do `estado.topCatch`, e se o
+   `welcome` traz o `topCatch` com a lista das espécies da semana (dispensaria ler o histórico).
+3. ~~`hunt.select`~~ (14/11): resposta com `campo.init`, `batalha` `k:"hunt"` (`trocaLivreEm` +10 s) e
+   `estado`. Falta ver o erro de trocar durante a trava ou antes do `trocaLivreEm`.
+4. ~~`autoBallAteCapturar`~~ (14/11): na captura vem um `estado` com a `automation` e a flag em `false`.
+5. ~~Hunts alcançáveis~~: pelo nível do treinador por região (wiki). Troca direta entre hunts confirmada
+   (Meowth → Machop); entre regiões diferentes ainda não testado.
 6. ~~Catálogo~~: 1.043 hunts, uma espécie cada (13/11). Desde o tradutor v2 o `welcome` não grava mais as
    tabelas do jogo; a 3b vai gravar o catálogo numa tabela própria, só quando mudar. Consulta original (não tem token nem dado da conta):
    ```sql

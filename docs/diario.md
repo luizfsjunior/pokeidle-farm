@@ -12,11 +12,27 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   `telemetry` e `restock`.
 - **Fase 4b conferida de ponta a ponta** (painel → Supabase → worker em casa): Ping ("sessão ready em
   pc-casa"), Reconectar e `plugin.set` funcionaram.
+- **Protocolo da 3b confirmado no navegador** (conta pessoal, Chrome com Claude in Chrome e um gravador de
+  WebSocket na página que ignora o `hello`): `hunt.select` e `centro.ir`, o `trocaLivreEm` de 10 s, o
+  Lançar até Capturar desligado pelo servidor na captura e o significado do `topCatchNova` (comparado com a tela
+  do ranking: posição 101, 12 espécies). Detalhes em [protocolo.md](protocolo.md#observado-em-14112026-troca-de-hunt-e-lançar-até-capturar).
+
+### Problemas e soluções
+
+| Sintoma | Causa | Solução |
+|---|---|---|
+| Zen DevTools MCP: `Zen executable not found` | ele só procura o Zen no caminho do macOS; `--zen-path` com espaço quebra no `cmd /c` | `-e "ZEN_PATH=C:\Program Files\Zen Browser\zen.exe"` no `claude mcp add` |
+| O MCP abre outro Zen, sem login | por padrão ele usa um perfil próprio em `~/.zen-devtools-mcp` | logar nesse perfil, ou `CONNECT_EXISTING=true` com o Zen aberto via `--marionette` |
+| Em `CONNECT_EXISTING`, aba vazia e `Cannot read properties of undefined (reading 'replace')` | bug do zen-devtools-mcp 0.2.0 no modo connect-existing (e esse modo não tem eventos de rede) | desistimos do Zen; usamos o Chrome com Claude in Chrome |
+| Links do Windows abrindo errado | `http`/`https` apontavam para um app que não existe mais | Configurações → Apps padrão → Zen → Definir padrão |
 
 ### Pendente
 
-- Passos 2 a 4 de 13/11: DevTools (`hunt.select` e Lançar até Capturar), implementar a 3b, limpar a
-  DigitalOcean.
+- Implementar a 3b (passos 2 em diante da [ordem de implementação](design/fase-3b-rank-semanal.md#8-ordem-de-implementação)),
+  a partir de specs e testes.
+- Ainda a ver no jogo: o erro de `hunt.select` durante a trava, `m`/`ini` do `estado.topCatch` e se o `welcome`
+  traz o `topCatch` da semana.
+- Limpar a DigitalOcean (droplet e *Actions secrets*).
 
 ## 2026-11-13
 

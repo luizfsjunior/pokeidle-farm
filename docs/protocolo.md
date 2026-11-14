@@ -138,8 +138,8 @@ Também aparecem `aviso`, `marketComprado` e `mktSorteio`, relacionados ao Merca
 | `t` | Campos | Uso | Confirmado |
 |---|---|---|---|
 | `hello` | `nick`, `token`, `delta`, `dispositivo` | handshake | ✅ |
-| `hunt.select` | `slug` | trocar de hunt (só funciona fora da trava de combate) | ⬜ |
-| `centro.ir` | — | ir ao Centro Pokémon | ⬜ |
+| `hunt.select` | `slug` | trocar de hunt: `{"t":"hunt.select","slug":"meowth"}`. Resposta: `campo.init` do mapa novo, `batalha` `{k:"hunt", slug, nome, trocaLivreEm}` e `estado` (com `huntSlug` só se mudou). Funciona direto de uma hunt para outra, sem passar pelo Centro | ✅ (DevTools, 14/11) |
+| `centro.ir` | — | ir ao Centro Pokémon: `{"t":"centro.ir"}`. Resposta: `campo.init` com `slug:"centro"`, `batalha` `[{k:"centro",motivo:"visita"},{k:"joy"}]` e `estado` com `noCentro:true` | ✅ (DevTools, 14/11) |
 | `ball.throw` | `ballId`, `slot` | jogar bola no selvagem abatido (janela de 30 s; 1,2 s entre arremessos (wiki); uma tentativa por corpo) | ⬜ |
 | `shop.buy` | `kind` (`item` ou `ball`), `id`, `qty` | comprar na loja do NPC. Ex.: `{"t":"shop.buy","kind":"ball","id":1,"qty":1}` e `{"t":"shop.buy","kind":"item","id":200,"qty":1}`. A resposta é um `estado` com `gold` e o mapa **inteiro** de `balls` (inclusive as zeradas) ou de `items`. Ainda não se sabe se vem também um `batalha` `k: compra`. ✅ Enviado pelo worker em 13/11/2026 (1.000 Great Balls): o `estado` com o estoque novo chegou em menos de 1 s | ✅ (DevTools e worker) |
 | `shop.sellAllPokemons` | — | vender todos os pokémons do Depot | ⬜ |
@@ -155,6 +155,8 @@ Também aparecem `aviso`, `marketComprado` e `mktSorteio`, relacionados ao Merca
 ## Regras que o worker tem que respeitar
 
 - **Trava de combate:** `hunt.select` e `centro.ir` só funcionam depois de `estado.centroLivreEm`, e cada golpe recebido renova a trava. Coloque o pedido numa fila e envie quando a trava acabar.
+- **Intervalo entre trocas de hunt:** o `k:"hunt"` traz `trocaLivreEm` = agora + 10 s. Não mande outro `hunt.select` antes disso (o erro de mandar antes ainda não foi visto).
+- **Hunt atual:** use o evento `batalha` `k:"hunt"`, que vem em toda troca. O `estado.huntSlug` só vem quando o valor muda (voltar do Centro para a mesma hunt não traz `huntSlug`).
 - **Uma compra por vez:** espere o `k: "compra"` antes da próxima, e trate o caso de a confirmação não chegar (timeout).
 - Nunca logar `token` nem credenciais.
 
@@ -202,10 +204,37 @@ Sessão de 12/11/2026, conta nível 2, ~10 min no Centro de Cerulean e depois na
                  "ivs": { "hp": 19, "atk": 6, "def": 17, "spAtk": 27, "spDef": 28, "speed": 8 } } }
   ```
 
-  Depois chega um `estado` com o pokémon novo no `pkMud`. O `topCatchNova` (`sp`, `chave`, `n`, `m`, `s`, `pontua`) parece ser o ranking de capturas da semana. `paraDepot` indica se o pokémon foi para o Depot.
+  Depois chega um `estado` com o pokémon novo no `pkMud`. `paraDepot` indica se o pokémon foi para o Depot. O `topCatchNova` é a entrada no ranking semanal (detalhado em [Observado em 14/11](#observado-em-14112026-troca-de-hunt-e-lançar-até-capturar)).
 - O `estado.dexMud` (`{"129": {"c": 1, "k": 502}}`) traz capturas (`c`) e abates (`k`) por espécie.
 - **A bola automática exige VIP** no jogo. Sem VIP, as duas flags de bola da `automation` não ligam.
 - **Quando as bolas acabam** (`estado.balls` = `{"1": 0}`), o jogo simplesmente para de jogar: não compra sozinho e não manda `aviso`. A hunt continua normalmente. Repor bolas fica por conta da fase 3 (`shop.buy`).
+
+### Observado em 14/11/2026: troca de hunt e Lançar até Capturar
+
+Gravado no navegador, pela conta pessoal (gravador na página que ignora o `hello` e apaga campos de token).
+
+- **Troca de hunt**: ver `hunt.select` e `centro.ir` na tabela de mensagens do cliente. Na primeira entrada numa
+  hunt pode vir antes um `{"k":"aviso","msg":"hunt.ondaEspera","params":{"s":2}}` (a primeira onda espera 2 s).
+- **Ligar o Lançar até Capturar**: `auto.set` com `autoBallAteCapturar: true` (resto da `automation` igual);
+  o servidor devolve um `estado` com a `automation` inteira.
+- **Na captura**, nesta ordem:
+  1. `batalha` com `bola` (`sucesso: true`) e `topCatchNova` no mesmo frame:
+     `{"k":"topCatchNova","s":"2026-11-08","chave":"10","sp":10,"m":9502,"n":12,"pontua":true}`.
+  2. `estado` com `automation.autoBallAteCapturar: false` (**o servidor desliga sozinho**, é o sinal de
+     trocar de hunt e religar), `topCatch: {"s":"2026-11-08","n":12,"m":12,"ini":false}`, `balls` e `dexMud`.
+  3. `batalha` com `capturado` (o pokémon completo, `paraDepot`).
+- **`topCatchNova`**, comparado com a tela do ranking (posição 101, 12 espécies):
+  - `s`: início da semana do ranking (domingo, 08/11/2026).
+  - `sp`: id da espécie; `chave`: o mesmo id em texto.
+  - `n`: espécies diferentes da semana, já contando esta (bateu com as 12 da tela).
+  - `m`: **minutos desde o início da semana** (domingo 00:00 de Brasília) em que o `n` foi alcançado.
+    9502 min = sábado 14/11 às 14:22 de Brasília, a hora exata da captura. Deve ser o desempate do ranking.
+  - `pontua`: a espécie era nova na semana e contou ponto.
+  - A posição no ranking não vem na mensagem.
+- **`estado.topCatch`** (`s`, `n`, `m`, `ini`): resumo da semana. O `m` aqui veio 12, não 9502; significado
+  ainda não conferido, assim como o `ini`. Falta ver se o `welcome` traz o `topCatch` e a lista das espécies
+  da semana.
+- Chance da Ultra Ball (`ballId: 4`): 0,015 em Machop e em Caterpie (contra 0,012 em Magikarp).
 
 ### Mensagens que o mapeamento não tinha
 
