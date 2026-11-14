@@ -201,7 +201,7 @@ As duas passam pelo `ActionGateway` (modo, rate limiter, `action.sent`). Teto de
 3. ~~Catálogo e fila~~ (14/11, [fase-3b-catalogo-e-fila.md](fase-3b-catalogo-e-fila.md)): hunts do `welcome`,
    Pokedex dos `creatures*.json` com o estágio evolutivo, `topcatch.pedir`/`rank.week` e a fila por tempo até a
    captura.
-4. Plugin `rank` em ensaio ([fase-3b-plugin-rank.md](fase-3b-plugin-rank.md), rascunho): grava `rank.plan` e as
+4. Plugin `rank` em ensaio ([fase-3b-plugin-rank.md](fase-3b-plugin-rank.md)): grava `rank.plan` e as
    ações que faria (`rank.would`). Conferir por alguns dias.
 5. `ball.throw` ligado, depois `hunt.select`.
 6. Métricas e card no painel.

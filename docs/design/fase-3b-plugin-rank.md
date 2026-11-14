@@ -1,7 +1,6 @@
 # Fase 3b: plugin `rank` em modo de ensaio (passo 4)
 
-Status: **rascunho**, 14/11/2026. Falta fechar as decisões da seção "Decisões em aberto" e aprovar os casos
-de teste.
+Status: **aprovado**, 14/11/2026 (decisões D-A a D-D e casos de teste).
 
 É o passo 4 da [ordem de implementação da 3b](fase-3b-rank-semanal.md#8-ordem-de-implementação). Junta as peças
 do passo 3 ([catálogo e fila](fase-3b-catalogo-e-fila.md)) num plugin que decide, a cada momento, **em qual hunt a
@@ -64,7 +63,7 @@ marca `degraded: [...]` com o que faltou.
   por abate da janela; sem `min_kills` abates na janela, cai na regra `fixa`; se nenhuma se paga, a mais barata
   da lista.
 - **Pulada**: espécies puladas por tempo (seção 4) vão para o fim da fila, na ordem em que foram puladas.
-- **Alvo**: o primeiro da fila. Se a conta já está numa hunt da fila e o alvo novo não é pelo menos 20% mais
+- **Alvo**: o primeiro da fila. Se a conta já está numa hunt da fila e o alvo novo não é pelo menos 10% mais
   rápido que ela, o alvo é a hunt atual (D-C, para não trocar de hunt à toa).
 
 Cada planejamento registra **`rank.plan`** (gravado):
@@ -135,14 +134,14 @@ minuto distinto com abate).
 - O foco `rank` no `restock` e o seletor de foco no painel: passo 5.
 - Métricas `rank_points`/`rank_species_week` e o card no painel: passo 6.
 
-## Decisões em aberto
+## Decisões (tomadas em 14/11)
 
-- **D-A. `topcatch.pedir` mesmo com `dry_run`?** Proposta: sim, porque é só leitura e sem ele a fila não sabe
+- **D-A. `topcatch.pedir` mesmo com `dry_run`**: sim, porque é só leitura e sem ele a fila não sabe
   quais espécies já pontuaram antes do worker subir. Continua respeitando o `ACTION_MODE` (D6 do passo 3).
 - **D-B. Consulta nova `rank_hunt_stats` (função no banco)** em vez de `recent_events`. Motivo: o
   `recent_events` traz no máximo 1.000 linhas, do mais antigo ao mais novo, e com a bola automática ligada são
   milhares de `capture_attempt` por dia; os abates por hunt já estão agregados no `metric_hourly`.
-- **D-C. Histerese de 20%** para não trocar de hunt quando a diferença é pequena. Vale também no `dry_run`, para
+- **D-C. Histerese de 10%** para não trocar de hunt quando a diferença é pequena. Vale também no `dry_run`, para
   o ensaio mostrar o comportamento real.
 - **D-D. Padrões da config**: `rank_balls = [4, 2, 1]` (sem a Super Ball, id 3, que custa 50 e pega ×3) e
   `default_kills_per_hour = 300` (o medido até agora é ~360/h).
@@ -181,8 +180,8 @@ Gatilhos:
 13. **Subiu de nível** (patch com nível 600) → `level_up`, Treecko entra na fila.
 14. **Timeout**: alvo com `hours` 0,1, `max_hunt_factor` 3 e `min_hunt_minutes` 10 → um `kill` aos 17 min não faz
     nada; aos 19 min → `timeout`, a espécie vai para `skipped` e para o fim da fila.
-15. **Histerese**: conta já na Metapod (na fila); Caterpie só 10% mais rápida → alvo continua Metapod, sem
-    `hunt.select`; 30% mais rápida → troca.
+15. **Histerese**: conta já na Metapod (na fila); Caterpie só 5% mais rápida → alvo continua Metapod, sem
+    `hunt.select`; 15% mais rápida → troca.
 16. **Sem repetição**: 100 `kill` seguidos sem mudança → um único par de `rank.would`.
 17. **Bola `se_paga`**: janela com 50 abates de 100 de ouro líquido → bola 2 (Great, 20 ≤ 100 < 130); com 200 de
     ouro → bola 4; mudança → `ball_changed`, uma vez só por janela.
