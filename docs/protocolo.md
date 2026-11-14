@@ -144,6 +144,8 @@ Também aparecem `aviso`, `marketComprado` e `mktSorteio`, relacionados ao Merca
 | `shop.buy` | `kind` (`item` ou `ball`), `id`, `qty` | comprar na loja do NPC. Ex.: `{"t":"shop.buy","kind":"ball","id":1,"qty":1}` e `{"t":"shop.buy","kind":"item","id":200,"qty":1}`. A resposta é um `estado` com `gold` e o mapa **inteiro** de `balls` (inclusive as zeradas) ou de `items`. Ainda não se sabe se vem também um `batalha` `k: compra`. ✅ Enviado pelo worker em 13/11/2026 (1.000 Great Balls): o `estado` com o estoque novo chegou em menos de 1 s | ✅ (DevTools e worker) |
 | `shop.sellAllPokemons` | — | vender todos os pokémons do Depot | ⬜ |
 | `auto.set` | o objeto `estado.automation` inteiro, com os campos alterados | configurar a automação nativa do jogo. **Sempre parta do objeto atual**, nunca monte do zero. ✅ Os campos vão **achatados no topo** da mensagem, não dentro de `automation`: `{"t":"auto.set","autoBallSemParar":false,"ballIds":[1,2,3,4],"autoPotion":true,"potionIds":[...],"hpLimiar":0.6,...}`, com **todos** os campos da `automation` (o navegador manda tudo mesmo mudando um só). ✅ Enviado pelo worker em 13/11/2026: o servidor responde com um `estado` trazendo a `automation` nova | ✅ (DevTools e worker) |
+| `topcatch.pedir` | — | lista das espécies da semana no Top Catch. Resposta: `{"t":"topCatch","s":"2026-11-08","ini":false,"n":12,"m":12,"e":[["10",9502],["66",8630],...],"ant":null,"meu":null,"campeoes":[{posicao,nick,valor,diamantes,level,looktype,vs}]}`, com `e` = `[chave da espécie, minuto da semana em que pontuou]` | ✅ (navegador, 14/11) |
+| `ranking.pedir` | `aba` (`capturas`, ...) | ranking. Resposta: `{"t":"ranking","aba":"capturas","linhas":[{nick,level,valor,looktype,vs,rank}]}` (o navegador pede a cada minuto com a tela aberta) | ✅ (navegador, 14/11) |
 | `market.itens` | `elemento`, `categoria`, `elementos?` | listar itens do Mercado | ⬜ |
 | `market.medias` | — | médias de preço | ⬜ |
 | `market.item` | `itemId`, `moeda` | detalhe de um item | ⬜ |
@@ -236,6 +238,14 @@ Gravado no navegador, pela conta pessoal (gravador na página que ignora o `hell
   ainda não conferido, assim como o `ini`. O `welcome` traz o `topCatch` no mesmo formato
   (`{"m":0,"n":0,"s":"2026-11-08","ini":false}` em 12/11), **sem a lista** das espécies da semana.
 - Chance da Ultra Ball (`ballId: 4`): 0,015 em Machop e em Caterpie (contra 0,012 em Magikarp).
+- **Lista das espécies da semana**: não vem no `welcome` nem no `estado`; o navegador pede com `topcatch.pedir`
+  (ver tabela de mensagens do cliente). O `m` do `topCatchNova` é o mesmo minuto que aparece em `e`.
+- **Pokedex (dados das espécies)**: não passa pelo WebSocket. O navegador baixa arquivos estáticos públicos:
+  `/assets/creatures.json`, `creatures-novos.json`, `creatures-outland-novos.json` e `creatures-formas.json`
+  (`{creatures: [...]}`, os três últimos com uma chave `_leia`). Cada espécie traz `pokeId`, `name`, `type1/2`,
+  `rarity`, status base, `huntLevel`, `evolvesToId`, `evolveLevel`, `priceNpc`, `experience`, `loot` e `attacks`.
+  Juntos cobrem as 1.043 espécies das hunts (conferido em 14/11). O estágio evolutivo sai da cadeia
+  `evolvesToId` e bateu com as chances vistas (Caterpie e Machop 1º de três, Magikarp 1º de dois).
 
 ### Mensagens que o mapeamento não tinha
 
