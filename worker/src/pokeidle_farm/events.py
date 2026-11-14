@@ -96,6 +96,24 @@ class CapturedData(_Data):
 class HuntChangedData(_Data):
     slug: str | None = None
     name: str | None = None
+    switch_free_at: datetime | None = None  # trocaLivreEm: antes disso, outro hunt.select não vale
+
+
+class RankCatchData(_Data):
+    """Entrada no ranking semanal (Top Catch), do `topCatchNova`. Ver docs/design/tradutor-3b.md."""
+
+    species_id: int | None = None
+    week_start: str | None = None  # como o jogo manda: "2026-11-08" (domingo)
+    week_species: int | None = None  # espécies diferentes na semana, já contando esta
+    week_minute: int | None = None  # minutos desde o início da semana (desempate)
+    scores: bool | None = None  # espécie nova na semana: contou ponto
+    hunt_slug: str | None = None
+
+
+class CatchUntilCaptureOffData(_Data):
+    """O Lançar até Capturar passou de ligado para desligado (o servidor desliga na captura)."""
+
+    hunt_slug: str | None = None
 
 
 class WildFledData(_Data):
@@ -152,6 +170,7 @@ class StateSnapshotData(_Data):
     balls: dict[str, int] = Field(default_factory=dict)
     gold: int | None = None
     automation: dict[str, Any] | None = None
+    top_catch: dict[str, Any] | None = None
 
 
 # Campos do patch `estado` que vão para `data` (o patch inteiro fica no `raw`).
@@ -164,6 +183,7 @@ PATCH_FIELDS = {
     "centroLivreEm": "centro_livre_em",
     "items": "items",
     "automation": "automation",
+    "topCatch": "top_catch",
 }
 
 # Mensagens de alto volume: viram evento no barramento, mas não são gravadas.
@@ -190,6 +210,8 @@ class Translator:
         self.hunt_slug: str | None = None
         # Último estoque de itens conhecido, para detectar consumo de poções e revives.
         self.items: dict[str, int] = {}
+        # Última automação conhecida, para notar o Lançar até Capturar desligando.
+        self.automation: dict[str, Any] | None = None
 
     def _ev(self, type_: str, data: BaseModel | dict[str, Any], raw: dict[str, Any]) -> Event:
         now = utcnow()
@@ -217,6 +239,7 @@ class Translator:
                 self.server_offset = server_now - utcnow()
             self.hunt_slug = st.hunt_slug
             self.items = dict(st.items)
+            self.automation = dict(st.automation) if isinstance(st.automation, dict) else None
             estado = raw.get("estado") or {}
             return [
                 self._ev(
@@ -229,6 +252,7 @@ class Translator:
                         balls=estado.get("balls") or {},
                         gold=estado.get("gold"),
                         automation=st.automation,
+                        top_catch=estado.get("topCatch"),
                     ),
                     # só o estado da conta; as tabelas do jogo (hunts, mercado...) não são gravadas
                     {"t": raw.get("t"), "estado": estado},
@@ -236,7 +260,11 @@ class Translator:
             ]
         if isinstance(msg, StatePatch):
             data = self._patch_data(raw)
-            return [self._ev("state.patch", data, raw), *self._consumed(data.get("items"))]
+            return [
+                self._ev("state.patch", data, raw),
+                *self._consumed(data.get("items")),
+                *self._automation_changed(data.get("automation")),
+            ]
         if isinstance(msg, Battle):
             return [self._battle(ev.model_dump(by_alias=True)) for ev in msg.ev]
         if isinstance(msg, FieldInit):
@@ -289,6 +317,21 @@ class Translator:
         self.items.update(items)
         return out
 
+    def _automation_changed(self, automation: Any) -> list[Event]:
+        if not isinstance(automation, dict):
+            return []
+        before = self.automation
+        self.automation = {**(before or {}), **automation}
+        if before is None:
+            return []  # sem welcome não se sabe o valor anterior
+        if (
+            before.get("autoBallAteCapturar") is True
+            and automation.get("autoBallAteCapturar") is False
+        ):
+            data = CatchUntilCaptureOffData(hunt_slug=self.hunt_slug)
+            return [self._ev("auto.catch_until_capture_off", data, {})]
+        return []
+
     def _battle(self, ev: dict[str, Any]) -> Event:
         k = ev.get("k")
         if k == "morte":
@@ -337,9 +380,27 @@ class Translator:
         if k == "hunt":
             if ev.get("slug"):
                 self.hunt_slug = ev["slug"]
-            return self._ev(
-                "hunt.changed", HuntChangedData(slug=ev.get("slug"), name=ev.get("nome")), ev
+            free = ev.get("trocaLivreEm")
+            data = HuntChangedData(
+                slug=ev.get("slug"),
+                name=ev.get("nome"),
+                switch_free_at=(
+                    datetime.fromtimestamp(free / 1000, UTC)
+                    if isinstance(free, int | float)
+                    else None
+                ),
             )
+            return self._ev("hunt.changed", data, ev)
+        if k == "topCatchNova":
+            data = RankCatchData(
+                species_id=ev.get("sp"),
+                week_start=ev.get("s"),
+                week_species=ev.get("n"),
+                week_minute=ev.get("m"),
+                scores=ev.get("pontua"),
+                hunt_slug=self.hunt_slug,
+            )
+            return self._ev("rank.catch", data, ev)
         if k == "fugiu":
             return self._ev(
                 "wild_fled",

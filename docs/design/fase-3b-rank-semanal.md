@@ -136,7 +136,7 @@ O `auto.set` e as compras não podem ter dois donos. Proposta:
 
 | Ação | Intervalo mínimo | Observação |
 |---|---|---|
-| `HuntSelect(slug)` | 5 min | fila até a trava de combate acabar; confirmação pelo `huntSlug` no `estado` |
+| `HuntSelect(slug)` | 5 min | fila até a trava de combate acabar e o `switch_free_at`; confirmação pelo `hunt.changed` (o `huntSlug` do `estado` nem sempre vem) |
 | `BallThrow(ballId, slot)` | 1,3 s | só em `kill` de espécie que falta, dentro da janela de 30 s |
 
 As duas passam pelo `ActionGateway` (modo, rate limiter, `action.sent`). Teto de `hunt.select` por hora
@@ -196,7 +196,8 @@ As duas passam pelo `ActionGateway` (modo, rate limiter, `action.sent`). Teto de
 ## 8. Ordem de implementação
 
 1. Confirmar a seção 6 e fechar a seção 7.
-2. Tradutor: `topCatchNova` com `data` (`species`, `pontua`, ...) e `hunt.changed` confiável.
+2. ~~Tradutor~~ (14/11, [tradutor-3b.md](tradutor-3b.md)): `rank.catch`, `hunt.changed.switch_free_at`,
+   `auto.catch_until_capture_off` e `top_catch`.
 3. Catálogo de hunts a partir do `welcome` + estimador de `novas/h`, com testes.
 4. Plugin `rank` em `observe_only`: grava `rank.plan` e as ações que faria. Conferir por alguns dias.
 5. `ball.throw` ligado, depois `hunt.select`.

@@ -383,3 +383,138 @@ def test_item_consumed_when_stock_drops():
         *codec.decode(json.dumps({"t": "estado", "estado": {"items": {"200": 149}}}))
     )
     assert evs[1].data["qty"] == 1
+
+
+# --- tradutor da 3b (docs/design/tradutor-3b.md), frames reais de 14/11 ----
+
+TOP_CATCH_NOVA = {
+    "k": "topCatchNova",
+    "s": "2026-11-08",
+    "chave": "10",
+    "sp": 10,
+    "m": 9502,
+    "n": 12,
+    "pontua": True,
+}
+
+
+def _evs(tr: Translator, frame: dict) -> list[Event]:
+    return tr.translate(*codec.decode(json.dumps(frame)))
+
+
+def _auto_patch(on: bool) -> dict:
+    return {"t": "estado", "estado": {"automation": {"ballIds": [4], "autoBallAteCapturar": on}}}
+
+
+def _tr_with_auto(on: bool, slug: str = "caterpie") -> Translator:
+    tr = Translator(uuid4(), uuid4())
+    tr.translate(
+        *codec.decode(
+            welcome(huntSlug=slug, automation={"ballIds": [4], "autoBallAteCapturar": on})
+        )
+    )
+    return tr
+
+
+def test_3b_top_catch_nova():
+    ev = _one(_tr_in_hunt("caterpie"), battle_frame(TOP_CATCH_NOVA))
+    assert ev.type == "rank.catch"
+    assert ev.data == {
+        "species_id": 10,
+        "week_start": "2026-11-08",
+        "week_species": 12,
+        "week_minute": 9502,
+        "scores": True,
+        "hunt_slug": "caterpie",
+    }
+    assert "rank.catch" not in NOT_PERSISTED
+
+
+def test_3b_top_catch_nova_not_scoring():
+    ev = _one(_tr_in_hunt(), battle_frame({**TOP_CATCH_NOVA, "pontua": False}))
+    assert ev.data["scores"] is False
+
+
+def test_3b_top_catch_nova_empty():
+    ev = _one(_tr_in_hunt("caterpie"), battle_frame({"k": "topCatchNova"}))
+    assert ev.type == "rank.catch"
+    assert ev.data == {
+        "species_id": None,
+        "week_start": None,
+        "week_species": None,
+        "week_minute": None,
+        "scores": None,
+        "hunt_slug": "caterpie",
+    }
+
+
+def test_3b_capture_frame_order():
+    frame = battle_frame(
+        {"k": "bola", "ballId": 4, "slot": 3, "sucesso": True, "chance": 0.015, "shiny": False},
+        TOP_CATCH_NOVA,
+    )
+    assert [e.type for e in _evs(_tr_in_hunt(), frame)] == ["capture_attempt", "rank.catch"]
+
+
+def test_3b_hunt_changed_switch_free_at():
+    tr = _tr_in_hunt()
+    ev = _one(
+        tr,
+        battle_frame(
+            {"k": "hunt", "slug": "meowth", "nome": "Meowth", "trocaLivreEm": 1794676585909}
+        ),
+    )
+    assert ev.type == "hunt.changed"
+    assert ev.data == {
+        "slug": "meowth",
+        "name": "Meowth",
+        "switch_free_at": "2026-11-14T17:16:25.909000Z",
+    }
+    assert _kill_hunt(tr) == "meowth"
+
+
+def test_3b_hunt_changed_without_switch_free_at():
+    ev = _one(_tr_in_hunt(), battle_frame({"k": "hunt", "slug": "meowth", "nome": "Meowth"}))
+    assert ev.data["switch_free_at"] is None
+
+
+def test_3b_catch_until_capture_turned_off_by_server():
+    evs = _evs(_tr_with_auto(True), _auto_patch(False))
+    assert [e.type for e in evs] == ["state.patch", "auto.catch_until_capture_off"]
+    assert evs[1].data == {"hunt_slug": "caterpie"}
+    assert "auto.catch_until_capture_off" not in NOT_PERSISTED
+
+
+def test_3b_no_transition_no_event():
+    tr = _tr_with_auto(False)
+    assert [e.type for e in _evs(tr, _auto_patch(False))] == ["state.patch"]
+    assert [e.type for e in _evs(tr, _auto_patch(True))] == ["state.patch"]
+    assert [e.type for e in _evs(tr, {"t": "estado", "estado": {"xp": 1}})] == ["state.patch"]
+
+
+def test_3b_known_automation_follows_patches():
+    tr = _tr_with_auto(False)
+    assert [e.type for e in _evs(tr, _auto_patch(True))] == ["state.patch"]
+    assert [e.type for e in _evs(tr, _auto_patch(False))] == [
+        "state.patch",
+        "auto.catch_until_capture_off",
+    ]
+
+
+def test_3b_no_welcome_no_event():
+    tr = Translator(uuid4(), uuid4())
+    assert [e.type for e in _evs(tr, _auto_patch(False))] == ["state.patch"]
+
+
+def test_3b_top_catch_in_patch():
+    tc = {"s": "2026-11-08", "n": 12, "m": 12, "ini": False}
+    ev = _one(Translator(uuid4(), uuid4()), {"t": "estado", "estado": {"topCatch": tc}})
+    assert ev.data["top_catch"] == tc
+
+
+def test_3b_top_catch_in_welcome():
+    tc = {"s": "2026-11-08", "n": 12, "m": 12, "ini": False}
+    (snap,) = Translator(uuid4(), uuid4()).translate(*codec.decode(welcome(topCatch=tc)))
+    assert snap.data["top_catch"] == tc
+    (snap,) = Translator(uuid4(), uuid4()).translate(*codec.decode(welcome()))
+    assert snap.data["top_catch"] is None

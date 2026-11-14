@@ -73,12 +73,14 @@ class Event(BaseModel):
 | `session.token_renewed` | `sessao.renovada` | — (o token **não** vai para o evento) | auditoria |
 | `state.snapshot` | `welcome.estado` | `level`, `hunt_slug`, `items`, `active_pokemon_id` | estado inicial de cada sessão |
 | `state.patch` | `estado` | `changed` (dict), `pokemon_changed`, `pokemon_removed` | evolução do inventário |
-| `hunt.changed` | `batalha` / `k: hunt` | `slug`, `name` | tempo por hunt |
+| `hunt.changed` | `batalha` / `k: hunt` | `slug`, `name`, `switch_free_at` (3b) | tempo por hunt |
 | `kill` | `batalha` / `k: morte` | `wild_name`, `xp`, `gold`, `gold_autosell`, `drops: list[Drop]` | XP/h, gold/h, drops/h |
 | `capture_attempt` | `batalha` / `k: bola` | `ball_id`, `success`, `shiny`, `chance` | taxa de captura |
 | `wild_fled` | `batalha` / `k: fugiu` | `name`, `level` | perdas |
 | `pokecenter` | `batalha` / `k: centro` | `reason` | tempo parado |
 | `unknown` | qualquer outro | — | descobrir mensagens novas |
+| `rank.catch` (3b) | `batalha` / `k: topCatchNova` | `species_id`, `week_start`, `week_species`, `week_minute`, `scores`, `hunt_slug` | ranking semanal ([tradutor-3b](tradutor-3b.md)) |
+| `auto.catch_until_capture_off` (3b) | `estado.automation` com `autoBallAteCapturar` de `true` para `false` | `hunt_slug` | sinal de trocar de hunt no foco rank |
 | `pokemon.captured` | **provisório:** só o simulador gera por enquanto; no jogo real deve vir do `estado.pkMud` | `species`, `level`, `shiny`, `potency`, `quality`, `ivs`, `iv_sum`, `hunt_slug` | valor das capturas, objetivos de busca (ex.: Dratini qualidade ≥ 1,5) |
 
 `Drop` começa só com `name` (o único campo confirmado na referência), mais `raw`. Ele ganha campos quando conferirmos o formato no DevTools.

@@ -1,6 +1,6 @@
 # Tradutor para a fase 3b: ranking, troca de hunt e Lançar até Capturar
 
-Status: **rascunho** (14/11/2026), aguardando aprovação das decisões e dos casos de teste.
+Status: **implementado** (14/11/2026), com os 13 casos aprovados em `worker/tests/test_protocol.py` (`test_3b_*`).
 
 É o passo 2 da [ordem de implementação da 3b](fase-3b-rank-semanal.md#8-ordem-de-implementação). O formato
 das mensagens foi confirmado no navegador em 14/11 ([protocolo.md](../protocolo.md#observado-em-14112026-troca-de-hunt-e-lançar-até-capturar)).
@@ -61,13 +61,12 @@ O `Translator` passa a guardar a última `automation` conhecida (do `welcome` e 
 - Ajuste no desenho da 3b, seção 4: a confirmação do `HuntSelect` passa a ser o `hunt.changed` (o `k: hunt`),
   não o `huntSlug` no `estado`, que nem sempre vem.
 
-## Decisões a tomar
+## Decisões (aprovadas em 14/11/2026)
 
-- **D1. Nome do evento do ranking:** `rank.catch` (proposto) ou outro.
-- **D2. `auto.catch_until_capture_off` como evento derivado** (proposto) ou deixar o plugin comparar a
-  `automation` por conta própria. Prefiro o evento: a comparação fica num lugar só e testada aqui.
-- **D3. `week_start` como texto** (`"2026-11-08"`, proposto) ou como data e hora (domingo 00:00 de Brasília em
-  UTC). O texto é o que o jogo manda e basta para agrupar por semana.
+- **D1. Nome do evento do ranking:** `rank.catch`.
+- **D2. `auto.catch_until_capture_off` como evento derivado**, em vez de o plugin comparar a `automation`: a
+  comparação fica num lugar só e testada aqui.
+- **D3. `week_start` como o jogo manda** (texto, `"2026-11-08"`). Basta para agrupar por semana.
 
 ## Casos de teste propostos
 
