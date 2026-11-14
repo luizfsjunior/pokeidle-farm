@@ -91,6 +91,18 @@ class TopCatchRequest(ActionSpec):
         return {"t": "topcatch.pedir"}
 
 
+class HuntSelect(ActionSpec):
+    name: ClassVar[str] = "hunt.select"
+    description: ClassVar[str] = "Troca de hunt (só fora da trava de combate e do trocaLivreEm)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 300.0
+
+    slug: str
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "hunt.select", "slug": self.slug}
+
+
 class RateLimiter:
     """Intervalo mínimo por (conta, ação)."""
 

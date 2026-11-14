@@ -13,7 +13,7 @@ export function NewPlugin({ accountId, existing }: { accountId: string; existing
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="restock" list="plugins-known" />
       </label>
       <datalist id="plugins-known">
-        {["restock"].filter((p) => !existing.includes(p)).map((p) => <option key={p} value={p} />)}
+        {["restock", "rank"].filter((p) => !existing.includes(p)).map((p) => <option key={p} value={p} />)}
       </datalist>
       <button className="ghost" type="submit" style={{ alignSelf: "end" }}>Configurar</button>
     </form>

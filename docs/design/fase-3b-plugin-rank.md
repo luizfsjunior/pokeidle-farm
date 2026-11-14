@@ -1,6 +1,19 @@
 # Fase 3b: plugin `rank` em modo de ensaio (passo 4)
 
-Status: **aprovado**, 14/11/2026 (decisões D-A a D-D e casos de teste).
+Status: **implementado** (14/11/2026), decisões D-A a D-D tomadas. Código em `worker/src/pokeidle_farm/plugins/rank.py`,
+`HuntSelect` em `actions.py`, `rank_hunt_stats` nos stores e na migration `20261115000000_rank_hunt_stats.sql`.
+Testes em `worker/tests/test_rank_plugin.py` (casos 1 a 20) e `supabase/tests/rank_hunt_stats_test.sql` (caso 21).
+
+Diferenças do texto abaixo para o que foi implementado:
+- Os plugins continuam vivos entre reconexões, então a sessão passou a atualizar o `ctx.catalog` dos plugins que
+  estão rodando a cada `welcome` com hunts (antes o catálogo do contexto ficava o da primeira conexão). O
+  `topcatch.pedir` sai na subida e a cada `session.connected`.
+- No timeout, o alvo é zerado antes de replanejar: se a espécie pulada continua sendo a única da fila, ela volta
+  como alvo com o tempo recomeçando (sem isso, ela estouraria de novo a cada abate).
+- A virada da semana também é percebida pelo relógio (no primeiro abate depois de domingo 00:00 de Brasília),
+  não só por um `rank.catch` de semana nova; nesse caso o plugin pede o `topcatch.pedir` de novo.
+- O `rank.would` repete quando a entrada da ação muda (alvo ou bola novos, ou `automation` diferente), não a cada
+  plano.
 
 É o passo 4 da [ordem de implementação da 3b](fase-3b-rank-semanal.md#8-ordem-de-implementação). Junta as peças
 do passo 3 ([catálogo e fila](fase-3b-catalogo-e-fila.md)) num plugin que decide, a cada momento, **em qual hunt a

@@ -359,6 +359,8 @@ class AccountSession:
         if not catalog.hunts:
             return  # welcome sem catálogo: mantém o anterior
         self.catalog = catalog
+        for plugin in self.plugins.running.values():  # plugins seguem vivos entre reconexões
+            plugin.ctx.catalog = catalog
         task = asyncio.get_running_loop().create_task(self._save_catalog(catalog))
         self._bg.add(task)
         task.add_done_callback(self._bg.discard)

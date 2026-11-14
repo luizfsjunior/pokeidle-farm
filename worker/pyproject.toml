@@ -27,6 +27,7 @@ pokeidle-farm = "pokeidle_farm.main:cli"
 [project.entry-points."pokeidle_farm.plugins"]
 telemetry = "pokeidle_farm.plugins.telemetry:TelemetryPlugin"
 restock = "pokeidle_farm.plugins.restock:RestockPlugin"
+rank = "pokeidle_farm.plugins.rank:RankPlugin"
 
 [build-system]
 requires = ["hatchling"]

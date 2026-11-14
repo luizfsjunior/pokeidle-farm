@@ -42,7 +42,7 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
         <h2 style={{ margin: ".5rem 0 0" }}>Plugins</h2>
         <p className="muted small" style={{ margin: 0 }}>
           A telemetria é sempre ligada e não aparece aqui. Os campos do <code>restock</code> estão em
-          docs/design/fase-3-reposicao.md, seção 7.
+          docs/design/fase-3-reposicao.md, seção 7; os do <code>rank</code>, em docs/design/fase-3b-plugin-rank.md, seção 1.
         </p>
         {plugins.map((p) => (
           <PluginEditor key={p.plugin} accountId={account.id} plugin={p.plugin} enabled={p.enabled} config={p.config ?? {}} />

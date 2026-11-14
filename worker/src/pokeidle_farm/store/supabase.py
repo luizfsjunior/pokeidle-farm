@@ -12,7 +12,7 @@ from uuid import UUID
 
 from supabase import AsyncClient, acreate_client
 
-from .base import AccountRecord, CommandRecord, TokenRecord
+from .base import AccountRecord, CommandRecord, HuntStats, TokenRecord
 
 
 class SupabaseStore:
@@ -190,3 +190,18 @@ class SupabaseStore:
             out.extend(r["data"] for r in rows)
             if len(rows) < page:
                 return out
+
+    async def rank_hunt_stats(self, account_id: UUID, since: datetime) -> list[HuntStats]:
+        res = await self._db.rpc(
+            "rank_hunt_stats", {"p_account": str(account_id), "p_since": since.isoformat()}
+        ).execute()
+        return [
+            HuntStats(
+                hunt_slug=r["hunt_slug"],
+                kills=float(r.get("kills") or 0),
+                active_minutes=float(r.get("active_minutes") or 0),
+                last_chance=r.get("last_chance"),
+                last_ball_id=r.get("last_ball_id"),
+            )
+            for r in res.data or []
+        ]

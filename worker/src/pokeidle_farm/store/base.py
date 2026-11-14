@@ -31,6 +31,17 @@ class CommandRecord:
     params: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class HuntStats:
+    """Ritmo e última chance de captura de uma hunt (fase 3b, plugin rank)."""
+
+    hunt_slug: str
+    kills: float
+    active_minutes: float
+    last_chance: float | None = None
+    last_ball_id: int | None = None
+
+
 class Store(Protocol):
     async def list_accounts(self, *, include_disabled: bool = False) -> list[AccountRecord]:
         """Contas de farm (só as habilitadas, a menos que include_disabled)."""
@@ -104,4 +115,8 @@ class Store(Protocol):
 
     async def load_species(self) -> list[dict[str, Any]]:
         """O `data` de cada linha de game_species (a espécie como veio do jogo)."""
+        ...
+
+    async def rank_hunt_stats(self, account_id: UUID, since: datetime) -> list[HuntStats]:
+        """Por hunt, desde `since`: abates e minutos ativos e a última chance de captura."""
         ...

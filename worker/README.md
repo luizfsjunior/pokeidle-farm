@@ -40,7 +40,7 @@ Nesse modo os eventos ficam só em memória e no log. Serve para validar o hands
 
 ## Ligando um plugin que age no jogo
 
-Plugins que não são `always_on` (hoje, o `restock`) só sobem se estiverem ligados na tabela `strategy_configs`:
+Plugins que não são `always_on` (hoje, o `restock` e o `rank`) só sobem se estiverem ligados na tabela `strategy_configs`:
 
 ```sql
 insert into public.strategy_configs (account_id, plugin, enabled, config)
@@ -52,6 +52,21 @@ Pelo painel é mais simples: **conta → Plugins**, que manda um comando `plugin
 grava em `strategy_configs` e reinicia só aquele plugin, sem derrubar a sessão. Mudando direto no SQL, a config
 só é lida quando a sessão fica `READY` (reinicie com `docker compose restart`).
 Config inválida desliga o plugin (aparece no log). Os campos do `restock` estão na seção 7 do design.
+
+O `rank` (fase 3b) tem um ensaio próprio, independente do `ACTION_MODE`: com `dry_run: true` (o padrão) ele
+não manda `hunt.select` nem `auto.set` e grava `rank.would` com o que mandaria, além de um `rank.plan` (fila,
+alvo, bola) a cada decisão. Isso existe porque o `ACTION_MODE` vale para o worker inteiro e o `restock` já roda
+em `enabled`. A única mensagem que ele manda mesmo em `dry_run` é o `topcatch.pedir`, que só lê a lista de
+espécies da semana. Para ensaiar numa conta: ligar o plugin `rank` com config `{}` e conferir na tabela
+`events`:
+
+```sql
+select received_at, data->>'reason' as motivo, data->'target'->>'slug' as alvo,
+       data->'target'->>'hours' as horas, data->>'ball_id' as bola, data->>'scored' as pontuadas
+  from public.events where type = 'rank.plan' order by received_at desc limit 20;
+```
+
+Os campos da config estão em [../docs/design/fase-3b-plugin-rank.md](../docs/design/fase-3b-plugin-rank.md).
 
 Ordem segura para ligar algo novo: primeiro com `ACTION_MODE=observe_only`, conferindo os `action.blocked`
 na tabela `events`; depois `ACTION_MODE=enabled` (com "d") e `docker compose up -d --force-recreate`, porque
@@ -135,12 +150,12 @@ MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W)/worker:/src" python:3.12-slim  
 | `protocol/` | modelos e codec das mensagens do jogo; o único lugar que conhece o formato delas |
 | `events.py` | eventos internos e o tradutor protocolo → evento |
 | `bus.py` | barramento assíncrono com fila por assinante |
-| `actions.py` | `ActionGateway` e `RateLimiter`; ações com schema Pydantic (`ShopBuy`, `AutoSet`, `TopCatchRequest`) |
+| `actions.py` | `ActionGateway` e `RateLimiter`; ações com schema Pydantic (`ShopBuy`, `AutoSet`, `TopCatchRequest`, `HuntSelect`) |
 | `catalog.py` | preços da loja do NPC (bolas, poções, revives) e chance das bolas |
 | `gamedata.py` | catálogo de hunts do `welcome`, Pokedex com estágio evolutivo e `SpeciesSync` (fase 3b) |
 | `rank_queue.py` | fila de hunts do foco rank por tempo esperado até a captura (funções puras) |
 | `session.py` | `AccountSession`: handshake, heartbeat, reconexão, lease, renovação de token |
-| `plugins/` | interface, registry (entry points), `telemetry` (grava os eventos) e `restock` (fase 3a, ver [docs/design/fase-3-reposicao.md](../docs/design/fase-3-reposicao.md)) |
+| `plugins/` | interface, registry (entry points), `telemetry` (grava os eventos), `restock` (fase 3a, ver [docs/design/fase-3-reposicao.md](../docs/design/fase-3-reposicao.md)) e `rank` (fase 3b em ensaio, ver [docs/design/fase-3b-plugin-rank.md](../docs/design/fase-3b-plugin-rank.md)) |
 | `store/` | interface `Store`, implementação em memória e no Supabase |
 | `sim/` | sorteios dos Termos (`rolls.py`) e gerador de eventos simulados |
 | `commands.py` | `Supervisor` (sessões de todas as contas de farm) e `CommandLoop` (comandos do painel, fase 4b) |

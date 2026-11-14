@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from .base import AccountRecord, CommandRecord, TokenRecord
+from .base import AccountRecord, CommandRecord, HuntStats, TokenRecord
 
 
 class MemoryStore:
@@ -155,3 +155,39 @@ class MemoryStore:
 
     async def load_species(self) -> list[dict[str, Any]]:
         return [r["data"] for r in self.game_species.values()]
+
+    async def rank_hunt_stats(self, account_id: UUID, since: datetime) -> list[HuntStats]:
+        """Igual à função do banco, a partir dos eventos em memória: cada minuto
+        distinto com abate numa hunt conta como um minuto ativo."""
+        kills: dict[str, int] = {}
+        minutes: dict[str, set[datetime]] = {}
+        chances: dict[str, tuple[datetime, float, int | None]] = {}
+        for row in self.events:
+            if str(row.get("account_id")) != str(account_id):
+                continue
+            at = row.get("received_at")
+            at = datetime.fromisoformat(at) if isinstance(at, str) else at
+            data = row.get("data") or {}
+            slug = data.get("hunt_slug")
+            if at is None or at < since or not slug:
+                continue
+            if row.get("type") == "kill":
+                kills[slug] = kills.get(slug, 0) + 1
+                minutes.setdefault(slug, set()).add(at.replace(second=0, microsecond=0))
+            elif row.get("type") == "capture_attempt":
+                chance = data.get("chance")
+                if not isinstance(chance, int | float) or isinstance(chance, bool):
+                    continue
+                prev = chances.get(slug)
+                if prev is None or at >= prev[0]:
+                    chances[slug] = (at, float(chance), data.get("ball_id"))
+        return [
+            HuntStats(
+                hunt_slug=slug,
+                kills=kills.get(slug, 0),
+                active_minutes=len(minutes.get(slug, ())),
+                last_chance=chances[slug][1] if slug in chances else None,
+                last_ball_id=chances[slug][2] if slug in chances else None,
+            )
+            for slug in sorted(set(kills) | set(chances))
+        ]

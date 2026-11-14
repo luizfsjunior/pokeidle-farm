@@ -6,7 +6,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
 
 ## Status
 
-🟡 Em desenvolvimento: worker rodando contra o jogo em IP residencial, com o primeiro plugin que age no jogo (`restock`: escolhe a bola e repõe consumíveis), métricas (incluindo ouro líquido) e painel v1 no ar. Fase 3b (rank semanal) em andamento: protocolo confirmado, catálogo de hunts, Pokedex e fila prontos; falta o plugin `rank`. Detalhes no [roadmap](docs/roadmap.md).
+🟡 Em desenvolvimento: worker rodando contra o jogo em IP residencial, com o primeiro plugin que age no jogo (`restock`: escolhe a bola e repõe consumíveis), métricas (incluindo ouro líquido) e painel v1 no ar. Fase 3b (rank semanal) em andamento: protocolo confirmado, catálogo de hunts, Pokedex, fila e plugin `rank` em ensaio (`dry_run`: grava o que faria) prontos; falta ligar a troca de hunt de verdade. Detalhes no [roadmap](docs/roadmap.md).
 
 ## Visão geral
 

@@ -9,7 +9,7 @@ Guia para subir tudo sem precisar abrir o jogo no computador. Dá para fazer só
 ## 1. Supabase
 
 1. Crie um projeto em https://supabase.com (plano grátis). Região: **South America (São Paulo)**.
-2. **SQL Editor** → cole e rode, **nesta ordem**, cada arquivo de [`supabase/migrations/`](../supabase/migrations/): `20261112000000_init.sql`, depois `20261112010000_metrics.sql` (métricas e objetivos; liga o pg_cron sozinha) e depois `20261113000000_ouro_liquido.sql` (gasto com consumíveis e ouro líquido) `20261113010000_commands.sql` (comandos do painel) e por último `20261114010000_game_catalog.sql` (catálogo de hunts e Pokedex da fase 3b). Cada arquivo roda **uma vez só**: num projeto que já existe, aplique só os que faltam.
+2. **SQL Editor** → cole e rode, **nesta ordem**, cada arquivo de [`supabase/migrations/`](../supabase/migrations/): `20261112000000_init.sql`, depois `20261112010000_metrics.sql` (métricas e objetivos; liga o pg_cron sozinha) e depois `20261113000000_ouro_liquido.sql` (gasto com consumíveis e ouro líquido) `20261113010000_commands.sql` (comandos do painel) `20261114010000_game_catalog.sql` (catálogo de hunts e Pokedex da fase 3b) e por último `20261115000000_rank_hunt_stats.sql` (entradas do plugin `rank`). Cada arquivo roda **uma vez só**: num projeto que já existe, aplique só os que faltam.
    Com a integração do GitHub ligada (seção 6), as migrations novas rodam sozinhas no push para `main`: não cole mais nenhuma à mão.
 3. **Authentication → Users → Add user**: crie o seu usuário. Ele é o dono das contas, e é com ele que você vai entrar no painel depois. Copie o **User UID**.
 4. No **SQL Editor**, cadastre a conta de farm:

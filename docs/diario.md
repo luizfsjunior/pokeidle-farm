@@ -24,6 +24,11 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 - **Passo 3 da 3b** ([fase-3b-catalogo-e-fila.md](design/fase-3b-catalogo-e-fila.md)): catálogo de hunts,
   Pokedex com `ETag`, `TopCatchRequest`/`rank.week`, fila por tempo até a captura e a migration
   `20261114010000_game_catalog.sql`. 125 testes; conferido com a Pokedex real e a migration num Postgres local.
+- **Passo 4 da 3b** ([fase-3b-plugin-rank.md](design/fase-3b-plugin-rank.md)): plugin `rank` em ensaio, com
+  `dry_run` próprio porque o `ACTION_MODE` já está em `enabled` pelo `restock`. Grava `rank.plan` e `rank.would`;
+  replaneja na captura, na virada da semana, ao subir de nível, ao trocar de bola e por tempo na hunt alvo
+  (histerese de 10% para trocar de hunt). Super Ball incluída nas bolas padrão (`[4, 3, 2, 1]`). Ação
+  `HuntSelect` e a função `rank_hunt_stats` no banco. 149 testes e o teste SQL novo passando.
 
 ### Problemas e soluções
 
@@ -37,7 +42,7 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 ### Pendente
 
-- 3b: passo 4, plugin `rank` em `observe_only` (spec ainda a escrever).
+- 3b: ligar o plugin `rank` (config `{}`) numa conta e conferir os `rank.plan` por alguns dias; depois, passo 5.
 - Em casa: `git pull` e `docker compose up -d --build` para o worker usar o código novo (a migration
   `game_catalog` é aplicada pelo push).
 - Ainda a ver no jogo: o erro de `hunt.select` durante a trava, `m`/`ini` do `estado.topCatch` e se o `welcome`
