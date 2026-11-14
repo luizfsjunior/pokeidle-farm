@@ -3,6 +3,21 @@
 Registro curto do que foi feito em cada dia, o que deu errado e o que ficou pendente.
 As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
+## 2026-11-14
+
+### Feito
+
+- **Worker atualizado no PC de casa**: git com autor `Luiz Fernando <luizfsjunior@users.noreply.github.com>`,
+  `WORKER_HOLDER=pc-casa` e `docker compose up -d --build`. Sessão `luizfsjunior_1` chegou a READY com
+  `telemetry` e `restock`.
+- **Fase 4b conferida de ponta a ponta** (painel → Supabase → worker em casa): Ping ("sessão ready em
+  pc-casa"), Reconectar e `plugin.set` funcionaram.
+
+### Pendente
+
+- Passos 2 a 4 de 13/11: DevTools (`hunt.select` e Lançar até Capturar), implementar a 3b, limpar a
+  DigitalOcean.
+
 ## 2026-11-13
 
 ### Feito
