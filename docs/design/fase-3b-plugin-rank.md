@@ -22,7 +22,7 @@ registra `rank.would` com a ação e o motivo. A única exceção é o `topcatch
 | Campo | Padrão | Uso |
 |---|---|---|
 | `dry_run` | `true` | não manda `hunt.select` nem `auto.set`; registra `rank.would` |
-| `rank_balls` | `[4, 2, 1]` | bolas permitidas, em ordem de preferência (Ultra, Great, Poke) |
+| `rank_balls` | `[4, 3, 2, 1]` | bolas permitidas, em ordem de preferência (Ultra, Super, Great, Poke) |
 | `rank_ball_rule` | `"se_paga"` | `se_paga` ou `fixa` ([fase-3b-rank-semanal.md, seção 7](fase-3b-rank-semanal.md#7-decisões)) |
 | `window_kills` / `min_kills` | `200` / `50` | janela de abates para o ouro líquido por abate (igual ao `restock`) |
 | `max_hunt_factor` | `3.0` | pula a hunt alvo depois de `fator × horas esperadas` sem capturar |
@@ -143,7 +143,8 @@ minuto distinto com abate).
   milhares de `capture_attempt` por dia; os abates por hunt já estão agregados no `metric_hourly`.
 - **D-C. Histerese de 10%** para não trocar de hunt quando a diferença é pequena. Vale também no `dry_run`, para
   o ensaio mostrar o comportamento real.
-- **D-D. Padrões da config**: `rank_balls = [4, 2, 1]` (sem a Super Ball, id 3, que custa 50 e pega ×3) e
+- **D-D. Padrões da config**: `rank_balls = [4, 3, 2, 1]` (a Super Ball, id 3, custa 50 e pega ×3: fica entre a Great e a Ultra no custo
+  e no tempo, e é o degrau da regra `se_paga` quando o abate rende de 50 a 129 de ouro líquido) e
   `default_kills_per_hour = 300` (o medido até agora é ~360/h).
 
 ## Casos de teste propostos
@@ -183,8 +184,8 @@ Gatilhos:
 15. **Histerese**: conta já na Metapod (na fila); Caterpie só 5% mais rápida → alvo continua Metapod, sem
     `hunt.select`; 15% mais rápida → troca.
 16. **Sem repetição**: 100 `kill` seguidos sem mudança → um único par de `rank.would`.
-17. **Bola `se_paga`**: janela com 50 abates de 100 de ouro líquido → bola 2 (Great, 20 ≤ 100 < 130); com 200 de
-    ouro → bola 4; mudança → `ball_changed`, uma vez só por janela.
+17. **Bola `se_paga`**: janela com 50 abates de 100 de ouro líquido → bola 3 (Super, 50 ≤ 100 < 130); com 30 →
+    bola 2 (Great); com 200 → bola 4; mudança → `ball_changed`, uma vez só por janela.
 18. **`dry_run: false` em `observe_only`** → as ações passam pelo gateway e viram `action.blocked`; nenhum
     `rank.would`.
 19. **Config inválida** (campo desconhecido, `rank_balls` vazio) → plugin não sobe (degradado).
