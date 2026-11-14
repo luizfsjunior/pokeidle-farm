@@ -145,6 +145,10 @@ class RankPlugin(Plugin):
             self.ctx.log.warning("rank: não consegui ler o ritmo por hunt (%s)", exc)
             self._degraded.append("stats")
             return
+        # só hunts do catálogo: eventos do simulador (hunts "sim-*") não podem
+        # entrar no ritmo padrão da conta
+        hunts = self.ctx.catalog.hunts if self.ctx.catalog else {}
+        stats = [s for s in stats if s.hunt_slug in hunts]
         total_kills = sum(s.kills for s in stats)
         total_min = sum(s.active_minutes for s in stats)
         if total_min > 0 and total_kills > 0:

@@ -12,6 +12,9 @@ Diferenças do texto abaixo para o que foi implementado:
   como alvo com o tempo recomeçando (sem isso, ela estouraria de novo a cada abate).
 - A virada da semana também é percebida pelo relógio (no primeiro abate depois de domingo 00:00 de Brasília),
   não só por um `rank.catch` de semana nova; nesse caso o plugin pede o `topcatch.pedir` de novo.
+- O ritmo padrão da conta e o abates/h por hunt só contam hunts que existem no catálogo. Na primeira subida
+  real, a conta tinha eventos do simulador (hunts `sim-*`, ~360/h) que puxariam o padrão para ~390/h, contra
+  ~1.000/h medidos no Magikarp.
 - O `rank.would` repete quando a entrada da ação muda (alvo ou bola novos, ou `automation` diferente), não a cada
   plano.
 

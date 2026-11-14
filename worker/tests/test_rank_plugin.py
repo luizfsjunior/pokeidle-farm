@@ -230,6 +230,21 @@ async def test_measured_rate_and_default():
     assert q["metapod"]["kills_per_hour"] == pytest.approx(2100 / 80 * 60)
 
 
+async def test_hunts_outside_catalog_are_ignored():
+    # eventos do simulador gravados na mesma conta (hunts "sim-*")
+    store = StatsStore(
+        [
+            HuntStats("magikarp", 1000, 60),
+            HuntStats("sim-caverna", 14283, 2378, last_chance=0.35, last_ball_id=2),
+        ]
+    )
+    h = await Harness(store=store).start()
+    plan = h.plans()[-1]
+    q = {i["slug"]: i for i in plan["queue"]}
+    assert "sim-caverna" not in q
+    assert q["metapod"]["kills_per_hour"] == pytest.approx(1000)  # padrão sem o simulador
+
+
 async def test_observed_chance_wins():
     store = StatsStore([HuntStats("metapod", 0, 0, last_chance=0.02, last_ball_id=4)])
     h = await Harness(store=store).start()
