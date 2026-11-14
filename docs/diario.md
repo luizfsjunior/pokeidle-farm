@@ -28,7 +28,11 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   `dry_run` próprio porque o `ACTION_MODE` já está em `enabled` pelo `restock`. Grava `rank.plan` e `rank.would`;
   replaneja na captura, na virada da semana, ao subir de nível, ao trocar de bola e por tempo na hunt alvo
   (histerese de 10% para trocar de hunt). Super Ball incluída nas bolas padrão (`[4, 3, 2, 1]`). Ação
-  `HuntSelect` e a função `rank_hunt_stats` no banco. 149 testes e o teste SQL novo passando.
+  `HuntSelect` e a função `rank_hunt_stats` no banco. 150 testes e o teste SQL novo passando.
+- **Ensaio do `rank` ligado** em `luizfsjunior_1` (worker em casa, config `{}`): a migration `rank_hunt_stats`
+  foi aplicada pelo push; o `topcatch.pedir` voltou com 1 espécie na semana (Magikarp); nível 16, 31 hunts na
+  fila, Great Ball, chance de 0,73% no 1º de três estágios, 1.007 abates/h (o medido no Magikarp) e alvo
+  Bellsprout em ~8 min. Os `rank.would` (`hunt.select` e `auto.set`) foram gravados e nada saiu para o jogo.
 
 ### Problemas e soluções
 
@@ -38,13 +42,17 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 | Zen DevTools MCP: `Zen executable not found` | ele só procura o Zen no caminho do macOS; `--zen-path` com espaço quebra no `cmd /c` | `-e "ZEN_PATH=C:\Program Files\Zen Browser\zen.exe"` no `claude mcp add` |
 | O MCP abre outro Zen, sem login | por padrão ele usa um perfil próprio em `~/.zen-devtools-mcp` | logar nesse perfil, ou `CONNECT_EXISTING=true` com o Zen aberto via `--marionette` |
 | Em `CONNECT_EXISTING`, aba vazia e `Cannot read properties of undefined (reading 'replace')` | bug do zen-devtools-mcp 0.2.0 no modo connect-existing (e esse modo não tem eventos de rede) | desistimos do Zen; usamos o Chrome com Claude in Chrome |
+| Ritmo padrão do `rank` em ~390/h, contra ~1.000/h no Magikarp | eventos do simulador (hunts `sim-*`, ~360/h) gravados na conta real entravam na média | o `rank` só conta hunts que existem no catálogo |
+| Plugin `rank` aparecia duas vezes no painel depois de salvar | o editor do "Adicionar plugin" ficava aberto enquanto o `AutoRefresh` trazia o plugin do banco para a lista (no banco havia uma linha só) | o editor fecha quando o plugin aparece na lista |
 | Links do Windows abrindo errado | `http`/`https` apontavam para um app que não existe mais | Configurações → Apps padrão → Zen → Definir padrão |
 
 ### Pendente
 
-- 3b: ligar o plugin `rank` (config `{}`) numa conta e conferir os `rank.plan` por alguns dias; depois, passo 5.
-- Em casa: `git pull` e `docker compose up -d --build` para o worker usar o código novo (a migration
-  `game_catalog` é aplicada pelo push).
+- 3b: conferir os `rank.plan` por alguns dias (replaneja quando o Magikarp pontuar, ao subir de nível, por tempo
+  no alvo e quando a janela de 50 abates encher). O abates/h das hunts nunca visitadas é uma estimativa
+  otimista (o padrão da conta); só vai ser medido quando o passo 5 trocar de hunt de verdade.
+- 3b, passo 5: escrever a spec (trava de combate e `switch_free_at` antes do `hunt.select`, foco `rank` no
+  `restock`, `fallback`, `weekly_ball_budget`).
 - Ainda a ver no jogo: o erro de `hunt.select` durante a trava, `m`/`ini` do `estado.topCatch` e se o `welcome`
   traz o `topCatch` da semana.
 - Limpar a DigitalOcean (droplet e *Actions secrets*).
