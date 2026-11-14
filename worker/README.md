@@ -110,6 +110,24 @@ Use o codespace só para desenvolver e simular. **Não rode `pokeidle-farm run` 
 
 Os testes usam um servidor WebSocket falso que imita o jogo (handshake, renovação de token, erros, close 4001, quedas), então não precisam do pokeidle.io nem do Supabase.
 
+O projeto exige Python 3.12 (`>=3.12,<3.13`). Numa máquina sem ele (ex.: só com o 3.13), rode no Docker, a
+partir da raiz do repo (no Git Bash do Windows, o `MSYS_NO_PATHCONV=1` evita que `/src` vire caminho do Windows):
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W)/worker:/src" python:3.12-slim   sh -c "cp -r /src /w && cd /w && pip install -q -e '.[dev]' && python -m pytest -q && ruff check ."
+```
+
+## Dados do jogo (fase 3b)
+
+- **Catálogo de hunts**: vem no `welcome` (hunts, tabela `captura`, `catalogoBolas`). A sessão monta um
+  `HuntCatalog` a cada conexão (`ctx.catalog` nos plugins) e grava em `game_hunts`/`game_catalog` só quando a
+  versão muda.
+- **Pokedex**: o `welcome` não traz o estágio evolutivo, então o worker baixa os `creatures*.json` públicos de
+  `https://pokeidle.io/assets/` (o mesmo que o navegador baixa) na subida e a cada 24 h, com GET condicional
+  por `ETag`: só baixa de novo quando o jogo atualiza. Vai para `ctx.species` e para `game_species`. Se a busca
+  falhar, o worker segue com a última Pokedex gravada (aparece `species.fetch_failed` no log).
+- Detalhes em [../docs/design/fase-3b-catalogo-e-fila.md](../docs/design/fase-3b-catalogo-e-fila.md).
+
 ## Estrutura
 
 | Módulo | O que faz |
@@ -117,8 +135,10 @@ Os testes usam um servidor WebSocket falso que imita o jogo (handshake, renovaç
 | `protocol/` | modelos e codec das mensagens do jogo; o único lugar que conhece o formato delas |
 | `events.py` | eventos internos e o tradutor protocolo → evento |
 | `bus.py` | barramento assíncrono com fila por assinante |
-| `actions.py` | `ActionGateway` e `RateLimiter`; ações com schema Pydantic (`ShopBuy`, `AutoSet`) |
+| `actions.py` | `ActionGateway` e `RateLimiter`; ações com schema Pydantic (`ShopBuy`, `AutoSet`, `TopCatchRequest`) |
 | `catalog.py` | preços da loja do NPC (bolas, poções, revives) e chance das bolas |
+| `gamedata.py` | catálogo de hunts do `welcome`, Pokedex com estágio evolutivo e `SpeciesSync` (fase 3b) |
+| `rank_queue.py` | fila de hunts do foco rank por tempo esperado até a captura (funções puras) |
 | `session.py` | `AccountSession`: handshake, heartbeat, reconexão, lease, renovação de token |
 | `plugins/` | interface, registry (entry points), `telemetry` (grava os eventos) e `restock` (fase 3a, ver [docs/design/fase-3-reposicao.md](../docs/design/fase-3-reposicao.md)) |
 | `store/` | interface `Store`, implementação em memória e no Supabase |
