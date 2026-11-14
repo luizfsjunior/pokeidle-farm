@@ -66,6 +66,8 @@ class PluginContext:
     store: Store
     settings: Any
     log: logging.Logger
+    catalog: Any = None  # HuntCatalog do último welcome (fase 3b)
+    species: Any = None  # SpeciesCatalog (Pokedex), compartilhado pelo worker
 
 
 class Plugin(ABC):

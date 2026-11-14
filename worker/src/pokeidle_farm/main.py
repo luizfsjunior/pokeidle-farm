@@ -21,6 +21,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from .commands import CommandError, CommandLoop, FakeSession, SessionLike, Supervisor
 from .config import Settings
+from .gamedata import SpeciesSync, http_get
 from .plugins.registry import PluginHost, discover
 from .session import AccountSession
 from .store.base import AccountRecord, Store
@@ -62,10 +63,19 @@ async def run(settings: Settings, *, fake: bool = False) -> int:
     available = discover()
     log.info("plugins disponíveis: %s", ", ".join(sorted(available)) or "nenhum")
 
+    # Pokedex: uma por worker, atualizada sozinha quando o jogo muda (GET condicional)
+    species_sync = None if fake else SpeciesSync(store, http_get)
+
     def make_session(acc: AccountRecord) -> SessionLike:
         if fake:
             return FakeSession(acc, PluginHost(available))
-        return AccountSession(acc, store, settings, PluginHost(available))
+        return AccountSession(
+            acc,
+            store,
+            settings,
+            PluginHost(available),
+            species=lambda: species_sync.catalog if species_sync else None,
+        )
 
     sup = Supervisor(store, make_session, available, settings.worker_holder)
     try:
@@ -79,6 +89,8 @@ async def run(settings: Settings, *, fake: bool = False) -> int:
     if not any(a.enabled for a in sup.accounts.values()):
         log.warning("nenhuma conta de farm habilitada; esperando comandos do painel")
 
+    stop_sync = asyncio.Event()
+    sync_task = asyncio.create_task(species_sync.run_forever(stop_sync)) if species_sync else None
     sup.start_enabled()
     commands = CommandLoop(sup, store, poll_s=settings.commands_poll_s)
 
@@ -100,6 +112,9 @@ async def run(settings: Settings, *, fake: bool = False) -> int:
             await asyncio.gather(*(live.task for live in sup.live.values()))
     finally:
         await sup.stop_all()
+        stop_sync.set()
+        if sync_task is not None:
+            await sync_task
     return 0
 
 

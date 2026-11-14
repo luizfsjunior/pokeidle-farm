@@ -518,3 +518,30 @@ def test_3b_top_catch_in_welcome():
     assert snap.data["top_catch"] == tc
     (snap,) = Translator(uuid4(), uuid4()).translate(*codec.decode(welcome()))
     assert snap.data["top_catch"] is None
+
+
+# --- semana do Top Catch (docs/design/fase-3b-catalogo-e-fila.md, caso 13) ------
+
+
+def test_3b_top_catch_week():
+    frame = {
+        "t": "topCatch",
+        "s": "2026-11-08",
+        "ini": False,
+        "n": 12,
+        "m": 12,
+        "e": [["10", 9502], ["66", 8630]],
+        "ant": None,
+        "meu": None,
+        "campeoes": [{"posicao": 1, "nick": "x", "valor": 970}],
+    }
+    ev = _one(Translator(uuid4(), uuid4()), frame)
+    assert ev.type == "rank.week"
+    assert ev.data == {
+        "week_start": "2026-11-08",
+        "week_species": 12,
+        "species": {"10": 9502, "66": 8630},
+    }
+    assert "rank.week" not in NOT_PERSISTED
+    empty = _one(Translator(uuid4(), uuid4()), {"t": "topCatch", "s": "2026-11-08", "n": 0})
+    assert empty.data["species"] == {}

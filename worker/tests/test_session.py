@@ -199,3 +199,46 @@ async def test_telemetry_buffers_when_store_fails(fake_game, make_session, store
     ids = [e["id"] for e in store.events]
     assert len(ids) == len(set(ids))  # sem duplicatas
     assert not any(p.exists() for p in buffers)
+
+
+async def test_welcome_catalog_is_saved_and_exposed(fake_game, make_session, store):
+    hunt = {
+        "area": "kanto",
+        "nome": "Caterpie",
+        "slug": "caterpie",
+        "nivel": 1,
+        "especies": [{"nome": "Caterpie", "pokeId": 10, "pontos": 15}],
+        "totalSpawns": 15,
+    }
+
+    async def script(ws, hello, n):
+        frame = json.loads(welcome())
+        frame["hunts"] = [hunt]
+        frame["captura"] = {"base": 0.0075, "piso": 0.003, "teto": 0.1, "porDegrau": {"20": 2.8}}
+        await ws.send(json.dumps(frame))
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    session = make_session(game.url)
+    task = asyncio.create_task(session.run())
+    await wait_until(lambda: "caterpie" in store.game_hunts)
+    assert session.catalog is not None and session.catalog.hunts["caterpie"].species_id == 10
+    ctx = session._make_ctx(type("P", (), {"name": "x"}), None)
+    assert ctx.catalog is session.catalog and ctx.species is None
+    session.stop()
+    await task
+
+
+async def test_welcome_without_hunts_saves_nothing(fake_game, make_session, store):
+    async def script(ws, hello, n):
+        await ws.send(welcome())
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    session = make_session(game.url)
+    task = asyncio.create_task(session.run())
+    await wait_until(lambda: session.state is State.READY)
+    await asyncio.sleep(0.05)
+    assert store.game_catalog == {}
+    session.stop()
+    await task

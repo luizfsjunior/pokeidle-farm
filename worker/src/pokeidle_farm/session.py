@@ -14,6 +14,7 @@ import asyncio
 import contextlib
 import logging
 import random
+from collections.abc import Callable
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -25,6 +26,7 @@ from .actions import ActionGateway, ActionMode
 from .bus import EventBus
 from .config import Settings
 from .events import Translator
+from .gamedata import HuntCatalog, SpeciesCatalog, save_hunt_catalog
 from .plugins.base import AccountStateView, PluginContext
 from .plugins.registry import PluginHost
 from .protocol import codec
@@ -92,6 +94,7 @@ class AccountSession:
         store: Store,
         settings: Settings,
         plugins: PluginHost,
+        species: Callable[[], SpeciesCatalog | None] | None = None,
     ) -> None:
         self.account = account
         self.store = store
@@ -113,6 +116,9 @@ class AccountSession:
         self._online_limit_retries = 0
         self._backoff = settings.reconnect_min_s
         self._ws: ClientConnection | None = None
+        self.catalog: HuntCatalog | None = None
+        self._species = species or (lambda: None)
+        self._bg: set[asyncio.Task[Any]] = set()
 
     # --- ciclo principal ----------------------------------------------------
 
@@ -230,6 +236,7 @@ class AccountSession:
                 continue
             if isinstance(msg, Welcome):
                 self._apply_state(msg)
+                self._load_catalog(raw)
                 for ev in self._translator.translate(msg, raw):
                     self.state_view.apply(ev)
                     await self.bus.publish(ev)
@@ -347,6 +354,26 @@ class AccountSession:
         self.state_view.items = dict(st.items)
         self.state_view.balls = None  # o snapshot traz o mapa inteiro de novo
 
+    def _load_catalog(self, raw: dict[str, Any]) -> None:
+        catalog = HuntCatalog.from_welcome(raw)
+        if not catalog.hunts:
+            return  # welcome sem catálogo: mantém o anterior
+        self.catalog = catalog
+        task = asyncio.get_running_loop().create_task(self._save_catalog(catalog))
+        self._bg.add(task)
+        task.add_done_callback(self._bg.discard)
+
+    async def _save_catalog(self, catalog: HuntCatalog) -> None:
+        try:
+            if await save_hunt_catalog(self.store, catalog):
+                log.info(
+                    "[%s] catálogo de hunts gravado (%d hunts)",
+                    self.account.nick,
+                    len(catalog.hunts),
+                )
+        except Exception:
+            log.exception("[%s] falha ao gravar o catálogo de hunts", self.account.nick)
+
     def _make_ctx(self, cls: Any, cfg: Any) -> PluginContext:
         return PluginContext(
             account_id=self.account.id,
@@ -358,6 +385,8 @@ class AccountSession:
             store=self.store,
             settings=self.settings,
             log=logging.getLogger(f"plugin.{cls.name}.{self.account.nick}"),
+            catalog=self.catalog,
+            species=self._species(),
         )
 
     async def _record_action(self, type_: str, data: dict[str, Any]) -> None:

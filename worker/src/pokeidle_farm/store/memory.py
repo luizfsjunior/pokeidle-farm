@@ -22,6 +22,11 @@ class MemoryStore:
         # comandos: id -> {"account_id", "type", "params", "status", "result", "error", "holder"}
         self.commands: dict[UUID, dict[str, Any]] = {}
         self.fail_inserts = False  # para testar o buffer da telemetria
+        # dados do jogo (fase 3b)
+        self.game_hunts: dict[str, dict[str, Any]] = {}
+        self.game_species: dict[int, dict[str, Any]] = {}
+        self.game_catalog: dict[str, dict[str, Any]] = {}  # key -> {"version", "data"}
+        self.catalog_writes = 0
         self._clock = clock
 
     def add_account(self, account: AccountRecord, token: str, device_id: str) -> None:
@@ -125,3 +130,28 @@ class MemoryStore:
                 c.update(status="failed", error="interrompido (o worker reiniciou)")
                 n += 1
         return n
+
+    # --- dados do jogo ------------------------------------------------------
+
+    async def get_catalog(self, key: str) -> tuple[str, Any] | None:
+        row = self.game_catalog.get(key)
+        return (row["version"], row["data"]) if row else None
+
+    async def save_hunt_catalog(
+        self, version: str, hunts: list[dict[str, Any]], tables: dict[str, Any]
+    ) -> None:
+        self.game_hunts = {h["slug"]: h for h in hunts}
+        for key, data in tables.items():
+            self.game_catalog[key] = {"version": version, "data": data}
+        self.game_catalog["hunts"] = {"version": version, "data": None}
+        self.catalog_writes += 1
+
+    async def save_species(
+        self, version: str, rows: list[dict[str, Any]], meta: dict[str, Any]
+    ) -> None:
+        self.game_species = {r["species_id"]: r for r in rows}
+        self.game_catalog["species"] = {"version": version, "data": meta}
+        self.catalog_writes += 1
+
+    async def load_species(self) -> list[dict[str, Any]]:
+        return [r["data"] for r in self.game_species.values()]

@@ -81,6 +81,16 @@ class AutoSet(ActionSpec):
         return {"t": "auto.set", **self.automation}
 
 
+class TopCatchRequest(ActionSpec):
+    name: ClassVar[str] = "topcatch.pedir"
+    description: ClassVar[str] = "Pede a lista das espécies da semana no Top Catch (só leitura)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 300.0
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "topcatch.pedir"}
+
+
 class RateLimiter:
     """Intervalo mínimo por (conta, ação)."""
 

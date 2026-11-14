@@ -153,3 +153,40 @@ class SupabaseStore:
     async def recover_commands(self, holder: str) -> int:
         res = await self._db.rpc("recover_commands", {"p_holder": holder}).execute()
         return int(res.data or 0)
+
+    # --- dados do jogo (fase 3b) --------------------------------------------
+
+    async def get_catalog(self, key: str) -> tuple[str, Any] | None:
+        res = await self._db.table("game_catalog").select("version,data").eq("key", key).execute()
+        rows = res.data or []
+        return (rows[0]["version"], rows[0]["data"]) if rows else None
+
+    async def save_hunt_catalog(
+        self, version: str, hunts: list[dict[str, Any]], tables: dict[str, Any]
+    ) -> None:
+        await self._db.rpc(
+            "replace_game_hunts", {"p_version": version, "p_hunts": hunts, "p_tables": tables}
+        ).execute()
+
+    async def save_species(
+        self, version: str, rows: list[dict[str, Any]], meta: dict[str, Any]
+    ) -> None:
+        await self._db.rpc(
+            "replace_game_species", {"p_version": version, "p_rows": rows, "p_meta": meta}
+        ).execute()
+
+    async def load_species(self) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
+        page = 1000
+        while True:
+            res = await (
+                self._db.table("game_species")
+                .select("data")
+                .order("species_id")
+                .range(len(out), len(out) + page - 1)
+                .execute()
+            )
+            rows = res.data or []
+            out.extend(r["data"] for r in rows)
+            if len(rows) < page:
+                return out

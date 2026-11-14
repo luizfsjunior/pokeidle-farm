@@ -83,3 +83,25 @@ class Store(Protocol):
     async def recover_commands(self, holder: str) -> int:
         """Marca como failed os comandos running deste holder (o worker reiniciou)."""
         ...
+
+    # --- dados do jogo (fase 3b) ----------------------------------------------
+
+    async def get_catalog(self, key: str) -> tuple[str, Any] | None:
+        """(version, data) da linha `key` de game_catalog, ou None."""
+        ...
+
+    async def save_hunt_catalog(
+        self, version: str, hunts: list[dict[str, Any]], tables: dict[str, Any]
+    ) -> None:
+        """Substitui game_hunts (apaga as que sumiram) e grava as tabelas e a versão."""
+        ...
+
+    async def save_species(
+        self, version: str, rows: list[dict[str, Any]], meta: dict[str, Any]
+    ) -> None:
+        """Substitui game_species e grava a versão (com `meta`, ex.: os ETags)."""
+        ...
+
+    async def load_species(self) -> list[dict[str, Any]]:
+        """O `data` de cada linha de game_species (a espécie como veio do jogo)."""
+        ...

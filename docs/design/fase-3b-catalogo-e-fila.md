@@ -1,6 +1,19 @@
 # Fase 3b: catálogo de hunts, Pokedex e fila por tempo até a captura
 
-Status: **aprovado** (14/11/2026), decisões D1 a D6 tomadas.
+Status: **implementado** (14/11/2026), decisões D1 a D6 tomadas. Código em `worker/src/pokeidle_farm/gamedata.py`
+(catálogo, Pokedex, `SpeciesSync`) e `rank_queue.py` (fila); migration `20261114010000_game_catalog.sql`; testes em
+`test_gamedata.py`, `test_rank_queue.py`, `test_protocol.py` (`rank.week`), `test_bus_actions.py`
+(`TopCatchRequest`) e `test_session.py` (catálogo do `welcome`).
+
+Conferido com dados reais em 14/11: a busca da Pokedex pelo worker trouxe 1.327 espécies, cobriu as 1.043 hunts
+(107 `first_of_three`, 344 `middle`, 592 `last`) e a segunda busca voltou `304` (`unchanged`).
+
+Diferenças do texto abaixo para o que foi implementado:
+- `species.fetch_failed` é só log do worker, não evento na tabela `events` (que exige conta, e a busca é uma por
+  worker).
+- O worker sempre faz a primeira busca da execução sem `If-None-Match` (não lê os `ETag`s gravados); só regrava
+  se a `version` for diferente da que está em `game_catalog`.
+- Um `welcome` sem `hunts` não muda o catálogo em memória nem grava nada.
 
 É o passo 3 da [ordem de implementação da 3b](fase-3b-rank-semanal.md#8-ordem-de-implementação). Entrega as
 peças que o plugin `rank` (passo 4) vai usar. A única mensagem nova para o jogo é um pedido de leitura

@@ -110,6 +110,14 @@ class RankCatchData(_Data):
     hunt_slug: str | None = None
 
 
+class RankWeekData(_Data):
+    """Espécies que já pontuaram na semana (resposta do `topcatch.pedir`)."""
+
+    week_start: str | None = None
+    week_species: int | None = None
+    species: dict[str, int] = Field(default_factory=dict)  # chave da espécie -> minuto da semana
+
+
 class CatchUntilCaptureOffData(_Data):
     """O Lançar até Capturar passou de ligado para desligado (o servidor desliga na captura)."""
 
@@ -276,6 +284,15 @@ class Translator:
         if isinstance(msg, UnknownMessage):
             if msg.t in NOISE_TYPES:
                 return [self._ev(NOISE_TYPES[msg.t], {}, raw)]
+            if msg.t == "topCatch":
+                species = {}
+                for item in raw.get("e") or []:
+                    if isinstance(item, list | tuple) and len(item) >= 2:
+                        species[str(item[0])] = item[1]
+                data = RankWeekData(
+                    week_start=raw.get("s"), week_species=raw.get("n"), species=species
+                )
+                return [self._ev("rank.week", data, raw)]
             if msg.t == "shiny.captura":
                 pk = raw.get("pokemon") or {}
                 data = GlobalShinyData(

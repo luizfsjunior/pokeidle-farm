@@ -198,7 +198,9 @@ As duas passam pelo `ActionGateway` (modo, rate limiter, `action.sent`). Teto de
 1. Confirmar a seção 6 e fechar a seção 7.
 2. ~~Tradutor~~ (14/11, [tradutor-3b.md](tradutor-3b.md)): `rank.catch`, `hunt.changed.switch_free_at`,
    `auto.catch_until_capture_off` e `top_catch`.
-3. Catálogo de hunts a partir do `welcome` + estimador de `novas/h`, com testes.
+3. ~~Catálogo e fila~~ (14/11, [fase-3b-catalogo-e-fila.md](fase-3b-catalogo-e-fila.md)): hunts do `welcome`,
+   Pokedex dos `creatures*.json` com o estágio evolutivo, `topcatch.pedir`/`rank.week` e a fila por tempo até a
+   captura.
 4. Plugin `rank` em `observe_only`: grava `rank.plan` e as ações que faria. Conferir por alguns dias.
 5. `ball.throw` ligado, depois `hunt.select`.
 6. Métricas e card no painel.

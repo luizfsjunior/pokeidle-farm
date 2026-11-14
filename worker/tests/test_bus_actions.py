@@ -122,3 +122,33 @@ async def test_rate_limit_when_enabled():
     t[0] = 10.0
     await gw.submit(FakeAction(x=3), source="test")
     assert [p["x"] for p in sent] == [1, 3]
+
+
+# --- topcatch.pedir (docs/design/fase-3b-catalogo-e-fila.md, caso 14) -------------
+
+
+async def test_top_catch_request():
+    from pokeidle_farm.actions import TopCatchRequest
+
+    assert TopCatchRequest().to_wire() == {"t": "topcatch.pedir"}
+
+    observe = ActionGateway(account_id="a", mode=ActionMode.OBSERVE_ONLY)
+    with pytest.raises(ActionBlocked):
+        await observe.submit(TopCatchRequest(), source="rank")
+
+    sent: list[dict] = []
+
+    async def send(p: dict) -> None:
+        sent.append(p)
+
+    now = [1000.0]
+    gw = ActionGateway(
+        account_id="a", mode=ActionMode.ENABLED, send=send, limiter=RateLimiter(lambda: now[0])
+    )
+    await gw.submit(TopCatchRequest(), source="rank")
+    now[0] += 299
+    with pytest.raises(ActionBlocked):
+        await gw.submit(TopCatchRequest(), source="rank")
+    now[0] += 2
+    await gw.submit(TopCatchRequest(), source="rank")
+    assert sent == [{"t": "topcatch.pedir"}] * 2
