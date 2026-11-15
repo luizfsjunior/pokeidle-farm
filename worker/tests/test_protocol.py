@@ -62,6 +62,7 @@ def test_translate_kill_and_capture():
         "hunt_slug": None,
         "active_level": None,
         "active_species_id": None,
+        "wave_seq": None,
     }
     assert kill.raw["extra"] == "guardado no raw"
     assert cap.type == "capture_attempt" and cap.data["success"] is True
@@ -204,6 +205,7 @@ def test_v2_real_kill():
         "hunt_slug": "magikarp",
         "active_level": None,
         "active_species_id": None,
+        "wave_seq": None,
     }
 
 
@@ -605,3 +607,21 @@ def test_active_pokemon_inferred_from_pkmud():
     )
     kill = _one(tr, {"t": "batalha", "ev": [{"k": "morte"}]})
     assert kill.data["active_level"] == 12 and kill.data["active_species_id"] == 4
+
+
+def test_kill_carries_wave_seq():
+    tr = Translator(uuid4(), uuid4())
+    tr.translate(*codec.decode(json.dumps({"t": "estado", "estado": {"ondaSeq": 16}})))
+    kill = _one(tr, {"t": "batalha", "ev": [{"k": "morte"}]})
+    assert kill.data["wave_seq"] == 16
+    tr.translate(*codec.decode(json.dumps({"t": "estado", "estado": {"combateOndaSeq": 17}})))
+    assert _one(tr, {"t": "batalha", "ev": [{"k": "morte"}]}).data["wave_seq"] == 17
+
+
+def test_welcome_rules_are_kept():
+    from pokeidle_farm.gamedata import HuntCatalog
+
+    cat = HuntCatalog.from_welcome(
+        {"hunts": [], "tabelaTipos": {"FIRE": {"GRASS": 2}}, "multHpSelvagem": 5, "x": 1}
+    )
+    assert cat.rules == {"tabelaTipos": {"FIRE": {"GRASS": 2}}, "multHpSelvagem": 5}

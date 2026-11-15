@@ -193,7 +193,8 @@ def test_species_version_and_row_without_loot():
     b = SpeciesCatalog.from_creatures([{"creatures": list(reversed(KANTO))}])
     assert a.version == b.version
     row = a.rows()[0]
-    assert "loot" not in row["data"] and "attacks" not in row["data"]
+    assert "loot" not in row["data"]
+    assert row["data"]["attacks"]  # os golpes ficam: o simulador de combate usa
     assert set(row) >= {"species_id", "name", "stage", "evolves_to", "data"}
 
 

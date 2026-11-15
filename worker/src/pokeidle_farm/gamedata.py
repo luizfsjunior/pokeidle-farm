@@ -95,6 +95,21 @@ class BallInfo:
     price: int | None
 
 
+# Regras do servidor no `welcome` que o simulador de combate usa (docs/design/simulador-1-combate.md).
+WELCOME_RULES = (
+    "tabelaTipos",
+    "ampliacaoHunt",
+    "multHpSelvagem",
+    "multDanoSelvagem",
+    "chanceShiny",
+    "potencias",
+    "maxEquipe",
+    "multShinyStats",
+    "outlandTiers",
+    "economia",
+)
+
+
 @dataclass
 class HuntCatalog:
     hunts: dict[str, Hunt] = field(default_factory=dict)
@@ -104,6 +119,8 @@ class HuntCatalog:
     # o JSON como veio, para gravar em game_catalog
     raw_capture: Any = None
     raw_balls: Any = None
+    # regras do servidor que o simulador usa (tabela de tipos, HP e dano do selvagem...)
+    rules: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_welcome(cls, raw: dict[str, Any]) -> HuntCatalog:
@@ -115,13 +132,15 @@ class HuntCatalog:
                 hunts[parsed.slug] = parsed
         captura = raw.get("captura")
         bolas = raw.get("catalogoBolas")
+        rules = {k: raw[k] for k in WELCOME_RULES if k in raw}
         return cls(
             hunts=hunts,
             capture=_parse_capture(captura),
             balls=_parse_balls(bolas),
-            version=stable_version(hunts_raw, captura, bolas),
+            version=stable_version(hunts_raw, captura, bolas, rules),
             raw_capture=captura,
             raw_balls=bolas,
+            rules=rules,
         )
 
     def hunt_rows(self) -> list[dict[str, Any]]:
@@ -204,7 +223,8 @@ class Species:
 class SpeciesCatalog:
     species: dict[int, Species] = field(default_factory=dict)
     version: str = ""
-    raw: dict[int, dict[str, Any]] = field(default_factory=dict)  # sem loot e attacks
+    # sem o loot; com os golpes (`attacks`) e os stats base: o simulador de combate usa
+    raw: dict[int, dict[str, Any]] = field(default_factory=dict)
 
     @classmethod
     def from_creatures(cls, files: list[Any]) -> SpeciesCatalog:
@@ -215,7 +235,7 @@ class SpeciesCatalog:
                 pid = _int(c.get("pokeId")) if isinstance(c, dict) else None
                 if pid is None or pid in raw:
                     continue  # repetido: vale o primeiro arquivo
-                raw[pid] = {k: v for k, v in c.items() if k not in ("loot", "attacks")}
+                raw[pid] = {k: v for k, v in c.items() if k != "loot"}
 
         def target(pid: int) -> int | None:
             to = _int(raw[pid].get("evolvesToId"))
@@ -290,7 +310,11 @@ async def save_hunt_catalog(store: Store, catalog: HuntCatalog) -> bool:
     await store.save_hunt_catalog(
         catalog.version,
         catalog.hunt_rows(),
-        {"captura": catalog.raw_capture, "catalogoBolas": catalog.raw_balls},
+        {
+            "captura": catalog.raw_capture,
+            "catalogoBolas": catalog.raw_balls,
+            "regras": catalog.rules,
+        },
     )
     return True
 

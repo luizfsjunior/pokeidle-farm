@@ -71,6 +71,7 @@ class KillData(_Data):
     # (docs/design/ritmo-por-nivel.md)
     active_level: int | None = None
     active_species_id: int | None = None
+    wave_seq: int | None = None  # onda de spawn do abate (estado.ondaSeq / combateOndaSeq)
 
 
 class CaptureAttemptData(_Data):
@@ -250,6 +251,7 @@ class Translator:
         self.active_id: Any = None
         self.pokemon_levels: dict[Any, int] = {}
         self.pokemon_species: dict[Any, int] = {}
+        self.wave_seq: int | None = None
 
     def _ev(self, type_: str, data: BaseModel | dict[str, Any], raw: dict[str, Any]) -> Event:
         now = utcnow()
@@ -373,6 +375,10 @@ class Translator:
             self.hunt_slug = src["huntSlug"]
         if src.get("activeId") is not None:
             self.active_id = src["activeId"]
+        for key in ("combateOndaSeq", "ondaSeq"):
+            if isinstance(src.get(key), int):
+                self.wave_seq = src[key]
+                break
         changed = self._track_pokemon(src.get("pkMud"))
         if self.active_id is None and len(changed) == 1:
             self.active_id = changed[0]  # quem ganha XP a cada abate é o ativo
@@ -444,6 +450,7 @@ class Translator:
                 hunt_slug=self.hunt_slug,
                 active_level=self.pokemon_levels.get(self.active_id),
                 active_species_id=self.pokemon_species.get(self.active_id),
+                wave_seq=self.wave_seq,
             )
             return self._ev("kill", data, ev)
         if k == "bola":
