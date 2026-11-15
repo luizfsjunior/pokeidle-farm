@@ -156,7 +156,7 @@ Também aparecem `aviso`, `marketComprado` e `mktSorteio`, relacionados ao Merca
 
 ## Regras que o worker tem que respeitar
 
-- **Trava de combate:** `hunt.select` e `centro.ir` só funcionam depois de `estado.centroLivreEm`, e cada golpe recebido renova a trava. Coloque o pedido numa fila e envie quando a trava acabar.
+- **Trava de combate:** `hunt.select` e `centro.ir` só funcionam depois de `estado.centroLivreEm`, e cada golpe recebido renova a trava. Coloque o pedido numa fila e envie quando a trava acabar. **Mandado durante a trava, o `hunt.select` é ignorado em silêncio**: não vem `erro` nem `hunt.changed` (visto em 15/11 18:50:46, com a trava 2,2 s à frente, logo depois de uma reconexão). Por isso o worker confirma a troca pelo `hunt.changed`, tenta de novo depois de 15 s sem resposta e usa um timer para o fim da trava (o golpe que fecha a janela livre chega no mesmo frame que a renova).
 - **Intervalo entre trocas de hunt:** o `k:"hunt"` traz `trocaLivreEm` = agora + 10 s. Não mande outro `hunt.select` antes disso (o erro de mandar antes ainda não foi visto).
 - **Hunt atual:** use o evento `batalha` `k:"hunt"`, que vem em toda troca. O `estado.huntSlug` só vem quando o valor muda (voltar do Centro para a mesma hunt não traz `huntSlug`).
 - **Uma compra por vez:** espere o `k: "compra"` antes da próxima, e trate o caso de a confirmação não chegar (timeout).
@@ -277,9 +277,9 @@ Gravado no navegador, pela conta pessoal (gravador na página que ignora o `hell
 - [x] Conferir o `hello` e o `welcome` (sessão real de 12/11/2026)
 - [ ] Ver se `delta` muda em algum caso
 - [ ] Confirmar o `sessao.renovada` (quando chega?)
-- [ ] Anotar o formato de `drops[]` dentro de `morte` (nenhum drop em Magikarp)
+- [x] Anotar o formato de `drops[]` dentro de `morte`: `[{"qtd": 1, "nome": "Water Stone"}]` (15/11; o nome casa com o `items.json` público)
 - [x] Ver um `bola` real (bola automática "sem parar", com VIP)
 - [x] Ver uma captura com sucesso (`k: capturado`)
 - [x] `ouro` × `ouroLoot` em `morte` (o `ouro` já inclui o `ouroLoot`)
 - [x] Entender `xp` × `xpPokemon`/`xpTreinador` em `morte` (`xp` é a base)
-- [ ] Medir o ritmo de abates numa hunt de nível alto
+- [x] Medir o ritmo de abates por hunt (15/11, conta nível 19): ~1.000/h em Magikarp, ~900/h em Poliwag, Weedle e Oddish; ~60–115/h em Nidoran, Zubat e Bulbasaur (o time apanha mais). O `rank` mede sozinho a partir de 5 min na hunt

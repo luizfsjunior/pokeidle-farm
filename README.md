@@ -6,7 +6,14 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
 
 ## Status
 
-🟡 Em desenvolvimento: worker rodando contra o jogo em IP residencial, com o primeiro plugin que age no jogo (`restock`: escolhe a bola e repõe consumíveis), métricas (incluindo ouro líquido) e painel v1 no ar. Fase 3b (rank semanal) pronta e ligada numa conta: fila de hunts com troca de hunt e Lançar até Capturar, seletor de foco no painel, métrica `rank_points`, posição no Top Catch e card "Rank semanal". Fase 7 (preços do Mercado e valor dos drops em gemas e ouro) no ar; fase 8 (página "Compensa?") pronta, juntando dados. Detalhes no [roadmap](docs/roadmap.md).
+🟡 Em uso numa conta, crescendo por fases (detalhes no [roadmap](docs/roadmap.md)):
+
+- **No ar:** worker no Docker de um PC em casa, contra o jogo; plugins `restock` (bola e consumíveis), `rank`
+  (rank semanal: fila de hunts com troca de hunt e Lançar até Capturar) e `market_prices` (médias do Mercado);
+  métricas com objetivos; painel com visão geral, foco por conta, card do rank, `/mercado` e `/compensa`.
+- **Juntando dados:** o veredito do "Compensa?" (renda em gemas contra o custo de energia) fica confiável com 7 dias
+  de preços, por volta de 22/11/2026.
+- **Próximo:** fase 5, rodar as 3 contas de farm.
 
 ## Visão geral
 
@@ -19,11 +26,22 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
                                                      │
 [Máquina com IP residencial — Docker] worker Python (asyncio) ── WebSocket ──> pokeidle.io
    ├─ AccountSession × 3
-   ├─ Strategies (hunt, restock, venda)
-   └─ RateLimiter + Telemetry
+   ├─ Plugins: restock, rank, market_prices (venda e sniper: fase 9)
+   └─ ActionGateway (RateLimiter) + telemetry
 ```
 
 Detalhes em [docs/arquitetura.md](docs/arquitetura.md).
+
+## Como rodar e manter
+
+- **Worker** (Python, Docker): [worker/README.md](worker/README.md): `.env`, `docker compose up -d --build`, testes
+  (`pytest` e `ruff` num container) e como ligar cada plugin.
+- **Painel** (Next.js): [web/README.md](web/README.md): variáveis, `npm run dev`, `npm run typecheck` e o deploy na
+  Vercel (a cada push na `main`).
+- **Banco** (Supabase): as migrations em `supabase/migrations` são aplicadas no push para a `main`;
+  teste antes num Postgres local com [supabase/tests/README.md](supabase/tests/README.md).
+- **Deploy do zero:** [docs/deploy.md](docs/deploy.md). **O que mudou e por quê:** [docs/diario.md](docs/diario.md)
+  e os desenhos em `docs/design/`.
 
 ## Estrutura
 

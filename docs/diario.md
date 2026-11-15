@@ -59,9 +59,18 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 | Troca de hunt demorando 2 min numa hunt em que o selvagem ataca | o golpe que fecha a janela renova a trava no mesmo frame; o plugin só conferia a trava em eventos | timer para o fim da trava (`_schedule`/`_wake` no `rank`) |
 | A conta parou de jogar bola depois do rebuild | o padrão novo do `restock.focus` (`gold_xp_drop`) com a config antiga sem `focus` | foco gravado pelo card **Foco** logo depois (esperado) |
 
+- **`hunt.select` na trava é ignorado em silêncio** (18:50:46, logo depois de uma reconexão, trava 2,2 s à
+  frente): sem `erro` nem `hunt.changed`; o plugin registrou `rank.failed` por timeout e a nova tentativa passou.
+- **Ritmo por hunt medido** (nível 19): ~1.000/h em Magikarp e ~900/h em Poliwag, Weedle e Oddish, contra
+  ~60–115/h em Nidoran, Zubat e Bulbasaur. A fila do rank já usa o ritmo medido.
+- **Roadmap organizado**: fases 1 a 4 concluídas, fase 5 com o Docker em casa pronto e faltando as contas.
+
 ### Pendente
 
-- Ainda a ver no jogo: o erro de `hunt.select` durante a trava (não apareceu com o timer).
+- Fase 5: cadastrar as outras duas contas de farm (nick, token e dispositivo) e rodar as três juntas.
+- Fase 8: veredito do `/compensa` por volta de 22/11 (7 dias de preços); trocar a estimativa de energia se houver
+  números reais.
+- Ainda não chegou um `sessao.renovada` (renovação do token) para conferir o formato.
 
 ## 2026-11-14
 

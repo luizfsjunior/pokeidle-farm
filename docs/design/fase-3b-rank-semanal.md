@@ -156,7 +156,7 @@ As duas passam pelo `ActionGateway` (modo, rate limiter, `action.sent`). Teto de
    desde o início da semana, `pontua` nova na semana. Falta: o `m` e o `ini` do `estado.topCatch`, e se o
    `welcome` traz o `topCatch` com a lista das espécies da semana (dispensaria ler o histórico).
 3. ~~`hunt.select`~~ (14/11): resposta com `campo.init`, `batalha` `k:"hunt"` (`trocaLivreEm` +10 s) e
-   `estado`. Falta ver o erro de trocar durante a trava ou antes do `trocaLivreEm`.
+   `estado`. Durante a trava o pedido é ignorado em silêncio, sem `erro` (15/11; ver protocolo.md, regras).
 4. ~~`autoBallAteCapturar`~~ (14/11): na captura vem um `estado` com a `automation` e a flag em `false`.
 5. ~~Hunts alcançáveis~~: pelo nível do treinador por região (wiki). Troca direta entre hunts confirmada
    (Meowth → Machop); entre regiões diferentes ainda não testado.
