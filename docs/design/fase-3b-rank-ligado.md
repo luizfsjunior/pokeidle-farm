@@ -248,7 +248,7 @@ Em `worker/tests/test_commands.py`:
 44. **`focus.set gold_xp_drop`**: `restock` com `focus: "gold_xp_drop"`, `rank` desligado com a config preservada.
 45. **Inválido**: `focus: "xyz"`, ou `rank_balls: []` → `CommandError` e nada gravado.
 
-Em `worker/tests/test_events.py` (ou onde o `AccountStateView` é testado):
+Em `worker/tests/test_session.py`:
 
 46. **`AccountStateView`**: `state.patch` com `centro_livre_em` → `combat_free_at`; `hunt.changed` com
     `switch_free_at` → guardado; `server_now()` soma o `server_offset`.
