@@ -33,7 +33,8 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 | Problema | Causa | Solução |
 |---|---|---|
-| Worker parado desde 14/11 17:06 | Docker fechado; o `restart: on-failure` não religa uma saída limpa | `docker compose up -d --build` |
+| Worker parado desde 14/11 17:06 | Docker fechado; o `restart: on-failure` não religa uma saída limpa | `docker compose up -d --build`; depois, `restart: unless-stopped` no compose (volta sozinho com o Docker, desde que o Docker Desktop abra com o Windows) |
+| `vmmemWSL` ocupando muita RAM | WSL sem limite (até metade da RAM) e sem devolver o cache dos builds e testes | `%UserProfile%\.wslconfig` com `memory=3GB` e `autoMemoryReclaim=gradual`, depois `wsl --shutdown` (o Docker Desktop avisa "WSL distro terminated abruptly"; o engine volta sozinho) |
 | Troca de hunt demorando 2 min numa hunt em que o selvagem ataca | o golpe que fecha a janela renova a trava no mesmo frame; o plugin só conferia a trava em eventos | timer para o fim da trava (`_schedule`/`_wake` no `rank`) |
 | A conta parou de jogar bola depois do rebuild | o padrão novo do `restock.focus` (`gold_xp_drop`) com a config antiga sem `focus` | foco gravado pelo card **Foco** logo depois (esperado) |
 

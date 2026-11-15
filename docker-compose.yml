@@ -1,11 +1,13 @@
 services:
   worker:
     build: ./worker
-    # on-failure: reinicia só se o worker quebrar. Contas em estado terminal
-    # (needs_login/rejected) ficam paradas, sem reconectar contra um bloqueio;
-    # o worker continua no ar esperando comandos do painel (ex.: Reconectar
-    # depois de um token novo).
-    restart: on-failure:5
+    # unless-stopped: volta sozinho depois de o Docker ou o WSL reiniciar (com
+    # on-failure, uma saída limpa nessas horas deixava o worker parado) e também
+    # se o processo quebrar. Só fica parado com `docker compose stop`/`down`.
+    # Contas em estado terminal (needs_login/rejected) não derrubam o processo:
+    # ficam paradas, sem reconectar contra um bloqueio, e o worker continua no ar
+    # esperando comandos do painel (ex.: Reconectar depois de um token novo).
+    restart: unless-stopped
     env_file: .env
     volumes:
       - worker-data:/app/data
