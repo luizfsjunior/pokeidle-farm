@@ -37,20 +37,24 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   hora, numa conta só), métricas `drops_value_orb`/`drops_value_gold`/`drops_unpriced` com o preço da hora de cada
   drop (sem vendas em ouro, o preço do NPC) e a página `/mercado`. 198 testes, os testes SQL e o build do web
   passando.
+- **Fase 7 no ar**: a resposta real do `market.medias` bateu com o `app.js` (36 itens; Water Stone a 29 gemas ou
+  ~129 mil de ouro). Nos 7 dias, ~435 gemas em drops. Os drops de antes do primeiro snapshot ficam pelo preço do
+  NPC (decidido: as métricas valem daqui para a frente).
+- **Eventos do simulador apagados** da `luizfsjunior_1`: 34.441 eventos com `raw._sim = true` (09/11 a 12/11),
+  com as métricas recalculadas desde 12/11.
 
 ### Problemas e soluções
 
 | Problema | Causa | Solução |
 |---|---|---|
 | Worker parado desde 14/11 17:06 | Docker fechado; o `restart: on-failure` não religa uma saída limpa | `docker compose up -d --build`; depois, `restart: unless-stopped` no compose (volta sozinho com o Docker, desde que o Docker Desktop abra com o Windows) |
+| Drops reais "sem preço" depois do deploy da fase 7 | a migration recalculou as métricas antes de o worker gravar o catálogo de itens | `refresh_metric_hourly('2026-11-12', now())` depois do `Itens: saved` |
 | `vmmemWSL` ocupando muita RAM | WSL sem limite (até metade da RAM) e sem devolver o cache dos builds e testes | `%UserProfile%\.wslconfig` com `memory=2GB` e `autoMemoryReclaim=gradual`, depois `wsl --shutdown` (o Docker Desktop avisa "WSL distro terminated abruptly"; o engine volta sozinho) |
 | Troca de hunt demorando 2 min numa hunt em que o selvagem ataca | o golpe que fecha a janela renova a trava no mesmo frame; o plugin só conferia a trava em eventos | timer para o fim da trava (`_schedule`/`_wake` no `rank`) |
 | A conta parou de jogar bola depois do rebuild | o padrão novo do `restock.focus` (`gold_xp_drop`) com a config antiga sem `focus` | foco gravado pelo card **Foco** logo depois (esperado) |
 
 ### Pendente
 
-- Fase 7: push (aplica a migration `market_prices`), rebuild do worker e conferir a primeira resposta real do
-  `market.medias` (formato, quantos itens) e a página `/mercado`.
 - Ainda a ver no jogo: o erro de `hunt.select` durante a trava (não apareceu com o timer).
 
 ## 2026-11-14

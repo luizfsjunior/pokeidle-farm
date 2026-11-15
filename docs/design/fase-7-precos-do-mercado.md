@@ -1,7 +1,7 @@
 # Fase 7: preços do Mercado e valor dos drops
 
-Status: **implementado** (15/11/2026), decisões D-O a D-S tomadas (fim do documento); falta o passo 1 (conferir
-a resposta real do `market.medias` depois do deploy). Código: `MarketAverages` em `actions.py`, `market.prices` e
+Status: **implementado e ligado** (15/11/2026), decisões D-O a D-S tomadas (fim do documento). A primeira resposta
+real do `market.medias` (15/11 18:51 UTC) bateu com o formato abaixo e trouxe 36 itens (só os vendidos na semana). Código: `MarketAverages` em `actions.py`, `market.prices` e
 `Drop.qty` no tradutor (`events.py`), plugin `plugins/market_prices.py`, `ItemsSync` e itens do `welcome` em
 `gamedata.py`, migration `20261115030000_market_prices.sql`, página `web/app/mercado/page.tsx` e as colunas novas
 na visão geral. Testes: casos 1 a 5 em `worker/tests/test_market.py`, 6 a 9 em
@@ -14,6 +14,9 @@ Diferenças do texto abaixo para o que foi implementado:
   snapshot, ele não teve vendas na semana, e não se busca um preço mais antigo dele.
 - O `market.prices` é gravado em `events` com o `raw` (~1 resposta por hora), para conferir o formato e ter
   histórico além dos 30 dias de `market_prices`.
+- **Gotcha do deploy:** a migration recalcula as métricas quando `game_items` ainda está vazio (o worker só grava o
+  catálogo ao subir), e o refresh incremental só refaz as horas com eventos novos. Depois do primeiro `Itens: saved`
+  no log, rode `select public.refresh_metric_hourly('2026-11-12', now());` (feito em 15/11).
 - Na página `/mercado` o valor usa o **último snapshot** (é uma foto de "quanto vale hoje"); as métricas usam o
   preço da hora de cada drop.
 
