@@ -494,3 +494,100 @@ class ItemsSync:
             log.info("Itens: %s", await self.run_once())
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), timeout=self.interval_s)
+
+
+# --- wiki e fórmulas do jogo (análise de 15/11, proposta C) ----------------------------
+
+GAME_BASE_URL = "https://pokeidle.io"
+# A wiki (`pokepedia.mjs`, ~1 MB, 45 capítulos) e os módulos com as fórmulas do servidor que
+# importam para o farm. Guardados em game_files (o banco é privado; o repositório é público,
+# então o conteúdo do jogo não vai para o git).
+GAME_FILES = (
+    "pokepedia.mjs",
+    "shared/loot-pedras.mjs",
+    "shared/pedras-evolucao.mjs",
+    "shared/taxa-mercado.mjs",
+    "shared/recompensa-hunt.mjs",
+    "shared/sell-value.mjs",
+    "shared/tipo-efetividade.mjs",
+    "shared/captura-degrau.mjs",
+)
+
+
+def parse_loot_stones(loot_js: str, stones_js: str) -> dict[str, Any] | None:
+    """Constantes das pedras: chance por posição na cadeia e pedra por tipo. None se mudou o formato."""
+    import re
+
+    m = re.search(r"CHANCE_PEDRA_POR_ESTAGIO\s*=\s*\[([^\]]*)\]", loot_js)
+    t = re.search(r"PEDRA_POR_TIPO\s*=\s*\{([^}]*)\}", stones_js)
+    if not m or not t:
+        return None
+    try:
+        # o jogo guarda em porcento (0.2 = 0,2% por abate)
+        chances = [round(float(x) / 100, 6) for x in m.group(1).split(",") if x.strip()]
+    except ValueError:
+        return None
+    by_type = dict(re.findall(r"([A-Z]+)\s*:\s*'([^']+)'", t.group(1)))
+    if len(chances) != 3 or not by_type:
+        return None
+    return {"chance_by_position": chances, "stone_by_type": by_type}
+
+
+class GameFilesSync:
+    """Mantém a wiki e as fórmulas do jogo no banco (GET condicional por ETag)."""
+
+    def __init__(
+        self,
+        store: Store,
+        http_get: HttpGet,
+        *,
+        base_url: str = GAME_BASE_URL,
+        files: tuple[str, ...] = GAME_FILES,
+        interval_s: float = 24 * 3600,
+    ) -> None:
+        self.store = store
+        self.http_get = http_get
+        self.base_url = base_url.rstrip("/")
+        self.files = files
+        self.interval_s = interval_s
+        self._etags: dict[str, str] = {}
+        self._content: dict[str, str] = {}
+
+    async def run_once(self) -> SyncResult:
+        changed = False
+        try:
+            for path in self.files:
+                status, etag, body = await self.http_get(
+                    f"{self.base_url}/{path}",
+                    self._etags.get(path) if path in self._content else None,
+                )
+                if status == 304 and path in self._content:
+                    continue
+                if status != 200:
+                    raise ConnectionError(f"{path}: HTTP {status}")
+                text = body.decode("utf-8", errors="replace")
+                await self.store.save_game_file(path, etag, text)
+                self._content[path] = text
+                if etag:
+                    self._etags[path] = etag
+                changed = True
+        except Exception as exc:
+            log.warning("game_files.fetch_failed: %r", exc)
+            return "failed"
+        if not changed:
+            return "unchanged"
+        loot = parse_loot_stones(
+            self._content.get("shared/loot-pedras.mjs", ""),
+            self._content.get("shared/pedras-evolucao.mjs", ""),
+        )
+        if loot is not None:
+            await self.store.save_catalog_entry("loot_stones", stable_version(loot), loot)
+        else:
+            log.warning("game_files: não reconheci as constantes das pedras (o jogo mudou?)")
+        return "saved"
+
+    async def run_forever(self, stop: asyncio.Event) -> None:
+        while not stop.is_set():
+            log.info("Arquivos do jogo: %s", await self.run_once())
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(stop.wait(), timeout=self.interval_s)

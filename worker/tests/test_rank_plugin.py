@@ -241,7 +241,9 @@ async def test_measured_rate_and_default():
     assert q["magikarp"]["kills_per_hour"] == pytest.approx(2000)
     assert q["magikarp"]["kph_known"] is True
     assert q["metapod"]["kph_known"] is False
-    assert q["metapod"]["kills_per_hour"] == pytest.approx(2100 / 80 * 60)
+    # 20 min não bastam para medir; a estimativa vem do nível medido mais próximo (Magikarp,
+    # nível 10), não mais do ritmo médio da conta (docs/design/foco-gemas-e-ritmo.md)
+    assert q["metapod"]["kills_per_hour"] == pytest.approx(2000)
 
 
 async def test_hunts_outside_catalog_are_ignored():
@@ -874,3 +876,35 @@ async def test_blocked_ranking_request_goes_out_when_limit_allows():
     assert [p["t"] for p in h.sent] == ["topcatch.pedir", "ranking.pedir", "ranking.pedir"]
     await h.send_ev(ev("rank.board", week_start=WEEK, rows=[row("a", 24)]))
     assert h.events("rank.position")[-1]["species"] == 5
+
+
+# === ritmo aprendido (docs/design/foco-gemas-e-ritmo.md) ================================
+
+
+async def test_replans_when_measured_rate_drifts():
+    h = await Harness(hunt_slug="caterpie").start()
+    assert h.plans()[-1]["target"]["slug"] == "caterpie"
+    for _ in range(6):  # 1 abate por minuto = 60/h, contra 300/h previstos
+        h.now += timedelta(minutes=1)
+        await h.send_ev(ev("kill", gold=200, gold_autosell=0, hunt_slug="caterpie"))
+    assert "rate_measured" in [p["reason"] for p in h.plans()]
+    q = {i["slug"]: i for i in h.plans()[-1]["queue"]}
+    assert q["caterpie"]["kph_known"] is True
+    assert q["caterpie"]["kills_per_hour"] == pytest.approx(60, rel=0.2)
+
+
+async def test_unseen_hunt_uses_nearest_measured_level():
+    store = StatsStore([HuntStats("metapod", 60, 60)])  # nível 5: 60/h
+    h = await Harness(store=store).start()
+    q = {i["slug"]: i for i in h.plans()[-1]["queue"]}
+    assert q["magikarp"]["kills_per_hour"] == pytest.approx(60)  # nível 10: o medido abaixo
+    assert q["magikarp"]["kph_known"] is False
+
+
+async def test_skipped_survive_restart():
+    h = Harness()
+    h.stored("rank.plan", NOW - timedelta(hours=1), week_start=WEEK, skipped=[10])
+    await h.start()
+    plan = h.plans()[-1]
+    assert plan["skipped"] == [10]
+    assert plan["target"]["slug"] != "caterpie"

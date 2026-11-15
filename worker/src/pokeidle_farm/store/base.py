@@ -129,6 +129,20 @@ class Store(Protocol):
         """Acrescenta um snapshot de médias do Mercado (linhas de market_prices)."""
         ...
 
+    async def latest_item_prices(self) -> dict[str, dict[str, Any]]:
+        """Último snapshot por nome de item: {name: {orb, orb_units_week, gold, gold_units_week}}."""
+        ...
+
+    # --- arquivos do jogo (wiki e fórmulas; análise de 15/11) ---------------------
+
+    async def save_game_file(self, path: str, etag: str | None, content: str) -> None:
+        """Grava (ou substitui) um arquivo público do jogo em game_files."""
+        ...
+
+    async def save_catalog_entry(self, key: str, version: str, data: Any) -> None:
+        """Grava uma linha em game_catalog (ex.: `loot_stones`, as constantes das pedras)."""
+        ...
+
     async def rank_hunt_stats(self, account_id: UUID, since: datetime) -> list[HuntStats]:
         """Por hunt, desde `since`: abates e minutos ativos e a última chance de captura."""
         ...

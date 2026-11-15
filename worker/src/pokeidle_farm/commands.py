@@ -193,10 +193,11 @@ class Supervisor:
         return {"enabled": enabled, "applied": "agora" if applied else "na próxima conexão"}
 
     async def _focus_set(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
-        """Foco da conta (captura, ouro-xp-drop ou rank): restock e rank mudam juntos.
+        """Foco da conta (captura, ouro-xp-drop, rank ou gemas): restock, rank e gems juntos.
 
-        Ver docs/design/fase-3b-rank-ligado.md, seção 7. Valida as duas configs antes de
-        gravar qualquer uma; preserva o resto da config de cada plugin.
+        Ver docs/design/fase-3b-rank-ligado.md, seção 7, e docs/design/foco-gemas-e-ritmo.md.
+        Valida as configs antes de gravar qualquer uma; preserva o resto da config de cada
+        plugin. No foco gemas o restock fica em gold_xp_drop (sem bola) e o gems escolhe a hunt.
         """
         try:
             p = FocusSetParams.model_validate(params)
@@ -206,7 +207,8 @@ class Supervisor:
         rank_fields = dict(p.rank or {})
         fallback_focus = rank_fields.pop("fallback_focus", None)
 
-        restock_cfg = {**configs.get("restock", (True, {}))[1], "focus": p.focus}
+        restock_focus = "gold_xp_drop" if p.focus == "gems" else p.focus
+        restock_cfg = {**configs.get("restock", (True, {}))[1], "focus": restock_focus}
         if p.focus == "rank" and fallback_focus is not None:
             restock_cfg["fallback_focus"] = fallback_focus
         writes: list[tuple[str, bool, dict[str, Any]]] = [("restock", True, restock_cfg)]
@@ -215,6 +217,12 @@ class Supervisor:
             writes.append(("rank", True, rank_cfg))
         elif "rank" in configs:
             writes.append(("rank", False, configs["rank"][1]))
+        # gems depois do rank: ao subir, ele confere se o rank ainda está agindo
+        if p.focus == "gems":
+            gems_cfg = {**configs.get("gems", (False, {}))[1], **(p.gems or {}), "dry_run": False}
+            writes.append(("gems", True, gems_cfg))
+        elif "gems" in configs:
+            writes.append(("gems", False, configs["gems"][1]))
 
         for name, _, cfg in writes:
             cls = self.available.get(name)
@@ -241,9 +249,11 @@ class Supervisor:
 class FocusSetParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    focus: Literal["capture", "gold_xp_drop", "rank"]
+    focus: Literal["capture", "gold_xp_drop", "rank", "gems"]
     # campos do rank (rank_balls, rank_ball_rule, fallback_hunt...) e o fallback_focus do restock
     rank: dict[str, Any] | None = None
+    # campos do gems (max_market_share, hysteresis...)
+    gems: dict[str, Any] | None = None
 
 
 class PluginSetParams(BaseModel):

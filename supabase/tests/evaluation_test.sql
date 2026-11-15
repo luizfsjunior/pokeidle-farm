@@ -34,8 +34,8 @@ insert into public.metric_hourly (account_id, hour, hunt_slug, metric, value) va
 insert into public.game_items (item_id, name, npc_price, source) values
   (910001, 'Aval Pedra', 100, 'json'), (910002, 'Aval Pena', 10, 'json');
 insert into public.market_prices (taken_at, item_id, currency, avg, units, days) values
-  (now() - interval '1 minute', 910001, 'orb', 5, 100, 7),
-  (now() - interval '1 minute', 910002, 'orb', 1, 1000, 7);
+  (now() - interval '8 days', 910001, 'orb', 5, 100, 7),
+  (now() - interval '8 days', 910002, 'orb', 1, 1000, 7);
 insert into public.events (id, account_id, session_id, type, received_at, data) values
   (gen_random_uuid(), '00000000-0000-0000-0000-00000e0ac001', gen_random_uuid(), 'kill', now() - interval '1 day',
    '{"drops": [{"name": "Aval Pedra", "qty": 20}, {"name": "Aval Pena", "qty": 20}]}');
@@ -97,6 +97,22 @@ begin
   assert abs(x.share - 0.20) < near and x.flagged, format('Pedra share %s', x.share);
   select * into x from public.evaluation_liquidity(7) where name = 'Aval Pena';
   assert abs(x.share - 0.02) < near and not x.flagged, format('Pena share %s', x.share);
+end;
+$$;
+
+-- caso 8 (análise de 15/11, proposta D): a janela começa no primeiro snapshot de preços
+reset role;
+delete from public.market_prices where item_id in (910001, 910002);
+insert into public.market_prices (taken_at, item_id, currency, avg, units, days) values
+  (date_trunc('hour', now()) - interval '71 hours' + interval '1 minute', 910001, 'orb', 5, 100, 7);
+set role authenticated;
+do $$
+declare
+  r record;
+begin
+  select * into r from public.evaluation_summary(7) where nick = 'aval-1';
+  assert abs(r.data_days - 3) < 0.01, format('com preço há 3 dias, data_days %s ≠ 3', r.data_days);
+  assert abs(r.gems_per_day - 100) < 0.01, format('gems_per_day %s ≠ 100', r.gems_per_day);
 end;
 $$;
 

@@ -88,6 +88,17 @@ class MarketPricesPlugin(Plugin):
             await self.ctx.store.save_market_prices(rows)
         except Exception as exc:
             self.ctx.log.warning("market_prices: não consegui gravar os preços (%s)", exc)
+            return
+        # potencial em gemas das melhores hunts, com os preços novos (análise de 15/11, proposta D)
+        from .gems import compute_potential
+
+        try:
+            potential = await compute_potential(self.ctx, self.now())
+        except Exception as exc:
+            self.ctx.log.warning("market_prices: não consegui calcular o potencial (%s)", exc)
+            return
+        if potential is not None:
+            await self.ctx.actions.note("gems.potential", potential)
 
 
 def price_rows(taken_at: datetime, days: Any, prices: Any) -> list[dict[str, Any]]:

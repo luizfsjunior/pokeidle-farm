@@ -35,12 +35,14 @@ from ..actions import (
 )
 from ..catalog import BALLS
 from ..events import Event
+from ..pace import PaceBook, rates_for
 from ..rank_queue import QueueItem, observed_chances, plan_queue
 from .base import Plugin, PluginContext
 
 BRT = timedelta(hours=-3)  # Brasília, sem horário de verão
 HYSTERESIS = 0.10  # só troca de hunt se a nova for pelo menos 10% mais rápida (D-C)
 SWITCH_FAILS_TO_SKIP = 3  # falhas seguidas de hunt.select até pular a espécie
+RATE_DRIFT = 0.30  # replaneja quando o ritmo medido no alvo foge disso do previsto
 PRIZED = 100  # premiados no Top Catch (PREMIADOS_TOP_CATCH do cliente; 11º-100º ganham 5 diamantes)
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
@@ -110,7 +112,7 @@ class RankPlugin(Plugin):
         self._week = week_start(self.now())
         self._scored: set[int] = set()
         self._skipped: list[int] = []
-        self._kph: dict[str, float] = {}
+        self._pace = PaceBook(self.cfg.min_active_minutes)
         self._default_kph = self.cfg.default_kills_per_hour
         self._attempts: list[tuple[datetime, dict[str, Any]]] = []
         self._degraded: list[str] = []
@@ -201,6 +203,7 @@ class RankPlugin(Plugin):
                 ):
                     self._scored.add(data["species_id"])
                     self._note_n(data.get("week_species"))
+        await self._load_skipped()
         try:
             stats = await store.rank_hunt_stats(
                 acc, self.now() - timedelta(days=self.cfg.history_days)
@@ -218,8 +221,7 @@ class RankPlugin(Plugin):
         if total_min > 0 and total_kills > 0:
             self._default_kph = total_kills / total_min * 60
         for s in stats:
-            if s.active_minutes >= self.cfg.min_active_minutes and s.kills > 0 and s.active_minutes:
-                self._kph[s.hunt_slug] = s.kills / s.active_minutes * 60
+            self._pace.load(s.hunt_slug, s.kills, s.active_minutes)
             if s.last_chance is not None:
                 self._attempts.append(
                     (
@@ -231,6 +233,18 @@ class RankPlugin(Plugin):
                         },
                     )
                 )
+
+    async def _load_skipped(self) -> None:
+        """Espécies puladas nesta semana sobrevivem a reinícios do plugin (último rank.plan)."""
+        since = max(week_start_utc(self._week), self.now() - timedelta(hours=12))
+        try:
+            plans = await self.ctx.store.recent_events(self.ctx.account_id, "rank.plan", since)
+        except Exception:
+            return  # a leitura da semana já marcou degraded se o banco caiu
+        for _, data in reversed(plans):
+            if data.get("week_start") == self._week and isinstance(data.get("skipped"), list):
+                self._skipped = [s for s in data["skipped"] if isinstance(s, int)]
+                return
 
     async def _request_week(self) -> None:
         try:
@@ -362,6 +376,7 @@ class RankPlugin(Plugin):
             await self._rollover(week_start(self.now()), set(), "week_rollover")
             await self._request_week()
             return
+        self._pace.add_kill(d.get("hunt_slug") or self._current, self.now())
         self._window.append([(d.get("gold") or 0) + (d.get("gold_autosell") or 0), 0.0])
         self._kills_since_ball += 1
         ball = self._ball_choice()
@@ -380,6 +395,12 @@ class RankPlugin(Plugin):
                 self._skipped.append(tgt.species_id)
                 self._target = None
                 await self._replan("timeout")
+                return
+        tgt = self._target
+        if tgt is not None and self._current == tgt.slug:
+            kph = self._pace.measured(tgt.slug)
+            if kph is not None and abs(kph - tgt.kills_per_hour) > RATE_DRIFT * tgt.kills_per_hour:
+                await self._replan("rate_measured")
 
     async def _on_week(self, d: dict[str, Any]) -> None:
         ws = d.get("week_start")
@@ -449,15 +470,19 @@ class RankPlugin(Plugin):
         if self._ball is None:
             self._ball = self._ball_choice()
         ball = self._ball
+        rates = rates_for({s: h.level for s, h in cat.hunts.items()}, self._pace, self._default_kph)
+        measured = {s: r for s, (r, src) in rates.items() if src == "measured"}
+        estimated = {s: r for s, (r, src) in rates.items() if src in ("level", "near_level")}
         queue = plan_queue(
             cat,
             self.ctx.species,
             self._level,
             self._scored,
             ball,
-            self._kph,
+            measured,
             self._default_kph,
             observed_chances(self._attempts, cat, ball),
+            estimated,
         )
         skipped = [q for sid in self._skipped for q in queue if q.species_id == sid]
         queue = [q for q in queue if q.species_id not in self._skipped] + skipped

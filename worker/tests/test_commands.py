@@ -276,3 +276,20 @@ async def test_focus_set_invalid_writes_nothing(rig, params):
     c = await rig.cmd(acc, "focus.set", **params)
     assert c["status"] == "failed"
     assert rig.store.configs[acc.id] == {"restock": (True, {"focus": "capture"})}
+
+
+async def test_focus_set_gems(rig):
+    acc = farm(rig.store, "farm1")
+    rig.store.configs[acc.id] = {
+        "restock": (True, {"focus": "rank", "items": []}),
+        "rank": (True, {"dry_run": False}),
+    }
+    await rig.boot()
+    c = await rig.cmd(acc, "focus.set", focus="gems", gems={"max_market_share": 0.2})
+    assert c["status"] == "done", c["error"]
+    cfg = rig.store.configs[acc.id]
+    assert cfg["restock"] == (True, {"focus": "gold_xp_drop", "items": []})
+    assert cfg["rank"] == (False, {"dry_run": False})
+    assert cfg["gems"] == (True, {"max_market_share": 0.2, "dry_run": False})
+    c = await rig.cmd(acc, "focus.set", focus="capture")
+    assert rig.store.configs[acc.id]["gems"] == (False, {"max_market_share": 0.2, "dry_run": False})

@@ -187,6 +187,72 @@ class SupabaseStore:
         for i in range(0, len(rows), 1000):
             await self._db.table("market_prices").upsert(rows[i : i + 1000]).execute()
 
+    async def latest_item_prices(self) -> dict[str, dict[str, Any]]:
+        last = await (
+            self._db.table("market_prices")
+            .select("taken_at")
+            .order("taken_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if not last.data:
+            return {}
+        rows = (
+            await self._db.table("market_prices")
+            .select("item_id,currency,avg,units,days")
+            .eq("taken_at", last.data[0]["taken_at"])
+            .execute()
+        ).data or []
+        ids = sorted({r["item_id"] for r in rows})
+        items: list[dict[str, Any]] = []
+        if ids:
+            res = (
+                await self._db.table("game_items")
+                .select("item_id,name")
+                .in_("item_id", ids)
+                .execute()
+            )
+            items = res.data or []
+        names = {i["item_id"]: i["name"] for i in items}
+        out: dict[str, dict[str, Any]] = {}
+        for r in rows:
+            name = names.get(r["item_id"])
+            if name is None:
+                continue
+            days = r.get("days") or 7
+            entry = out.setdefault(name, {})
+            entry[r["currency"]] = r["avg"]
+            entry[f"{r['currency']}_units_week"] = (r.get("units") or 0) * 7 / days
+        return out
+
+    async def save_game_file(self, path: str, etag: str | None, content: str) -> None:
+        await (
+            self._db.table("game_files")
+            .upsert(
+                {
+                    "path": path,
+                    "etag": etag,
+                    "content": content,
+                    "updated_at": datetime.now(UTC).isoformat(),
+                }
+            )
+            .execute()
+        )
+
+    async def save_catalog_entry(self, key: str, version: str, data: Any) -> None:
+        await (
+            self._db.table("game_catalog")
+            .upsert(
+                {
+                    "key": key,
+                    "version": version,
+                    "data": data,
+                    "updated_at": datetime.now(UTC).isoformat(),
+                }
+            )
+            .execute()
+        )
+
     async def load_species(self) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         page = 1000

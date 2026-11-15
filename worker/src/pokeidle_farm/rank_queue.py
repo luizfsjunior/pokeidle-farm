@@ -38,6 +38,7 @@ def plan_queue(
     kills_per_hour: dict[str, float],
     default_kills_per_hour: float,
     known_chance: dict[int, float],
+    estimated_kills_per_hour: dict[str, float] | None = None,
 ) -> list[QueueItem]:
     ball = hunts.balls.get(ball_id)
     table = hunts.capture
@@ -56,7 +57,8 @@ def plan_queue(
         else:
             chance, source = table.chance(ball.catch_rate, None), "worst"
         kph = kills_per_hour.get(h.slug)
-        rate = kph if kph and kph > 0 else default_kills_per_hour
+        est = (estimated_kills_per_hour or {}).get(h.slug)
+        rate = kph if kph and kph > 0 else est if est and est > 0 else default_kills_per_hour
         if chance <= 0:
             continue
         out.append(

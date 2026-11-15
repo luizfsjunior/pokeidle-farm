@@ -170,6 +170,31 @@ class MemoryStore:
     async def save_market_prices(self, rows: list[dict[str, Any]]) -> None:
         self.market_prices = [*getattr(self, "market_prices", []), *rows]
 
+    async def latest_item_prices(self) -> dict[str, dict[str, Any]]:
+        rows = getattr(self, "market_prices", [])
+        if not rows:
+            return {}
+        last = max(r["taken_at"] for r in rows)
+        names = {k: v["name"] for k, v in getattr(self, "game_items", {}).items()}
+        out: dict[str, dict[str, Any]] = {}
+        for r in rows:
+            name = names.get(r["item_id"])
+            if r["taken_at"] != last or name is None:
+                continue
+            days = r.get("days") or 7
+            entry = out.setdefault(name, {})
+            entry[r["currency"]] = r["avg"]
+            entry[f"{r['currency']}_units_week"] = (r.get("units") or 0) * 7 / days
+        return out
+
+    async def save_game_file(self, path: str, etag: str | None, content: str) -> None:
+        files = getattr(self, "game_files", {})
+        files[path] = {"etag": etag, "content": content}
+        self.game_files = files
+
+    async def save_catalog_entry(self, key: str, version: str, data: Any) -> None:
+        self.game_catalog[key] = {"version": version, "data": data}
+
     async def rank_hunt_stats(self, account_id: UUID, since: datetime) -> list[HuntStats]:
         """Igual à função do banco, a partir dos eventos em memória: cada minuto
         distinto com abate numa hunt conta como um minuto ativo."""
