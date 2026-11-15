@@ -6,6 +6,8 @@ Ver docs/design/fase-3b-catalogo-e-fila.md.
 - `SpeciesCatalog`: Pokedex montada dos `creatures*.json` públicos do jogo, com o
   estágio evolutivo de cada espécie (o `welcome` não traz isso).
 - `save_hunt_catalog` e `SpeciesSync`: gravam no store só quando a `version` muda.
+- `ItemsSync` e `save_welcome_items` (fase 7): catálogo de itens do `items.json` público
+  e dos `itensNossos` do `welcome`, para dar preço aos drops pelo nome.
 """
 
 from __future__ import annotations
@@ -391,3 +393,104 @@ class SpeciesSync:
         rows = await self.store.load_species()
         if rows:
             self.catalog = SpeciesCatalog.from_creatures([{"creatures": rows}])
+
+
+# --- catálogo de itens (fase 7) ------------------------------------------------------
+
+ITEMS_URL = "https://pokeidle.io/assets/items.json"
+
+
+def item_rows_from_json(data: Any) -> list[dict[str, Any]]:
+    """Linhas de game_items a partir do `items.json` (`{"items": [{id, name, ...}]}`)."""
+    items = data.get("items") if isinstance(data, dict) else data
+    out: dict[int, dict[str, Any]] = {}
+    for it in items or []:
+        if not isinstance(it, dict):
+            continue
+        item_id, name = _int(it.get("id")), it.get("name")
+        if item_id is None or not isinstance(name, str) or not name:
+            continue
+        price = it.get("npcPrice")
+        out[item_id] = {
+            "item_id": item_id,
+            "name": name,
+            "category": it.get("category"),
+            "rare": bool(it.get("rare")),
+            "npc_price": price if isinstance(price, int | float) else None,
+        }
+    return [out[k] for k in sorted(out)]
+
+
+def item_rows_from_welcome(raw: dict[str, Any]) -> list[dict[str, Any]]:
+    """Itens próprios do servidor (`welcome.itensNossos`, ids ≥ 70000), sem preço de NPC."""
+    out: dict[int, dict[str, Any]] = {}
+    for it in raw.get("itensNossos") or []:
+        if not isinstance(it, dict):
+            continue
+        item_id = _int(it.get("id"))
+        name = it.get("nome") or it.get("name")
+        if item_id is None or not isinstance(name, str) or not name:
+            continue
+        out[item_id] = {
+            "item_id": item_id,
+            "name": name,
+            "category": it.get("categoria") or it.get("category"),
+            "rare": bool(it.get("raro") or it.get("rare")),
+            "npc_price": None,
+        }
+    return [out[k] for k in sorted(out)]
+
+
+async def save_items(
+    store: Store, source: str, rows: list[dict[str, Any]], meta: Any = None
+) -> bool:
+    """Grava os itens de uma origem (`json` ou `welcome`) se mudaram. True se gravou."""
+    if not rows:
+        return False
+    version = stable_version(rows)
+    current = await store.get_catalog(f"items_{source}")
+    if current is not None and current[0] == version:
+        return False
+    await store.save_items(source, version, rows, meta or {})
+    return True
+
+
+class ItemsSync:
+    """Mantém o catálogo de itens em dia com o `items.json` (GET condicional por ETag)."""
+
+    def __init__(
+        self,
+        store: Store,
+        http_get: HttpGet,
+        *,
+        url: str = ITEMS_URL,
+        interval_s: float = 24 * 3600,
+    ) -> None:
+        self.store = store
+        self.http_get = http_get
+        self.url = url
+        self.interval_s = interval_s
+        self._etag: str | None = None
+
+    async def run_once(self) -> SyncResult:
+        try:
+            status, etag, body = await self.http_get(self.url, self._etag)
+            if status == 304 and self._etag:
+                return "unchanged"
+            if status != 200:
+                raise ConnectionError(f"items.json: HTTP {status}")
+            rows = item_rows_from_json(json.loads(body))
+            if not rows:
+                raise ValueError("items.json sem itens")
+        except Exception as exc:
+            log.warning("items.fetch_failed: %r", exc)
+            return "failed"
+        saved = await save_items(self.store, "json", rows, {"etag": etag})
+        self._etag = etag
+        return "saved" if saved else "unchanged"
+
+    async def run_forever(self, stop: asyncio.Event) -> None:
+        while not stop.is_set():
+            log.info("Itens: %s", await self.run_once())
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(stop.wait(), timeout=self.interval_s)

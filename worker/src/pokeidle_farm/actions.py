@@ -104,6 +104,16 @@ class RankingRequest(ActionSpec):
         return {"t": "ranking.pedir", "aba": self.aba}
 
 
+class MarketAverages(ActionSpec):
+    name: ClassVar[str] = "market.medias"
+    description: ClassVar[str] = "Pede as médias de preço do Mercado (7 dias, por item; só leitura)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 300.0
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "market.medias"}
+
+
 class HuntSelect(ActionSpec):
     name: ClassVar[str] = "hunt.select"
     description: ClassVar[str] = "Troca de hunt (só fora da trava de combate e do trocaLivreEm)"

@@ -175,6 +175,18 @@ class SupabaseStore:
             "replace_game_species", {"p_version": version, "p_rows": rows, "p_meta": meta}
         ).execute()
 
+    async def save_items(
+        self, source: str, version: str, rows: list[dict[str, Any]], meta: dict[str, Any]
+    ) -> None:
+        await self._db.rpc(
+            "replace_game_items",
+            {"p_source": source, "p_version": version, "p_rows": rows, "p_meta": meta},
+        ).execute()
+
+    async def save_market_prices(self, rows: list[dict[str, Any]]) -> None:
+        for i in range(0, len(rows), 1000):
+            await self._db.table("market_prices").upsert(rows[i : i + 1000]).execute()
+
     async def load_species(self) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         page = 1000

@@ -58,7 +58,7 @@ def test_translate_kill_and_capture():
         "gold_loot": 0,
         "loot_boost": False,
         "gold_autosell": 3,
-        "drops": [{"name": "Pena"}],
+        "drops": [{"name": "Pena", "qty": 1}],
         "hunt_slug": None,
     }
     assert kill.raw["extra"] == "guardado no raw"

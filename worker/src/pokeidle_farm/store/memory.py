@@ -156,6 +156,20 @@ class MemoryStore:
     async def load_species(self) -> list[dict[str, Any]]:
         return [r["data"] for r in self.game_species.values()]
 
+    async def save_items(
+        self, source: str, version: str, rows: list[dict[str, Any]], meta: dict[str, Any]
+    ) -> None:
+        items = getattr(self, "game_items", {})
+        items = {k: v for k, v in items.items() if v.get("source") != source}
+        for r in rows:
+            items[r["item_id"]] = {**r, "source": source}
+        self.game_items = items
+        self.game_catalog[f"items_{source}"] = {"version": version, "data": meta}
+        self.catalog_writes += 1
+
+    async def save_market_prices(self, rows: list[dict[str, Any]]) -> None:
+        self.market_prices = [*getattr(self, "market_prices", []), *rows]
+
     async def rank_hunt_stats(self, account_id: UUID, since: datetime) -> list[HuntStats]:
         """Igual à função do banco, a partir dos eventos em memória: cada minuto
         distinto com abate numa hunt conta como um minuto ativo."""

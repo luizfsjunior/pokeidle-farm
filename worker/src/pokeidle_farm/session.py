@@ -26,7 +26,13 @@ from .actions import ActionGateway, ActionMode
 from .bus import EventBus
 from .config import Settings
 from .events import Translator
-from .gamedata import HuntCatalog, SpeciesCatalog, save_hunt_catalog
+from .gamedata import (
+    HuntCatalog,
+    SpeciesCatalog,
+    item_rows_from_welcome,
+    save_hunt_catalog,
+    save_items,
+)
 from .plugins.base import AccountStateView, PluginContext
 from .plugins.registry import PluginHost
 from .protocol import codec
@@ -366,6 +372,17 @@ class AccountSession:
         task = asyncio.get_running_loop().create_task(self._save_catalog(catalog))
         self._bg.add(task)
         task.add_done_callback(self._bg.discard)
+        items = item_rows_from_welcome(raw)
+        if items:  # fase 7: itens próprios do servidor, para dar preço aos drops
+            task = asyncio.get_running_loop().create_task(self._save_items(items))
+            self._bg.add(task)
+            task.add_done_callback(self._bg.discard)
+
+    async def _save_items(self, rows: list[dict[str, Any]]) -> None:
+        try:
+            await save_items(self.store, "welcome", rows)
+        except Exception:
+            log.exception("[%s] falha ao gravar os itens do welcome", self.account.nick)
 
     async def _save_catalog(self, catalog: HuntCatalog) -> None:
         try:

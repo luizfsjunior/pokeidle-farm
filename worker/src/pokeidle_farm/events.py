@@ -54,6 +54,7 @@ class _Data(BaseModel):
 
 class Drop(_Data):
     name: str | None = None
+    qty: int = 1  # `qtd` do jogo (fase 7)
 
 
 class KillData(_Data):
@@ -123,6 +124,14 @@ class RankBoardData(_Data):
 
     week_start: str | None = None
     rows: list[dict[str, Any]] = Field(default_factory=list)  # {nick, level, valor}
+
+
+class MarketPricesData(_Data):
+    """Médias de preço do Mercado (`market` aba `medias`, fase 7): por item, em gemas e ouro."""
+
+    days: int | None = None
+    # {item_id: {"orb": {"avg", "units"}, "gold": {"avg", "units"}}}
+    prices: dict[str, dict[str, dict[str, Any]]] = Field(default_factory=dict)
 
 
 class CatchUntilCaptureOffData(_Data):
@@ -209,6 +218,11 @@ NOISE_TYPES = {
     "chat.del": "chat",
     "chat.fixada": "chat",
 }
+
+
+def _qty(value: Any) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else 1
+
 
 # Eventos que passam pelo barramento mas não são gravados.
 # rank.board: ~100 linhas por resposta; o plugin rank grava só o resultado (rank.position).
@@ -301,6 +315,21 @@ class Translator:
                     week_start=raw.get("s"), week_species=raw.get("n"), species=species
                 )
                 return [self._ev("rank.week", data, raw)]
+            if msg.t == "market" and raw.get("aba") == "medias":
+                prices: dict[str, dict[str, dict[str, Any]]] = {}
+                for item_id, by_currency in (raw.get("medias") or {}).items():
+                    if not isinstance(by_currency, dict):
+                        continue
+                    entry = {
+                        cur: {"avg": p.get("media"), "units": p.get("unidades")}
+                        for cur, p in by_currency.items()
+                        if cur in ("orb", "gold") and isinstance(p, dict)
+                    }
+                    if entry:
+                        prices[str(item_id)] = entry
+                days = raw.get("dias")
+                data = MarketPricesData(days=days if isinstance(days, int) else None, prices=prices)
+                return [self._ev("market.prices", data, raw)]
             if msg.t == "ranking" and raw.get("aba") == "capturas":
                 rows = [
                     {"nick": r.get("nick"), "level": r.get("level"), "valor": r.get("valor")}
@@ -377,7 +406,9 @@ class Translator:
                 loot_boost=bool(ev.get("lootBoost", False)),
                 gold_autosell=int(ev.get("ouroVendaAuto", 0) or 0),
                 drops=[
-                    Drop(name=d.get("nome")) for d in ev.get("drops") or [] if isinstance(d, dict)
+                    Drop(name=d.get("nome"), qty=_qty(d.get("qtd")))
+                    for d in ev.get("drops") or []
+                    if isinstance(d, dict)
                 ],
                 hunt_slug=self.hunt_slug,
             )

@@ -21,7 +21,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from .commands import CommandError, CommandLoop, FakeSession, SessionLike, Supervisor
 from .config import Settings
-from .gamedata import SpeciesSync, http_get
+from .gamedata import ItemsSync, SpeciesSync, http_get
 from .plugins.registry import PluginHost, discover
 from .session import AccountSession
 from .store.base import AccountRecord, Store
@@ -65,6 +65,8 @@ async def run(settings: Settings, *, fake: bool = False) -> int:
 
     # Pokedex: uma por worker, atualizada sozinha quando o jogo muda (GET condicional)
     species_sync = None if fake else SpeciesSync(store, http_get)
+    # catálogo de itens (fase 7): dá preço aos drops pelo nome
+    items_sync = None if fake else ItemsSync(store, http_get)
 
     def make_session(acc: AccountRecord) -> SessionLike:
         if fake:
@@ -91,6 +93,7 @@ async def run(settings: Settings, *, fake: bool = False) -> int:
 
     stop_sync = asyncio.Event()
     sync_task = asyncio.create_task(species_sync.run_forever(stop_sync)) if species_sync else None
+    items_task = asyncio.create_task(items_sync.run_forever(stop_sync)) if items_sync else None
     sup.start_enabled()
     commands = CommandLoop(sup, store, poll_s=settings.commands_poll_s)
 
@@ -115,6 +118,8 @@ async def run(settings: Settings, *, fake: bool = False) -> int:
         stop_sync.set()
         if sync_task is not None:
             await sync_task
+        if items_task is not None:
+            await items_task
     return 0
 
 

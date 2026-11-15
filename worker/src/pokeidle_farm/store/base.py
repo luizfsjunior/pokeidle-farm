@@ -117,6 +117,18 @@ class Store(Protocol):
         """O `data` de cada linha de game_species (a espécie como veio do jogo)."""
         ...
 
+    # --- Mercado (fase 7) -------------------------------------------------------
+
+    async def save_items(
+        self, source: str, version: str, rows: list[dict[str, Any]], meta: dict[str, Any]
+    ) -> None:
+        """Substitui os itens da origem (`json` ou `welcome`) em game_items e grava a versão."""
+        ...
+
+    async def save_market_prices(self, rows: list[dict[str, Any]]) -> None:
+        """Acrescenta um snapshot de médias do Mercado (linhas de market_prices)."""
+        ...
+
     async def rank_hunt_stats(self, account_id: UUID, since: datetime) -> list[HuntStats]:
         """Por hunt, desde `since`: abates e minutos ativos e a última chance de captura."""
         ...
