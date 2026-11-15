@@ -60,6 +60,8 @@ def test_translate_kill_and_capture():
         "gold_autosell": 3,
         "drops": [{"name": "Pena", "qty": 1}],
         "hunt_slug": None,
+        "active_level": None,
+        "active_species_id": None,
     }
     assert kill.raw["extra"] == "guardado no raw"
     assert cap.type == "capture_attempt" and cap.data["success"] is True
@@ -200,6 +202,8 @@ def test_v2_real_kill():
         "gold_autosell": 0,
         "drops": [],
         "hunt_slug": "magikarp",
+        "active_level": None,
+        "active_species_id": None,
     }
 
 
@@ -568,3 +572,36 @@ def test_3b_ranking_capturas_becomes_rank_board():
         *codec.decode(json.dumps({"t": "ranking", "aba": "nivel", "linhas": []}))
     )
     assert [e.type for e in other] != ["rank.board"]
+
+
+# --- nível do pokémon ativo nos abates (docs/design/ritmo-por-nivel.md) -----------------
+
+
+def test_kill_carries_active_pokemon_level():
+    tr = Translator(uuid4(), uuid4())
+    pokemons = [
+        {"id": 7, "speciesId": 1, "level": 23},
+        {"id": 8, "speciesId": 129, "level": 1},
+    ]
+    tr.translate(*codec.decode(welcome(activeId=7, pokemons=pokemons)))
+    kill = _one(tr, {"t": "batalha", "ev": [{"k": "morte", "nome": "Geodude"}]})
+    assert kill.data["active_level"] == 23 and kill.data["active_species_id"] == 1
+    # o ativo subiu de nível: o próximo abate carrega o nível novo
+    tr.translate(
+        *codec.decode(json.dumps({"t": "estado", "estado": {"pkMud": [{"id": 7, "level": 24}]}}))
+    )
+    kill = _one(tr, {"t": "batalha", "ev": [{"k": "morte", "nome": "Geodude"}]})
+    assert kill.data["active_level"] == 24
+
+
+def test_active_pokemon_inferred_from_pkmud():
+    tr = Translator(uuid4(), uuid4())
+    tr.translate(
+        *codec.decode(
+            json.dumps(
+                {"t": "estado", "estado": {"pkMud": [{"id": 9, "speciesId": 4, "level": 12}]}}
+            )
+        )
+    )
+    kill = _one(tr, {"t": "batalha", "ev": [{"k": "morte"}]})
+    assert kill.data["active_level"] == 12 and kill.data["active_species_id"] == 4

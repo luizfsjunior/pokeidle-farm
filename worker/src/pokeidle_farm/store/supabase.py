@@ -323,6 +323,9 @@ class SupabaseStore:
                 active_minutes=float(r.get("active_minutes") or 0),
                 last_chance=r.get("last_chance"),
                 last_ball_id=r.get("last_ball_id"),
+                avg_active_level=(
+                    float(r["avg_active_level"]) if r.get("avg_active_level") is not None else None
+                ),
             )
             for r in res.data or []
         ]

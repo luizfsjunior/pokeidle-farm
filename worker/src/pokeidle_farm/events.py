@@ -67,6 +67,10 @@ class KillData(_Data):
     gold_autosell: int = 0
     drops: list[Drop] = Field(default_factory=list)
     hunt_slug: str | None = None  # hunt atual no momento do abate (carimbada pelo tradutor)
+    # pokémon ativo no abate: o ritmo de uma hunt cresce com o nível dele
+    # (docs/design/ritmo-por-nivel.md)
+    active_level: int | None = None
+    active_species_id: int | None = None
 
 
 class CaptureAttemptData(_Data):
@@ -242,6 +246,10 @@ class Translator:
         self.items: dict[str, int] = {}
         # Última automação conhecida, para notar o Lançar até Capturar desligando.
         self.automation: dict[str, Any] | None = None
+        # Pokémon da conta (id -> nível e espécie) e o ativo, para carimbar os abates.
+        self.active_id: Any = None
+        self.pokemon_levels: dict[Any, int] = {}
+        self.pokemon_species: dict[Any, int] = {}
 
     def _ev(self, type_: str, data: BaseModel | dict[str, Any], raw: dict[str, Any]) -> Event:
         now = utcnow()
@@ -271,6 +279,8 @@ class Translator:
             self.items = dict(st.items)
             self.automation = dict(st.automation) if isinstance(st.automation, dict) else None
             estado = raw.get("estado") or {}
+            self.active_id = st.active_id
+            self._track_pokemon(estado.get("pokemons"))
             return [
                 self._ev(
                     "state.snapshot",
@@ -361,12 +371,29 @@ class Translator:
         src = estado if isinstance(estado, dict) else raw
         if src.get("huntSlug"):
             self.hunt_slug = src["huntSlug"]
+        if src.get("activeId") is not None:
+            self.active_id = src["activeId"]
+        changed = self._track_pokemon(src.get("pkMud"))
+        if self.active_id is None and len(changed) == 1:
+            self.active_id = changed[0]  # quem ganha XP a cada abate é o ativo
         data = {ours: src[theirs] for theirs, ours in PATCH_FIELDS.items() if theirs in src}
         data["pokemon_changed"] = [
             p.get("id") for p in src.get("pkMud") or [] if isinstance(p, dict)
         ]
         data["pokemon_removed"] = list(src.get("pkFora") or [])
         return data
+
+    def _track_pokemon(self, pokemons: Any) -> list[Any]:
+        ids = []
+        for p in pokemons or []:
+            if not isinstance(p, dict) or p.get("id") is None:
+                continue
+            ids.append(p["id"])
+            if isinstance(p.get("level"), int):
+                self.pokemon_levels[p["id"]] = p["level"]
+            if isinstance(p.get("speciesId"), int):
+                self.pokemon_species[p["id"]] = p["speciesId"]
+        return ids
 
     def _consumed(self, items: Any) -> list[Event]:
         if not isinstance(items, dict):
@@ -415,6 +442,8 @@ class Translator:
                     if isinstance(d, dict)
                 ],
                 hunt_slug=self.hunt_slug,
+                active_level=self.pokemon_levels.get(self.active_id),
+                active_species_id=self.pokemon_species.get(self.active_id),
             )
             return self._ev("kill", data, ev)
         if k == "bola":

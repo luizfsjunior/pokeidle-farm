@@ -133,7 +133,7 @@ class GemsPlugin(Plugin):
         hunts = self.ctx.catalog.hunts if self.ctx.catalog else {}
         stats = [s for s in stats if s.hunt_slug in hunts]
         for s in stats:
-            self._pace.load(s.hunt_slug, s.kills, s.active_minutes)
+            self._pace.load(s.hunt_slug, s.kills, s.active_minutes, s.avg_active_level)
         total_k, total_m = sum(s.kills for s in stats), sum(s.active_minutes for s in stats)
         if total_k > 0 and total_m > 0:
             self._default_kph = total_k / total_m * 60
@@ -177,7 +177,9 @@ class GemsPlugin(Plugin):
     async def _handle(self, event: Event) -> None:
         d, t = event.data, event.type
         if t == "kill":
-            self._pace.add_kill(d.get("hunt_slug") or self.switch.current, self.now())
+            self._pace.add_kill(
+                d.get("hunt_slug") or self.switch.current, self.now(), d.get("active_level")
+            )
             due = self._last_plan_at is None or self.now() - self._last_plan_at >= timedelta(
                 minutes=self.cfg.interval_min
             )
@@ -217,7 +219,12 @@ class GemsPlugin(Plugin):
         if cat is None or species is None or not cat.hunts:
             await self.ctx.actions.note("gems.plan", {"reason": "sem_catalogo", "target": None})
             return
-        rate = rates_for({s: h.level for s, h in cat.hunts.items()}, self._pace, self._default_kph)
+        rate = rates_for(
+            {s: h.level for s, h in cat.hunts.items()},
+            self._pace,
+            self._default_kph,
+            self.ctx.state.active_level,
+        )
         options = rank_options(
             cat,
             species,
@@ -282,7 +289,7 @@ async def compute_potential(
     stats = await ctx.store.rank_hunt_stats(ctx.account_id, now - timedelta(days=14))
     stats = [st for st in stats if st.hunt_slug in cat.hunts]
     for st in stats:
-        pace.load(st.hunt_slug, st.kills, st.active_minutes)
+        pace.load(st.hunt_slug, st.kills, st.active_minutes, st.avg_active_level)
     total_k, total_m = sum(st.kills for st in stats), sum(st.active_minutes for st in stats)
     default = total_k / total_m * 60 if total_k > 0 and total_m > 0 else 300.0
     raw = await ctx.store.latest_item_prices()
@@ -296,7 +303,9 @@ async def compute_potential(
         if p.get("orb") is not None
     }
     level = ctx.state.level or 0
-    rate = rates_for({sl: h.level for sl, h in cat.hunts.items()}, pace, default)
+    rate = rates_for(
+        {sl: h.level for sl, h in cat.hunts.items()}, pace, default, ctx.state.active_level
+    )
     options = rank_options(cat, species, level, rate, prices, max_share=max_share)
     return {
         "trainer_level": level,

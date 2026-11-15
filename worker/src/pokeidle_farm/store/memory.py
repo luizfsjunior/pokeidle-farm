@@ -236,6 +236,7 @@ class MemoryStore:
         kills: dict[str, int] = {}
         minutes: dict[str, set[datetime]] = {}
         chances: dict[str, tuple[datetime, float, int | None]] = {}
+        levels: dict[str, tuple[float, int]] = {}
         for row in self.events:
             if str(row.get("account_id")) != str(account_id):
                 continue
@@ -248,6 +249,10 @@ class MemoryStore:
             if row.get("type") == "kill":
                 kills[slug] = kills.get(slug, 0) + 1
                 minutes.setdefault(slug, set()).add(at.replace(second=0, microsecond=0))
+                lvl = data.get("active_level")
+                if isinstance(lvl, int) and not isinstance(lvl, bool):
+                    s, n = levels.get(slug, (0.0, 0))
+                    levels[slug] = (s + lvl, n + 1)
             elif row.get("type") == "capture_attempt":
                 chance = data.get("chance")
                 if not isinstance(chance, int | float) or isinstance(chance, bool):
@@ -262,6 +267,7 @@ class MemoryStore:
                 active_minutes=len(minutes.get(slug, ())),
                 last_chance=chances[slug][1] if slug in chances else None,
                 last_ball_id=chances[slug][2] if slug in chances else None,
+                avg_active_level=levels[slug][0] / levels[slug][1] if slug in levels else None,
             )
             for slug in sorted(set(kills) | set(chances))
         ]

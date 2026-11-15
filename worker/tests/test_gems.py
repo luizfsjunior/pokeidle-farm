@@ -304,3 +304,44 @@ async def test_compute_potential():
     assert pot is not None
     assert pot["options"][0]["slug"] == "butterfree"
     assert pot["prices"] == 4 and pot["trainer_level"] == 10
+
+
+# --- ritmo projetado pelo nível do ativo -------------------------------------------------
+
+
+def test_pace_projects_rate_to_active_level():
+    from pokeidle_farm.pace import damage_factor
+
+    pace = PaceBook(5)
+    pace.load("geodude", 1100, 60, 23)  # perto do teto: não escala
+    pace.load("nidoran", 100, 60, 20)  # longe do teto
+    assert damage_factor(30) / damage_factor(20) == pytest.approx(420 / 200)
+    assert pace.projected("nidoran", 30) == pytest.approx(210)
+    assert pace.projected("nidoran", None) == pytest.approx(100)
+    assert pace.projected("geodude", 40) == pytest.approx(1100)
+    assert pace.projected("nidoran", 200) == pytest.approx(1100)  # limitado ao teto
+    # abates da sessão entram no nível médio
+    for minute in range(3):
+        pace.add_kill("nidoran", NOW + timedelta(minutes=minute), 30)
+    assert 20 < pace.level_of("nidoran") < 21
+    rates = rates_for({"nidoran": 10, "zubat": 10}, pace, 900, active_level=30)
+    assert rates["zubat"][1] == "level"
+    assert rates["zubat"][0] == pytest.approx(rates["nidoran"][0])
+
+
+async def test_memory_store_avg_active_level():
+    from uuid import uuid4 as u
+
+    store = MemoryStore()
+    acc = u()
+    for lvl in (20, 22, None):
+        store.events.append(
+            {
+                "account_id": acc,
+                "type": "kill",
+                "received_at": NOW,
+                "data": {"hunt_slug": "x", "active_level": lvl},
+            }
+        )
+    (st,) = await store.rank_hunt_stats(acc, NOW - timedelta(days=1))
+    assert st.avg_active_level == pytest.approx(21)

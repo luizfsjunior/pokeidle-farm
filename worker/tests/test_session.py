@@ -306,3 +306,20 @@ async def test_running_plugins_get_species_on_welcome(fake_game, make_session, s
     assert session.plugins.running["market_prices"].ctx.species is pokedex
     session.stop()
     await task
+
+
+def test_state_view_tracks_active_level_from_kills():
+    from uuid import uuid4
+
+    from pokeidle_farm.events import Event
+    from pokeidle_farm.plugins.base import AccountStateView
+
+    view = AccountStateView()
+    view.apply(
+        Event(account_id=uuid4(), session_id=uuid4(), type="kill", data={"active_level": 23})
+    )
+    assert view.active_level == 23
+    view.apply(
+        Event(account_id=uuid4(), session_id=uuid4(), type="kill", data={"active_level": None})
+    )
+    assert view.active_level == 23

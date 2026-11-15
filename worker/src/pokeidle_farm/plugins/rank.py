@@ -221,7 +221,7 @@ class RankPlugin(Plugin):
         if total_min > 0 and total_kills > 0:
             self._default_kph = total_kills / total_min * 60
         for s in stats:
-            self._pace.load(s.hunt_slug, s.kills, s.active_minutes)
+            self._pace.load(s.hunt_slug, s.kills, s.active_minutes, s.avg_active_level)
             if s.last_chance is not None:
                 self._attempts.append(
                     (
@@ -376,7 +376,7 @@ class RankPlugin(Plugin):
             await self._rollover(week_start(self.now()), set(), "week_rollover")
             await self._request_week()
             return
-        self._pace.add_kill(d.get("hunt_slug") or self._current, self.now())
+        self._pace.add_kill(d.get("hunt_slug") or self._current, self.now(), d.get("active_level"))
         self._window.append([(d.get("gold") or 0) + (d.get("gold_autosell") or 0), 0.0])
         self._kills_since_ball += 1
         ball = self._ball_choice()
@@ -470,7 +470,12 @@ class RankPlugin(Plugin):
         if self._ball is None:
             self._ball = self._ball_choice()
         ball = self._ball
-        rates = rates_for({s: h.level for s, h in cat.hunts.items()}, self._pace, self._default_kph)
+        rates = rates_for(
+            {s: h.level for s, h in cat.hunts.items()},
+            self._pace,
+            self._default_kph,
+            self.ctx.state.active_level,
+        )
         measured = {s: r for s, (r, src) in rates.items() if src == "measured"}
         estimated = {s: r for s, (r, src) in rates.items() if src in ("level", "near_level")}
         queue = plan_queue(

@@ -47,6 +47,7 @@ class AccountStateView:
     combat_free_at: datetime | None = None
     switch_free_at: datetime | None = None
     server_offset: timedelta | None = None  # servidor − local
+    active_level: int | None = None  # nível do pokémon ativo (do último abate)
 
     def server_now(self, now: datetime | None = None) -> datetime:
         """Relógio do servidor (o local, se o offset ainda não é conhecido)."""
@@ -55,6 +56,10 @@ class AccountStateView:
 
     def apply(self, event: Event) -> None:
         d = event.data
+        if event.type == "kill":
+            if isinstance(d.get("active_level"), int):
+                self.active_level = d["active_level"]
+            return
         if event.type == "hunt.changed":
             free = _as_datetime(d.get("switch_free_at"))
             if free is not None:

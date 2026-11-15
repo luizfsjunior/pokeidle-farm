@@ -40,6 +40,7 @@ class HuntStats:
     active_minutes: float
     last_chance: float | None = None
     last_ball_id: int | None = None
+    avg_active_level: float | None = None  # nível médio do pokémon ativo nos abates medidos
 
 
 class Store(Protocol):

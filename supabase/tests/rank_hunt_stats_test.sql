@@ -12,6 +12,11 @@ insert into public.metric_hourly (account_id, hour, hunt_slug, metric, value) va
   ('00000000-0000-0000-0000-000000000c01', '2001-11-12 11:00Z', 'magikarp', 'kills', 200),
   ('00000000-0000-0000-0000-000000000c01', '2001-11-12 11:00Z', 'magikarp', 'active_minutes', 30),
   ('00000000-0000-0000-0000-000000000c01', '2001-11-12 11:00Z', 'magikarp', 'gold', 9999),
+  -- nível do ativo: 300 abates a nível 20 e 200 a nível 25 → média 22
+  ('00000000-0000-0000-0000-000000000c01', '2001-11-12 10:00Z', 'magikarp', 'active_level_sum', 6000),
+  ('00000000-0000-0000-0000-000000000c01', '2001-11-12 10:00Z', 'magikarp', 'kills_leveled', 300),
+  ('00000000-0000-0000-0000-000000000c01', '2001-11-12 11:00Z', 'magikarp', 'active_level_sum', 5000),
+  ('00000000-0000-0000-0000-000000000c01', '2001-11-12 11:00Z', 'magikarp', 'kills_leveled', 200),
   ('00000000-0000-0000-0000-000000000c01', '2001-11-12 11:00Z', '', 'kills', 7),
   ('00000000-0000-0000-0000-000000000c01', '2001-11-01 10:00Z', 'magikarp', 'kills', 1000),
   ('00000000-0000-0000-0000-000000000c02', '2001-11-12 10:00Z', 'magikarp', 'kills', 555);
@@ -37,6 +42,7 @@ begin
   assert (select count(*) from public.rank_hunt_stats(acc, '2001-11-12 10:30Z')) = 1, 'uma hunt depois das 10:30';
   select * into r from public.rank_hunt_stats(acc, '2001-11-12 10:30Z');
   assert r.hunt_slug = 'magikarp' and r.kills = 500 and r.active_minutes = 80, 'abates e minutos';
+  assert r.avg_active_level = 22, format('nível médio do ativo %s ≠ 22', r.avg_active_level);
   assert r.last_chance is null, 'sem tentativa depois das 10:30';
 
   -- since às 09:00
