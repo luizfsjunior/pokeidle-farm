@@ -43,7 +43,9 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 - **Fase 8** ([fase-8-compensa.md](design/fase-8-compensa.md), D-T a D-X): página `/compensa` com a renda mensal
   projetada (como está e 24 h/dia), custo de energia, lucro, veredito e liquidez, calculados por
   `evaluation_summary`/`evaluation_liquidity` no banco. Comissão de 15% confirmada no `shared/taxa-mercado.mjs`
-  público. Testes SQL e build do web passando. O custo de energia ainda não foi informado.
+  público. Testes SQL e build do web passando. Custo de energia estimado (100 W, R$ 0,85/kWh, R$ 5,50/US$):
+  ~US$ 11 por mês. Os primeiros números (US$ 1,68/mês como está) são baixos porque só há preço em gemas desde
+  15/11 15:51; o veredito sai de "dados insuficientes" por volta de 22/11.
 - **Eventos do simulador apagados** da `luizfsjunior_1`: 34.441 eventos com `raw._sim = true` (09/11 a 12/11),
   com as métricas recalculadas desde 12/11.
 

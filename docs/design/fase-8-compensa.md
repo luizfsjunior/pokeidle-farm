@@ -91,8 +91,10 @@ dropado na janela: unidades dropadas por semana ÷ unidades vendidas por semana 
 
 - **D-T. Base da projeção**: as duas, dias corridos ("como está") e 24 h/dia.
 - **D-U. Janela**: 7 dias.
-- **D-V. Custo de energia**: sem valores conhecidos ainda. Os campos começam vazios e a página avisa que o lucro está
-  sem o custo até serem preenchidos.
+- **D-V. Custo de energia**: sem valores conhecidos. Os campos começam vazios e a página avisa que o lucro está
+  sem o custo até serem preenchidos. Em 15/11 gravamos uma **estimativa** na conta do dono: 100 W em média
+  (PC de mesa ligado 24 h, quase ocioso), R$ 0,85/kWh (média residencial com impostos) e R$ 5,50 por US$, o que dá
+  ~US$ 11,13 por mês. Trocar pelo formulário da página quando houver números reais.
 - **D-W. Liquidez**: marcar acima de 10% das unidades vendidas na semana.
 - **D-X. Veredito**: "compensa" quando o lucro mensal projetado (como está) for maior que 0; com o custo
   desconhecido, o veredito vem com a ressalva. Com menos de 7 dias de dado: "dados insuficientes".
