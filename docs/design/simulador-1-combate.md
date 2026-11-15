@@ -1,7 +1,8 @@
 # Simulador, camada 1: combate (abates por hora)
 
-Status: **aprovado** (15/11/2026), decisões S-A a S-D tomadas (fim do documento). Em implementação, em duas etapas:
-(1) coleta: regras do `welcome`, golpes e stats na Pokedex, onda de cada abate; (2) modelo e validação.
+Status: **aprovado** (15/11/2026), decisões S-A a S-D tomadas (fim do documento). Etapa 1 (coleta: regras do `welcome`,
+golpes e stats na Pokedex, onda de cada abate) em produção; etapa 2 (modelo) implementada e com a primeira validação
+(ver "Resultado da validação").
 
 ## Objetivo do simulador
 
@@ -64,11 +65,32 @@ Magikarp e Geodude ~1.000–1.100/h (teto), Nidoran e Zubat ~100/h, Charmander e
 
 ## Entregas
 
-- `worker/src/pokeidle_farm/sim/combat.py` (puro, sem rede): `kills_per_hour(attacker, hunt, catalog) -> float`.
+- `worker/src/pokeidle_farm/model/combat.py` (puro, sem rede): `kills_per_hour(attacker, wild_species, hunt_level,
+  rules, waves) -> float`; `Rules.from_welcome` lê o `game_catalog.regras`; `SpeciesData.from_raw` lê a Pokedex.
 - Carga das regras: golpes e base stats das espécies (dos `creatures*.json` e `golpes-planilhas.mjs`), tabela de
   efetividade.
 - Script de validação contra os eventos da conta, com a tabela previsto × medido.
 - Uso imediato: escolher o **pokémon ativo** pela hunt (o de mais abates/h previstos entre os da conta).
+
+## Resultado da validação (15/11, primeira passada)
+
+Bulbasaur da conta (nível 23, IV 27, qualidade 1,6, P2): os stats previstos batem com os do jogo (atk 36, spAtk 42).
+Ondas medidas na primeira onda carimbada (Horsea): 8 selvagens, ~2 s de caminhada média, ~11 s de espera.
+
+| hunt (nível) | previsto | medido |
+|---|---:|---:|
+| Magikarp (1) | 1.067/h | ~1.000–1.100 |
+| Geodude (1) | 1.059/h | ~1.000–1.100 |
+| Horsea (10) | 645/h | ~600 |
+| Nidoran ♂ (10) | 128/h | ~100 |
+| Zubat (10) | 89/h | ~100 |
+| Charmander (20) | 41/h | ~60 |
+| Bulbasaur (20) | 22/h | ~60 |
+
+Erro mediano ~11% e a ordem das hunts preservada: **dentro do critério**. O erro cresce nas hunts lentas (o modelo
+subestima: provável Investida mais frequente, golpes de outro tipo ou o ajuste do `golpes-planilhas.mjs`). Próximo:
+refazer a tabela com os abates por nível do `rank_hunt_stats` quando houver mais ondas carimbadas e calibrar o
+`WaveModel` com dezenas de ondas.
 
 ## Decisões (15/11)
 
