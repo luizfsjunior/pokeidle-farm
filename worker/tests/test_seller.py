@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -32,6 +33,9 @@ class Rig:
 
         async def sleep(s: float) -> None:
             self.slept.append(s)
+            if s == 300:  # intervalo entre tentativas de cancelar: fica parado até o teste parar
+                await asyncio.Event().wait()
+            await asyncio.sleep(0)
 
         self.plugin.sleep = sleep
         self.ctx = PluginContext(
@@ -77,31 +81,50 @@ def test_other_market_tabs_become_market_reply():
     assert ev.type == "market.reply" and ev.data == {"aba": "meus"} and ev.raw["linhas"] == []
 
 
-async def test_probe_lists_one_and_cancels_after_retention():
-    r = Rig({"142": 15}, probe_price=999)
-    await r.plugin.start(r.ctx)
-    assert [p["t"] for p in r.sent] == ["market.item", "market.criar", "market.meus"]
-    assert r.sent[1]["qtd"] == 1 and r.sent[1]["preco"] == 999
-    raw = {
-        "t": "market",
-        "aba": "meus",
-        "linhas": [{"id": 77, "itemId": 142, "preco": 999, "qtd": 1}],
-    }
-    await r.plugin.on_event(
-        Event(
-            account_id=uuid4(),
-            session_id=uuid4(),
-            type="market.reply",
-            data={"aba": "meus"},
-            raw=raw,
-        )
+def reply(aba: str, **raw: Any) -> Event:
+    return Event(
+        account_id=uuid4(),
+        session_id=uuid4(),
+        type="market.reply",
+        data={"aba": aba},
+        raw={"t": "market", "aba": aba, **raw},
     )
-    await r.plugin._cancel_task
-    assert r.slept[0] >= 120
-    assert r.sent[3] == {"t": "market.cancelar", "id": 77}
-    assert r.sent[4] == {"t": "market.meus"}
-    steps = [p["step"] for p in r.probes()]
-    assert steps == ["item", "criar", "meus", "meus", "cancelar", "meus_depois"]
+
+
+async def test_probe_lists_one_and_cancels_after_editable():
+    r = Rig({"142": 15}, probe_price=999)
+    r.plugin.now = lambda: datetime.fromtimestamp(1_000, UTC)
+    await r.plugin.start(r.ctx)
+    assert [p["t"] for p in r.sent] == ["market.item", "market.criar"]
+    assert r.sent[1]["qtd"] == 1 and r.sent[1]["preco"] == 999
+    # editável 30 min depois de criado
+    anuncio = {"id": 77, "itemId": 142, "preco": 999, "qtd": 1, "editavelEm": (1_000 + 1800) * 1000}
+    await r.plugin.on_event(reply("criado", anuncio=anuncio))
+    assert r.probes()[-1] == {"step": "criado", "id": 77, "cancel_in_s": 1810}
+    await r.plugin.on_event(reply("meus", linhas=[{"id": 77, "estado": "aberto"}]))
+    task = r.plugin._tasks[-1]
+    for _ in range(20):
+        await asyncio.sleep(0)
+    assert r.slept[0] == 1810
+    assert {"t": "market.cancelar", "id": 77} in r.sent
+    await r.plugin.on_event(reply("meus", linhas=[]))
+    assert r.probes()[-1] == {"step": "cancelado", "ids": [77]}
+    await r.plugin.stop()
+    assert task.done()
+
+
+async def test_cancel_ids_retry_until_gone():
+    r = Rig({}, cancel_ids=[5, 6])
+    await r.plugin.start(r.ctx)
+    for _ in range(20):
+        await asyncio.sleep(0)
+    assert [p for p in r.sent if p["t"] == "market.cancelar"] == [
+        {"t": "market.cancelar", "id": 5},
+        {"t": "market.cancelar", "id": 6},
+    ]
+    await r.plugin.on_event(reply("meus", linhas=[{"id": 6, "estado": "aberto"}]))
+    assert r.plugin._to_cancel == {6}
+    await r.plugin.stop()
 
 
 async def test_probe_without_stock_does_nothing():
