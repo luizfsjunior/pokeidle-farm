@@ -159,7 +159,9 @@ mesmas regras de trava e confirmação). A partir daí quem cuida das bolas é o
 | `retry_after_s` | `60` | espera pelo `estado` depois de um `auto.set` |
 | `fallback_hunt` | `null` | hunt para quando acabar a fila; `null` = fica onde está |
 
-`RestockConfig`: `focus` aceita `"rank"`; `fallback_focus` (padrão `"gold_xp_drop"`).
+`RestockConfig`: `focus` aceita `"rank"` e o padrão passa de `"capture"` para `"gold_xp_drop"` (o padrão do app,
+D-H); `fallback_focus` (padrão `"gold_xp_drop"`). Contas com `restock` sem `focus` na config passam a ficar em
+ouro-xp-drop; a conta de hoje vai receber o foco explícito pelo `focus.set`.
 
 ### 9. Como ligar na conta
 
@@ -181,7 +183,7 @@ mesmas regras de trava e confirmação). A partir daí quem cuida das bolas é o
 - **D-F. Dois donos do `auto.set`**: o `rank` só age com o `restock` em `focus: "rank"`.
 - **D-G. `weekly_ball_budget`**: sem teto (sai deste passo).
 - **D-H. Fallback**: o `restock` assume no `fallback_focus`, escolhido no painel; padrão `gold_xp_drop`, o padrão do
-  app. A conta nunca fica parada.
+  app. A conta nunca fica parada. O padrão do `RestockConfig.focus` também passa a ser `gold_xp_drop`.
 - **D-I. Seletor de foco no painel**: no passo 5, com os parâmetros do rank.
 - **D-J. Bola fora do alvo**: não desliga. O `auto.set` sai junto com o `hunt.select` e é religado sempre que a
   flag cair com alvo definido.
@@ -240,6 +242,9 @@ Em `worker/tests/test_restock.py`:
     bola.
 42. **Fallback `capture`**: `fallback_focus: "capture"` e `rank.mode` `fallback` → escolhe a bola pelo ouro líquido
     e liga o `autoBallSemParar`, como no foco captura; `rank.mode` `active` depois → para de mandar `auto.set`.
+
+47. **Padrão do foco**: `RestockConfig()` sem `focus` → `gold_xp_drop` (os testes atuais do foco captura passam
+    a declarar `focus: "capture"`).
 
 Em `worker/tests/test_commands.py`:
 
