@@ -41,6 +41,7 @@ class HuntStats:
     last_chance: float | None = None
     last_ball_id: int | None = None
     avg_active_level: float | None = None  # nível médio do pokémon ativo nos abates medidos
+    xp: float = 0.0  # XP do treinador nos abates (com os bônus)
 
 
 class Store(Protocol):

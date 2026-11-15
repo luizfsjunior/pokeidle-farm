@@ -12,6 +12,8 @@ insert into public.metric_hourly (account_id, hour, hunt_slug, metric, value) va
   ('00000000-0000-0000-0000-000000000c01', '2001-11-12 11:00Z', 'magikarp', 'kills', 200),
   ('00000000-0000-0000-0000-000000000c01', '2001-11-12 11:00Z', 'magikarp', 'active_minutes', 30),
   ('00000000-0000-0000-0000-000000000c01', '2001-11-12 11:00Z', 'magikarp', 'gold', 9999),
+  ('00000000-0000-0000-0000-000000000c01', '2001-11-12 10:00Z', 'magikarp', 'xp', 4000),
+  ('00000000-0000-0000-0000-000000000c01', '2001-11-12 11:00Z', 'magikarp', 'xp', 2500),
   -- nível do ativo: 300 abates a nível 20 e 200 a nível 25 → média 22
   ('00000000-0000-0000-0000-000000000c01', '2001-11-12 10:00Z', 'magikarp', 'active_level_sum', 6000),
   ('00000000-0000-0000-0000-000000000c01', '2001-11-12 10:00Z', 'magikarp', 'kills_leveled', 300),
@@ -43,6 +45,7 @@ begin
   select * into r from public.rank_hunt_stats(acc, '2001-11-12 10:30Z');
   assert r.hunt_slug = 'magikarp' and r.kills = 500 and r.active_minutes = 80, 'abates e minutos';
   assert r.avg_active_level = 22, format('nível médio do ativo %s ≠ 22', r.avg_active_level);
+  assert r.xp = 6500, format('xp %s ≠ 6500', r.xp);
   assert r.last_chance is null, 'sem tentativa depois das 10:30';
 
   -- since às 09:00

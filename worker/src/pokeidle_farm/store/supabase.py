@@ -326,6 +326,7 @@ class SupabaseStore:
                 avg_active_level=(
                     float(r["avg_active_level"]) if r.get("avg_active_level") is not None else None
                 ),
+                xp=float(r.get("xp") or 0),
             )
             for r in res.data or []
         ]

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { commandSummary } from "@/components/CommandButtons";
 import { useCommand } from "@/lib/useCommand";
 
-type Focus = "capture" | "gold_xp_drop" | "rank" | "gems";
+type Focus = "capture" | "gold_xp_drop" | "rank" | "gems" | "xp";
 type PluginRow = { plugin: string; enabled: boolean; config: Record<string, unknown> };
 
 const FOCUS_LABEL: Record<Focus, string> = {
@@ -12,6 +12,7 @@ const FOCUS_LABEL: Record<Focus, string> = {
   gold_xp_drop: "Ouro, XP e drop",
   rank: "Rank semanal",
   gems: "Gemas (pedras)",
+  xp: "XP (subir de nível)",
 };
 // mesma ordem dos padrões do RankConfig (Ultra, Super, Great, Poke)
 const BALLS: { id: number; name: string }[] = [
@@ -26,7 +27,10 @@ export function currentFocus(plugins: PluginRow[]): { focus: Focus; label: strin
   const restock = plugins.find((p) => p.plugin === "restock");
   const rank = plugins.find((p) => p.plugin === "rank");
   const gems = plugins.find((p) => p.plugin === "gems");
-  if (gems?.enabled && gems.config.dry_run === false) return { focus: "gems", label: FOCUS_LABEL.gems };
+  if (gems?.enabled && gems.config.dry_run === false) {
+    const f: Focus = gems.config.objective === "xp" ? "xp" : "gems";
+    return { focus: f, label: FOCUS_LABEL[f] };
+  }
   const restockFocus = (restock?.enabled ? restock.config.focus : undefined) as Focus | undefined;
   const rankOn = rank?.enabled === true;
   const rankDry = rank?.config.dry_run !== false;
@@ -123,6 +127,12 @@ export function FocusCard({ accountId, plugins }: { accountId: string; plugins: 
             <input value={fallbackHunt} onChange={(e) => setFallbackHunt(e.target.value)} placeholder="vazio = fica onde está" />
           </label>
         </fieldset>
+      )}
+      {focus === "xp" && (
+        <p className="muted small" style={{ margin: 0 }}>
+          Fica na hunt de mais XP por hora: o ritmo projetado para o nível do pokémon ativo × a XP por abate (medida, ou
+          0,6 × nível² + 8 com o bônus da conta). As bolas ficam desligadas (restock em ouro-xp-drop).
+        </p>
       )}
       {focus === "gems" && (
         <p className="muted small" style={{ margin: 0 }}>

@@ -290,6 +290,13 @@ async def test_focus_set_gems(rig):
     cfg = rig.store.configs[acc.id]
     assert cfg["restock"] == (True, {"focus": "gold_xp_drop", "items": []})
     assert cfg["rank"] == (False, {"dry_run": False})
-    assert cfg["gems"] == (True, {"max_market_share": 0.2, "dry_run": False})
+    assert cfg["gems"] == (
+        True,
+        {"max_market_share": 0.2, "dry_run": False, "objective": "gems"},
+    )
+    c = await rig.cmd(acc, "focus.set", focus="xp")
+    assert c["status"] == "done", c["error"]
+    assert rig.store.configs[acc.id]["gems"][1]["objective"] == "xp"
+    assert rig.store.configs[acc.id]["restock"][1]["focus"] == "gold_xp_drop"
     c = await rig.cmd(acc, "focus.set", focus="capture")
-    assert rig.store.configs[acc.id]["gems"] == (False, {"max_market_share": 0.2, "dry_run": False})
+    assert rig.store.configs[acc.id]["gems"][0] is False

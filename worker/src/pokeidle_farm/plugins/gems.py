@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -30,6 +30,7 @@ from ..gems_model import (
 )
 from ..hunt_switch import HuntSwitcher
 from ..pace import PaceBook, rates_for
+from ..xp_model import xp_option_dict, xp_options
 from .base import Plugin, PluginContext
 
 
@@ -37,6 +38,8 @@ class GemsConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     dry_run: bool = True
+    # o que maximizar: gemas das pedras (foco gemas) ou XP por hora (foco XP, docs/design/foco-xp.md)
+    objective: Literal["gems", "xp"] = "gems"
     interval_min: float = Field(15.0, ge=1)
     max_market_share: float = Field(0.10, gt=0, le=1)
     hysteresis: float = Field(0.15, ge=0)
@@ -76,6 +79,7 @@ class GemsPlugin(Plugin):
         self._lock = asyncio.Lock()
         self._level = ctx.state.level or 0
         self._pace = PaceBook(self.cfg.min_active_minutes)
+        self._xp: dict[str, tuple[float, float]] = {}  # slug -> (XP, abates), banco + sessão
         self._default_kph = self.cfg.default_kills_per_hour
         self._prices: dict[str, StonePrice] = {}
         self._chances = STONE_CHANCE_BY_POSITION
@@ -134,6 +138,7 @@ class GemsPlugin(Plugin):
         stats = [s for s in stats if s.hunt_slug in hunts]
         for s in stats:
             self._pace.load(s.hunt_slug, s.kills, s.active_minutes, s.avg_active_level)
+            self._xp[s.hunt_slug] = (s.xp, s.kills)
         total_k, total_m = sum(s.kills for s in stats), sum(s.active_minutes for s in stats)
         if total_k > 0 and total_m > 0:
             self._default_kph = total_k / total_m * 60
@@ -177,9 +182,11 @@ class GemsPlugin(Plugin):
     async def _handle(self, event: Event) -> None:
         d, t = event.data, event.type
         if t == "kill":
-            self._pace.add_kill(
-                d.get("hunt_slug") or self.switch.current, self.now(), d.get("active_level")
-            )
+            slug = d.get("hunt_slug") or self.switch.current
+            self._pace.add_kill(slug, self.now(), d.get("active_level"))
+            if slug:
+                xp, kills = self._xp.get(slug, (0.0, 0.0))
+                self._xp[slug] = (xp + float(d.get("xp") or 0), kills + 1)
             due = self._last_plan_at is None or self.now() - self._last_plan_at >= timedelta(
                 minutes=self.cfg.interval_min
             )
@@ -225,6 +232,9 @@ class GemsPlugin(Plugin):
             self._default_kph,
             self.ctx.state.active_level,
         )
+        if self.cfg.objective == "xp":
+            await self._plan_xp(reason, cat, rate)
+            return
         options = rank_options(
             cat,
             species,
@@ -265,7 +275,41 @@ class GemsPlugin(Plugin):
             "month_gems_24h": round(target.capped_gems_per_hour * 24 * 30, 1) if target else 0,
         }
         await self.ctx.actions.note("gems.plan", data)
-        slug = target.slug if target else None
+        await self._go(target.slug if target else None, current, reason)
+
+    async def _plan_xp(self, reason: str, cat: Any, rate: dict[str, tuple[float, str]]) -> None:
+        """Foco XP: a hunt de maior XP/h projetada (ritmo pelo nível do ativo × XP por abate)."""
+        options = xp_options(cat, self._level, rate, self._xp)
+        best = options[0] if options and options[0].xp_per_hour > 0 else None
+        current = self.switch.current
+        here = next((o for o in options if o.slug == current), None)
+        target = best
+        if (
+            best is not None
+            and here is not None
+            and here is not best
+            and best.xp_per_hour <= here.xp_per_hour * (1 + self.cfg.hysteresis)
+        ):
+            target = here
+        await self.ctx.actions.note(
+            "gems.plan",
+            {
+                "objective": "xp",
+                "reason": reason,
+                "dry_run": self.cfg.dry_run,
+                "acting": self._acting,
+                "trainer_level": self._level,
+                "active_level": self.ctx.state.active_level,
+                "current_hunt": current,
+                "target": xp_option_dict(target) if target else None,
+                "here": xp_option_dict(here) if here and here is not target else None,
+                "options": [xp_option_dict(o) for o in options[: self.cfg.preview]],
+                "degraded": list(self._degraded),
+            },
+        )
+        await self._go(target.slug if target else None, current, reason)
+
+    async def _go(self, slug: str | None, current: str | None, reason: str) -> None:
         if slug is None or slug == current:
             await self.switch.go(slug)
             return

@@ -345,3 +345,42 @@ async def test_memory_store_avg_active_level():
         )
     (st,) = await store.rank_hunt_stats(acc, NOW - timedelta(days=1))
     assert st.avg_active_level == pytest.approx(21)
+
+
+# --- foco XP (docs/design/foco-xp.md) ----------------------------------------------------
+
+
+def test_xp_formulas():
+    from pokeidle_farm.xp_model import base_xp, total_xp
+
+    assert base_xp(1) == 8 and base_xp(10) == 68 and base_xp(20) == 248
+    assert total_xp(21) == 116000 and total_xp(150) == 54042300
+
+
+def test_xp_options_prefer_measured_and_bonus():
+    from pokeidle_farm.xp_model import xp_options
+
+    rate = {
+        "caterpie": (1000.0, "measured"),
+        "butterfree": (100.0, "measured"),
+        "tauros": (500.0, "level"),
+    }
+    # caterpie (nível 1) medida: 100 abates com 1.300 XP -> 13/abate, bônus 13/8 = 1,625
+    book = {"caterpie": (1300.0, 100.0)}
+    opts = {o.slug: o for o in xp_options(CATALOG, 10, rate, book)}
+    assert (
+        opts["caterpie"].xp_per_kill == pytest.approx(13)
+        and opts["caterpie"].xp_source == "measured"
+    )
+    assert opts["tauros"].xp_per_kill == pytest.approx(68 * 1.625)  # fórmula × bônus
+    assert opts["tauros"].xp_per_hour == pytest.approx(500 * 68 * 1.625)
+    assert xp_options(CATALOG, 10, rate, book)[0].slug == "tauros"
+
+
+async def test_gems_plugin_with_xp_objective():
+    h = await Harness(dry_run=False, objective="xp", hunt_slug="caterpie").start()
+    plan = h.events("gems.plan")[-1]
+    assert plan["objective"] == "xp"
+    # mesmo ritmo medido em todas (1000/h): ganha a de maior nível (mais XP por abate)
+    assert plan["target"]["level"] == 10
+    assert h.selects() == [plan["target"]["slug"]]

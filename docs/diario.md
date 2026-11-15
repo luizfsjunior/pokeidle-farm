@@ -77,6 +77,8 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   ~222 gemas, 28 em 6 min; Mega Shiny Stone Fragment ~538), shiny anunciados a 35–175 mil gemas; fragmentos só na
   Outland (nível 150). Curva de XP e dano tiradas da wiki; XP/h real por hunt (Horsea 68 mil/h, 3,5× o Geodude); o time
   é só o Bulbasaur 23 com quatro Magikarps nível 1. Protocolo para contas novas: ~50 h de farm até o 150.
+- **Foco XP** ([design/foco-xp.md](design/foco-xp.md)): plugin `gems` com `objective: "xp"`, XP/h = ritmo projetado
+  × XP por abate (medida ou fórmula com o bônus da conta); "XP (subir de nível)" no card Foco. 237 testes.
 - **Ritmo por nível do ativo** ([design/ritmo-por-nivel.md](design/ritmo-por-nivel.md)): abates com o nível do ativo,
   ritmo projetado pelo fator de dano. 234 testes; aguardando deploy.
 - **Todas as pedras estão a 2 gemas** (primeira leitura completa, 22:07 UTC): 17 pedras, filas de centenas a 45 mil
