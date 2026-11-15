@@ -81,6 +81,11 @@ ele:
 - publica `rank.mode` (`active` com a bola, ou `fallback` quando a fila acaba). Em `fallback`, o `restock` age
   como o `fallback_focus` (ouro-xp-drop por padrão), então a conta nunca fica parada.
 
+Na subida e depois de cada espécie que pontua, o `rank` também pede o ranking da semana (`ranking.pedir`, aba
+`capturas`, só leitura, no máximo a cada 5 min) e grava `rank.position` com a posição calculada pela mesma regra
+da tela do jogo, ou quantas espécies faltam para entrar no top 100. O card "Rank semanal" da página da conta mostra
+isso junto com a fila (detalhes em [../docs/design/fase-3b-metricas-e-card.md](../docs/design/fase-3b-metricas-e-card.md)).
+
 **Gotcha:** o padrão do `restock.focus` passou de `capture` para `gold_xp_drop` em 15/11. Uma conta com
 `restock` sem `focus` na config para de jogar bola depois do rebuild; grave o foco pelo card antes.
 
@@ -166,7 +171,7 @@ MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W)/worker:/src" python:3.12-slim  
 | `protocol/` | modelos e codec das mensagens do jogo; o único lugar que conhece o formato delas |
 | `events.py` | eventos internos e o tradutor protocolo → evento |
 | `bus.py` | barramento assíncrono com fila por assinante |
-| `actions.py` | `ActionGateway` e `RateLimiter`; ações com schema Pydantic (`ShopBuy`, `AutoSet`, `TopCatchRequest`, `HuntSelect`) |
+| `actions.py` | `ActionGateway` e `RateLimiter`; ações com schema Pydantic (`ShopBuy`, `AutoSet`, `TopCatchRequest`, `RankingRequest`, `HuntSelect`) |
 | `catalog.py` | preços da loja do NPC (bolas, poções, revives) e chance das bolas |
 | `gamedata.py` | catálogo de hunts do `welcome`, Pokedex com estágio evolutivo e `SpeciesSync` (fase 3b) |
 | `rank_queue.py` | fila de hunts do foco rank por tempo esperado até a captura (funções puras) |

@@ -17,15 +17,32 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   nova tentativa, teto de 10 trocas por hora, Lançar até Capturar religado em toda captura, `rank.mode`),
   `restock` com `focus: "rank"` e `fallback_focus`, comando `focus.set` e o card **Foco** na página da conta.
   O padrão do `restock.focus` passou a ser `gold_xp_drop`. 179 testes, os testes SQL e o build do web passando.
+- **Foco rank ligado em `luizfsjunior_1`** (17:07, pelo card **Foco**): Bellsprout → Caterpie → Geodude → Oddish,
+  4 espécies na semana em ~10 min, cada troca confirmada pelo `hunt.changed` e o Lançar até Capturar religado.
+- **Timer da trava de combate**: depois da primeira captura, a troca levou 2 min. O golpe que fecha a janela livre
+  chega no mesmo frame que renova o `centroLivreEm`, então conferir a trava só a cada evento quase nunca a vê
+  aberta. Agora o plugin agenda um timer para o fim da trava; as trocas seguintes saíram em ~1 s.
+- **Posição no Top Catch achada no `app.js` do jogo**: o cliente pede `ranking.pedir` aba `capturas` (top 100) e
+  calcula a posição sozinho (`tcPosicaoCom`); o `topCatch` não traz a posição.
+- **Passo 6 da 3b** ([fase-3b-metricas-e-card.md](design/fase-3b-metricas-e-card.md), D-K a D-N): métrica
+  `rank_points` (migration `20261115020000_rank_points.sql`), `ranking.pedir` → `rank.board` → `rank.position`,
+  `min_active_minutes` 5, card "Rank semanal" na página da conta e a linha do rank na visão geral. 188 testes, os
+  testes SQL e o build do web passando.
+
+### Problemas e soluções
+
+| Problema | Causa | Solução |
+|---|---|---|
+| Worker parado desde 14/11 17:06 | Docker fechado; o `restart: on-failure` não religa uma saída limpa | `docker compose up -d --build` |
+| Troca de hunt demorando 2 min numa hunt em que o selvagem ataca | o golpe que fecha a janela renova a trava no mesmo frame; o plugin só conferia a trava em eventos | timer para o fim da trava (`_schedule`/`_wake` no `rank`) |
+| A conta parou de jogar bola depois do rebuild | o padrão novo do `restock.focus` (`gold_xp_drop`) com a config antiga sem `focus` | foco gravado pelo card **Foco** logo depois (esperado) |
 
 ### Pendente
 
-- Push (aplica a migration `commands_focus_set` e publica o painel), rebuild do worker e, logo em seguida, gravar
-  o foco da conta pelo card (o `restock` atual não tem `focus` na config e, com o padrão novo, ficaria em
-  ouro-xp-drop).
-- Ligar o foco rank em `luizfsjunior_1` e acompanhar o primeiro `hunt.select`, o `hunt.changed`, o `auto.set` e
-  a primeira captura que pontua; anotar a chave do `erro` se o jogo recusar a troca na trava.
-- 3b, passo 6: métricas `rank_points`/`rank_species_week` e o card do rank no painel.
+- Push do passo 6 (aplica a migration `rank_points` e publica o card) e rebuild do worker; conferir no painel se as
+  espécies e a posição batem com a tela do Top Catch do jogo.
+- Ainda a ver no jogo: o erro de `hunt.select` durante a trava (não apareceu com o timer).
+- Limpar a DigitalOcean (droplet e *Actions secrets*).
 
 ## 2026-11-14
 

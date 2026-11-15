@@ -4,11 +4,13 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { CommandButtons } from "@/components/CommandButtons";
 import { CommandTable } from "@/components/CommandTable";
 import { Shell } from "@/components/Shell";
+import { rankSummary } from "@/lib/rank";
 import { requireUser } from "@/lib/supabase/server";
 import { STATUS_LABEL, type Account, type Command } from "@/lib/types";
 import { FocusCard } from "./FocusCard";
 import { NewPlugin } from "./NewPlugin";
 import { PluginEditor } from "./PluginEditor";
+import { RankCard } from "./RankCard";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,8 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
   ]);
   const plugins = (configs.data ?? []) as { plugin: string; enabled: boolean; config: Record<string, unknown> }[];
   const commands = (cmds.data ?? []) as Command[];
+  const rankOn = plugins.some((p) => p.plugin === "rank" && p.enabled);
+  const rank = rankOn ? await rankSummary(supabase, account.id) : null;
 
   return (
     <Shell email={email}>
@@ -41,6 +45,12 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
         </section>
 
         <FocusCard accountId={account.id} plugins={plugins} />
+        {rank && (
+          <>
+            <AutoRefresh active ms={30_000} />
+            <RankCard rank={rank} />
+          </>
+        )}
 
         <h2 style={{ margin: ".5rem 0 0" }}>Plugins</h2>
         <p className="muted small" style={{ margin: 0 }}>

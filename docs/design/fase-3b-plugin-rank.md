@@ -44,7 +44,7 @@ registra `rank.would` com a ação e o motivo. A única exceção é o `topcatch
 | `max_hunt_factor` | `3.0` | pula a hunt alvo depois de `fator × horas esperadas` sem capturar |
 | `min_hunt_minutes` | `10` | piso do tempo acima, para hunts de captura muito rápida |
 | `history_days` | `14` | quanto do histórico entra no abates/h por hunt e na chance observada |
-| `min_active_minutes` | `30` | minutos ativos mínimos para o abates/h de uma hunt contar como medido |
+| `min_active_minutes` | `30` (`5` desde o passo 6) | minutos ativos mínimos para o abates/h de uma hunt contar como medido |
 | `default_kills_per_hour` | `300` | ritmo usado quando a conta não tem histórico nenhum |
 | `queue_preview` | `10` | quantas hunts da fila vão no `rank.plan` |
 

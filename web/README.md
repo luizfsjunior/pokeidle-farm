@@ -6,8 +6,9 @@ Next.js 16 (App Router) + Supabase Auth. Lê as contas, as métricas da fase 4a
 - **Visão geral** (`/`): status de cada conta, último evento e os números de hoje por hora ativa.
 - **Métricas** (`/metricas`): qualquer métrica por hora ou por dia, filtrando por conta e hunt (`metric_series`).
 - **Comandos**: botões **Ping**, **Reconectar** e **Ligar/Desligar** em cada card; histórico em `/comandos`
-  (com cancelar para os pendentes); foco (captura, ouro-xp-drop ou rank, comando `focus.set`) e plugins de cada
-  conta em `/contas/<id>`.
+  (com cancelar para os pendentes); foco (captura, ouro-xp-drop ou rank, comando `focus.set`), card "Rank
+  semanal" (espécies, posição, alvo, fila e falhas, lidos de `events` por `lib/rank.ts`) e plugins de cada conta
+  em `/contas/<id>`. Na visão geral, contas com o `rank` ligado mostram as espécies da semana e o alvo.
 - **Objetivos** (`/objetivos`): criar sem SQL, progresso, ritmo, previsão e chance até o prazo; histórico das fotos em `/objetivos/<id>`.
 
 ## Segurança

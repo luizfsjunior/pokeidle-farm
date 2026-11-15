@@ -1,7 +1,17 @@
 # Fase 3b: métricas e card do rank (passo 6)
 
-Status: **rascunho v2**, 15/11/2026. Decisões D-K a D-N tomadas em 15/11 (fim do documento); falta aprovar a
-spec e os casos de teste.
+Status: **implementado** (15/11/2026), decisões D-K a D-N tomadas (fim do documento). Código: métrica na
+migration `20261115020000_rank_points.sql` (teste em `supabase/tests/rank_points_test.sql`), `RankingRequest` em
+`actions.py`, `rank.board` no tradutor (`events.py`), posição em `plugins/rank.py` (`_on_board`), card em
+`web/app/contas/[id]/RankCard.tsx`, leituras em `web/lib/rank.ts` e a linha em `web/app/page.tsx`. Testes: casos
+5, 9, 11 a 14 em `test_rank_plugin.py`, 10 em `test_protocol.py`.
+
+Diferenças do texto abaixo para o que foi implementado:
+- "Fora do top" é `posição > 100` (o `PREMIADOS_TOP_CATCH` do cliente), não "passou do tamanho da lista": no
+  começo da semana a lista pode ter menos de 100 linhas e a posição continua valendo.
+- Sem o `n` da semana (nenhum `rank.week`/`rank.catch` ainda) ou com `n = 0`, não grava `rank.position`, como a
+  tela do jogo, que só mostra a posição com `n > 0`.
+- O caso 4 (métricas antigas não mudam) é coberto rodando o `ouro_liquido_test.sql` depois da migration nova.
 
 É o último passo da [ordem de implementação da 3b](fase-3b-rank-semanal.md#8-ordem-de-implementação). Com o
 `rank` agindo ([passo 5](fase-3b-rank-ligado.md)), falta ver no painel como a semana está indo sem abrir o SQL:
