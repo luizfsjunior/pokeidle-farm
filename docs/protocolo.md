@@ -77,7 +77,7 @@ servidor → { t: "welcome", estado: {...}, hunts: [...], itensNossos: [...], me
 | `estado.pokemons[]`, `estado.activeId` | pokémons e o ativo |
 | `estado.items` | inventário `{id: quantidade}` |
 | `estado.automation` | config da automação do próprio jogo |
-| `estado.centroLivreEm` | horário do servidor em que a trava de combate acaba |
+| `estado.centroLivreEm` | horário do servidor em que a trava de combate acaba (renovado a cada golpe recebido; ver fase 3b) |
 | `estado.servidorAgora` | relógio do servidor (ms), para calcular o offset |
 | `hunts[]` | hunts disponíveis (`slug`, ...) |
 | `itensNossos[]` | itens próprios do servidor (ids ≥ 70000: nome, ícone, categoria, raro) |
@@ -147,7 +147,7 @@ Também aparecem `aviso`, `marketComprado` e `mktSorteio`, relacionados ao Merca
 | `topcatch.pedir` | — | lista das espécies da semana no Top Catch. Resposta: `{"t":"topCatch","s":"2026-11-08","ini":false,"n":12,"m":12,"e":[["10",9502],["66",8630],...],"ant":null,"meu":null,"campeoes":[{posicao,nick,valor,diamantes,level,looktype,vs}]}`, com `e` = `[chave da espécie, minuto da semana em que pontuou]` | ✅ (navegador, 14/11) |
 | `ranking.pedir` | `aba` (`capturas`, `nivel`, `bosses` com `bossKey`, `pvpMensal`, ...) | ranking. Resposta: `{"t":"ranking","aba":"capturas","semana":"2026-11-15","linhas":[{nick,level,valor,looktype,vs,rank}]}` (o navegador pede a cada minuto com a tela aberta). A aba `capturas` é o Top Catch da semana, até o último premiado (top 100), com `valor` = espécies. A posição não vem: o cliente calcula (`tcPosicaoCom` no `app.js`): o índice do próprio nick se o `valor` bate com o `n` da semana; senão 1 + quantos têm `valor` maior, ou igual com `level` ≥ o seu; acima de 100 está fora, e faltam `valor` da última linha − `n` + 1 espécies. O worker manda a aba `capturas` desde 15/11 (`rank.board` → `rank.position`) | ✅ (navegador, 14/11; `app.js` v1.420.0, 15/11) |
 | `market.itens` | `elemento`, `categoria`, `elementos?` | listar itens do Mercado | ⬜ |
-| `market.medias` | — | médias de preço | ⬜ |
+| `market.medias` | — | médias de preço de venda dos últimos 7 dias, por item. Resposta (lida do `app.js` v1.420.0; **a confirmar com uma real**): `{"t":"market","aba":"medias","dias":7,"medias":{"142":{"orb":{"media":..,"unidades":..},"gold":{...}}}}` (`orb` = gemas; moeda sem vendas não vem). O cliente repede no máximo a cada 5 min com a mochila aberta. O worker pede a cada hora desde 15/11 (fase 7) | 🟡 |
 | `market.item` | `itemId`, `moeda` | detalhe de um item | ⬜ |
 | `market.listar` | `tipo`, `moeda`, `ordem` (`recentes`, `baratos`, `caros`), `busca`, filtros (`soShiny`, `soP5`, `ivMin`, ...), `pagina` | vitrine | ⬜ |
 | `market.meus` | — | meus anúncios | ⬜ |

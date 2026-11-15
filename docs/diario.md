@@ -28,6 +28,15 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   `rank_points` (migration `20261115020000_rank_points.sql`), `ranking.pedir` → `rank.board` → `rank.position`,
   `min_active_minutes` 5, card "Rank semanal" na página da conta e a linha do rank na visão geral. 188 testes, os
   testes SQL e o build do web passando.
+- **Posição conferida no painel**: 5 espécies, fora do top 100 (corte em 24). Dois detalhes corrigidos: o
+  `ranking.pedir` barrado pelo limite de 5 min agora sai sozinho depois, e o card mostra a hunt do último
+  `hunt.changed`.
+- **Fase 7** ([fase-7-precos-do-mercado.md](design/fase-7-precos-do-mercado.md), D-O a D-S): pelo `app.js`, o
+  `market.medias` traz a média de 7 dias de venda por item em gemas e ouro, e o `items.json` público liga o nome do
+  drop ao id. Implementados: drops com quantidade, catálogo de itens por ETag, plugin `market_prices` (a cada
+  hora, numa conta só), métricas `drops_value_orb`/`drops_value_gold`/`drops_unpriced` com o preço da hora de cada
+  drop (sem vendas em ouro, o preço do NPC) e a página `/mercado`. 198 testes, os testes SQL e o build do web
+  passando.
 
 ### Problemas e soluções
 
@@ -40,8 +49,8 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 ### Pendente
 
-- Push do passo 6 (aplica a migration `rank_points` e publica o card) e rebuild do worker; conferir no painel se as
-  espécies e a posição batem com a tela do Top Catch do jogo.
+- Fase 7: push (aplica a migration `market_prices`), rebuild do worker e conferir a primeira resposta real do
+  `market.medias` (formato, quantos itens) e a página `/mercado`.
 - Ainda a ver no jogo: o erro de `hunt.select` durante a trava (não apareceu com o timer).
 
 ## 2026-11-14

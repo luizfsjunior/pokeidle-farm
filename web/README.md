@@ -9,6 +9,10 @@ Next.js 16 (App Router) + Supabase Auth. Lê as contas, as métricas da fase 4a
   (com cancelar para os pendentes); foco (captura, ouro-xp-drop ou rank, comando `focus.set`), card "Rank
   semanal" (espécies, posição, alvo, fila e falhas, lidos de `events` por `lib/rank.ts`) e plugins de cada conta
   em `/contas/<id>`. Na visão geral, contas com o `rank` ligado mostram as espécies da semana e o alvo.
+- **Mercado** (`/mercado`): itens dropados nos últimos 7 dias, por conta ou todas, com a média de 7 dias do
+  Mercado em gemas e ouro (último snapshot; sem vendas em ouro, o preço do NPC) e o valor total. A visão geral
+  mostra o valor dos drops por hora ativa (métricas `drops_value_orb` e `drops_value_gold`, que usam o preço da
+  hora de cada drop).
 - **Objetivos** (`/objetivos`): criar sem SQL, progresso, ritmo, previsão e chance até o prazo; histórico das fotos em `/objetivos/<id>`.
 
 ## Segurança

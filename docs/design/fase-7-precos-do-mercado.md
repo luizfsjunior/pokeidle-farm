@@ -1,7 +1,21 @@
 # Fase 7: preços do Mercado e valor dos drops
 
-Status: **rascunho v2**, 15/11/2026. Decisões D-O a D-S tomadas em 15/11 (fim do documento); falta aprovar a
-spec e os casos de teste.
+Status: **implementado** (15/11/2026), decisões D-O a D-S tomadas (fim do documento); falta o passo 1 (conferir
+a resposta real do `market.medias` depois do deploy). Código: `MarketAverages` em `actions.py`, `market.prices` e
+`Drop.qty` no tradutor (`events.py`), plugin `plugins/market_prices.py`, `ItemsSync` e itens do `welcome` em
+`gamedata.py`, migration `20261115030000_market_prices.sql`, página `web/app/mercado/page.tsx` e as colunas novas
+na visão geral. Testes: casos 1 a 5 em `worker/tests/test_market.py`, 6 a 9 em
+`supabase/tests/drops_value_test.sql`.
+
+Diferenças do texto abaixo para o que foi implementado:
+- Não há `drop_units` separado: a própria métrica `drops` passou a somar a quantidade (seção 2), e o caso 6 testa
+  ela.
+- O preço de cada drop vem do **último snapshot inteiro** antes do fim da hora: se o item não aparece nesse
+  snapshot, ele não teve vendas na semana, e não se busca um preço mais antigo dele.
+- O `market.prices` é gravado em `events` com o `raw` (~1 resposta por hora), para conferir o formato e ter
+  histórico além dos 30 dias de `market_prices`.
+- Na página `/mercado` o valor usa o **último snapshot** (é uma foto de "quanto vale hoje"); as métricas usam o
+  preço da hora de cada drop.
 
 É a fase 7 do [roadmap](../roadmap.md): métricas derivadas do Mercado (valor dos drops) e objetivos sobre elas.
 Ela alimenta o critério de "compensa?" da fase 8:

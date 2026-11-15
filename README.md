@@ -6,7 +6,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
 
 ## Status
 
-🟡 Em desenvolvimento: worker rodando contra o jogo em IP residencial, com o primeiro plugin que age no jogo (`restock`: escolhe a bola e repõe consumíveis), métricas (incluindo ouro líquido) e painel v1 no ar. Fase 3b (rank semanal) pronta e ligada numa conta: fila de hunts com troca de hunt e Lançar até Capturar, seletor de foco no painel, métrica `rank_points`, posição no Top Catch e card "Rank semanal". Detalhes no [roadmap](docs/roadmap.md).
+🟡 Em desenvolvimento: worker rodando contra o jogo em IP residencial, com o primeiro plugin que age no jogo (`restock`: escolhe a bola e repõe consumíveis), métricas (incluindo ouro líquido) e painel v1 no ar. Fase 3b (rank semanal) pronta e ligada numa conta: fila de hunts com troca de hunt e Lançar até Capturar, seletor de foco no painel, métrica `rank_points`, posição no Top Catch e card "Rank semanal". Fase 7 (preços do Mercado e valor dos drops em gemas e ouro) implementada, conferindo com o jogo. Detalhes no [roadmap](docs/roadmap.md).
 
 ## Visão geral
 
