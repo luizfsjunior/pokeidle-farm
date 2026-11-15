@@ -114,6 +114,69 @@ class MarketAverages(ActionSpec):
         return {"t": "market.medias"}
 
 
+class MarketItemRequest(ActionSpec):
+    name: ClassVar[str] = "market.item"
+    description: ClassVar[str] = "Lê os anúncios abertos de um item no Mercado (só leitura)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 10.0
+
+    itemId: int  # nome do protocolo
+    moeda: Literal["orb", "gold"] = "orb"
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "market.item", "itemId": self.itemId, "moeda": self.moeda}
+
+
+class MarketMine(ActionSpec):
+    name: ClassVar[str] = "market.meus"
+    description: ClassVar[str] = "Lê os próprios anúncios no Mercado (só leitura)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 2.0
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "market.meus"}
+
+
+class MarketCreate(ActionSpec):
+    name: ClassVar[str] = "market.criar"
+    description: ClassVar[str] = "Anuncia um item no Mercado (até 20 anúncios; retenção de 2 min)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 10.0
+
+    tipo: Literal["item"] = "item"
+    itemId: int  # nome do protocolo
+    qtd: int = Field(ge=1)
+    preco: int = Field(ge=1)
+    moeda: Literal["orb", "gold"] = "orb"
+
+    def to_wire(self) -> dict[str, Any]:
+        # o mesmo formato do navegador (app.js, `cm-publicar`): dias só vale para pokémon
+        return {
+            "t": "market.criar",
+            "tipo": self.tipo,
+            "itemId": self.itemId,
+            "pokemonId": None,
+            "casaId": None,
+            "bicicletaId": None,
+            "qtd": self.qtd,
+            "preco": self.preco,
+            "moeda": self.moeda,
+            "dias": None,
+        }
+
+
+class MarketCancel(ActionSpec):
+    name: ClassVar[str] = "market.cancelar"
+    description: ClassVar[str] = "Cancela um anúncio próprio no Mercado"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 5.0
+
+    id: Any
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "market.cancelar", "id": self.id}
+
+
 class HuntSelect(ActionSpec):
     name: ClassVar[str] = "hunt.select"
     description: ClassVar[str] = "Troca de hunt (só fora da trava de combate e do trocaLivreEm)"

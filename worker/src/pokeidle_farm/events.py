@@ -330,6 +330,10 @@ class Translator:
                 days = raw.get("dias")
                 data = MarketPricesData(days=days if isinstance(days, int) else None, prices=prices)
                 return [self._ev("market.prices", data, raw)]
+            if msg.t == "market":
+                # outras abas do Mercado (criado, meus, item...): gravadas com o raw enquanto a
+                # venda de pedras (fase 9) ainda está conferindo o formato
+                return [self._ev("market.reply", {"aba": raw.get("aba")}, raw)]
             if msg.t == "ranking" and raw.get("aba") == "capturas":
                 rows = [
                     {"nick": r.get("nick"), "level": r.get("level"), "valor": r.get("valor")}
