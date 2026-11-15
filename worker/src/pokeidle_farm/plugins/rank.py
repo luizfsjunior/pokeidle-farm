@@ -143,6 +143,7 @@ class RankPlugin(Plugin):
         self._lock = asyncio.Lock()
         self._timer: asyncio.Task[None] | None = None
         self._timer_at: datetime | None = None
+        self._board_due: datetime | None = None  # ranking.pedir barrado: sai quando o limite deixar
         if not self.cfg.dry_run:
             await self._check_restock()
         await self._try_boot()
@@ -241,8 +242,15 @@ class RankPlugin(Plugin):
         """Ranking da semana para a posição (passo 6); só leitura, vai mesmo com dry_run."""
         try:
             await self.ctx.actions.submit(RankingRequest(), source=self.name)
-        except ActionBlocked:
-            pass
+        except ActionBlocked as exc:
+            if exc.wait_s is not None:
+                # rate limit: sem isso a posição fica velha até a próxima espécie (passo 6)
+                due = self.now() + timedelta(seconds=exc.wait_s)
+                if self._board_due is None or due < self._board_due:
+                    self._board_due = due
+                self._schedule(self._board_due)
+            return
+        self._board_due = None
 
     def _note_n(self, n: Any) -> None:
         if isinstance(n, int) and (self._week_n is None or n > self._week_n):
@@ -612,7 +620,15 @@ class RankPlugin(Plugin):
         async with self._lock:
             self._timer = None
             self._timer_at = None
-            await self._pump()
+            if self._acting:
+                await self._pump()
+            due = self._board_due
+            if due is not None:
+                if self.now() >= due:
+                    self._board_due = None
+                    await self._request_board()
+                else:
+                    self._schedule(due)
 
     async def _switch_failed(self, reason: str) -> None:
         assert self._pending is not None

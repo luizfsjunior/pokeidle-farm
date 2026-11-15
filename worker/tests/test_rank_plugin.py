@@ -856,3 +856,21 @@ async def test_position_ignores_other_week_and_repeats():
     await h.send_ev(ev("rank.catch", species_id=10, week_start=WEEK, scores=True, week_species=6))
     await h.send_ev(ev("rank.board", week_start=WEEK, rows=[row("a", 9)]))
     assert [p["species"] for p in h.events("rank.position")] == [5, 6]
+
+
+async def test_blocked_ranking_request_goes_out_when_limit_allows():
+    # o ranking.pedir barrado pelo limite de 5 min sai sozinho depois (a posição não fica velha)
+    h = Harness()  # dry_run: o timer não pode mandar auto.set nem hunt.select
+    h.plugin.sleep = fake_sleep(h)
+    h.stored("rank.week", NOW - timedelta(hours=1), week_start=WEEK, week_species=4, species={})
+    await h.start()
+    assert len(boards(h)) == 1
+    h.now += timedelta(seconds=43)
+    await h.send_ev(ev("rank.catch", species_id=10, week_start=WEEK, scores=True, week_species=5))
+    assert len(boards(h)) == 1
+    await wake(h)
+    assert len(boards(h)) == 2
+    assert h.now >= NOW + timedelta(seconds=300)
+    assert [p["t"] for p in h.sent] == ["topcatch.pedir", "ranking.pedir", "ranking.pedir"]
+    await h.send_ev(ev("rank.board", week_start=WEEK, rows=[row("a", 24)]))
+    assert h.events("rank.position")[-1]["species"] == 5

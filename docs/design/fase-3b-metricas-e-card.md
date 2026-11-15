@@ -12,6 +12,10 @@ Diferenças do texto abaixo para o que foi implementado:
 - Sem o `n` da semana (nenhum `rank.week`/`rank.catch` ainda) ou com `n = 0`, não grava `rank.position`, como a
   tela do jogo, que só mostra a posição com `n > 0`.
 - O caso 4 (métricas antigas não mudam) é coberto rodando o `ouro_liquido_test.sql` depois da migration nova.
+- Corrigido depois de ligar (15/11): o `ranking.pedir` barrado pelo limite de 5 min (ex.: espécie que pontua logo
+  depois da subida) fica pendente e sai pelo timer do plugin quando o limite deixa; antes, a posição ficava com o
+  número de espécies antigo até a próxima captura. No card, a hunt atual vem do último `hunt.changed` quando ele é
+  mais novo que o `rank.plan` (a troca chega segundos depois do plano e não gera plano novo).
 
 É o último passo da [ordem de implementação da 3b](fase-3b-rank-semanal.md#8-ordem-de-implementação). Com o
 `rank` agindo ([passo 5](fase-3b-rank-ligado.md)), falta ver no painel como a semana está indo sem abrir o SQL:

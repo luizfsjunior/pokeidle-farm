@@ -62,7 +62,7 @@ export async function rankLine(supabase: SupabaseClient, accountId: string) {
 export async function rankSummary(supabase: SupabaseClient, accountId: string): Promise<RankSummary> {
   const { week, startIso, startDay } = currentWeek();
   const dayAgo = new Date(Date.now() - 24 * 3600_000).toISOString();
-  const [species, plan, mode, position, failures, daily] = await Promise.all([
+  const [species, plan, mode, position, failures, daily, moved] = await Promise.all([
     weekSpecies(supabase, accountId, week, startIso),
     lastEvent(supabase, accountId, "rank.plan", startIso),
     lastEvent(supabase, accountId, "rank.mode"),
@@ -71,6 +71,7 @@ export async function rankSummary(supabase: SupabaseClient, accountId: string): 
       .gte("received_at", dayAgo).order("received_at", { ascending: false }).limit(10),
     supabase.from("metric_daily").select("metric, value").eq("account_id", accountId)
       .gte("day", startDay).in("metric", ["rank_points", "active_minutes"]),
+    lastEvent(supabase, accountId, "hunt.changed"),
   ]);
 
   let points = 0;
@@ -81,6 +82,8 @@ export async function rankSummary(supabase: SupabaseClient, accountId: string): 
   }
 
   const p = plan?.data;
+  // a troca de hunt vem depois do plano e não gera plano novo: a hunt atual sai do último hunt.changed
+  const movedSlug = moved && plan && moved.received_at >= plan.received_at ? (moved.data.slug as string | null) : null;
   const pos = position && position.data.week_start === week ? position.data : null;
   return {
     week,
@@ -98,7 +101,7 @@ export async function rankSummary(supabase: SupabaseClient, accountId: string): 
       ? {
           at: plan.received_at,
           reason: String(p.reason ?? ""),
-          current: (p.current_hunt as string | null) ?? null,
+          current: movedSlug ?? (p.current_hunt as string | null) ?? null,
           target: (p.target as QueueItem | null) ?? null,
           ballId: (p.ball_id as number | null) ?? null,
           queueLen: Number(p.queue_len) || 0,
