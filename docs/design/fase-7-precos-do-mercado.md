@@ -1,6 +1,7 @@
 # Fase 7: preços do Mercado e valor dos drops
 
-Status: **rascunho**, 15/11/2026. Decisões D-O a D-S em aberto (fim do documento).
+Status: **rascunho v2**, 15/11/2026. Decisões D-O a D-S tomadas em 15/11 (fim do documento); falta aprovar a
+spec e os casos de teste.
 
 É a fase 7 do [roadmap](../roadmap.md): métricas derivadas do Mercado (valor dos drops) e objetivos sobre elas.
 Ela alimenta o critério de "compensa?" da fase 8:
@@ -76,8 +77,10 @@ Bases novas em `metric_hourly`, por hora e hunt, somadas no `refresh_metric_hour
 e as razões por hora ativa (`drops_value_orb_per_hour`, `drops_value_gold_per_hour`).
 
 O preço de cada drop é o do **último `market_prices` antes do fim daquela hora** (D-P), para o histórico não mudar
-quando os preços mudam. Item sem média na moeda: vale 0 (D-Q). Drop cujo nome não está no catálogo: vale 0 e entra
-numa contagem `drops_unpriced`, para aparecer no painel.
+quando os preços mudam. Item sem média na moeda (D-Q): em ouro, vale o `npc_price` do catálogo; em gemas, vale 0
+(o NPC só paga em ouro). Drop cujo nome não está no catálogo: vale 0 nas duas moedas e entra numa contagem
+`drops_unpriced`, para aparecer no painel. Antes do primeiro snapshot de preços (drops antigos), só o `npc_price`
+vale, em ouro.
 
 ### 6. Painel
 
@@ -91,16 +94,14 @@ numa contagem `drops_unpriced`, para aparecer no painel.
 - Vender no Mercado (fase 9) e a comissão real de venda (a fase 8 usa a `taxaMercado` do `welcome.economia`).
 - Preço de pokémon capturado (o valor depende de IV, shiny etc.; não há média simples).
 
-## Decisões em aberto
+## Decisões (tomadas em 15/11)
 
-- **D-O. Moeda**: valorar nas duas (gemas e ouro), com métricas separadas (proposta), ou só em gemas, que é o que
-  entra no critério da fase 8?
-- **D-P. Preço histórico ou atual**: o preço da hora do drop (proposta; o histórico fica estável), ou sempre o mais
-  recente (o valor de tudo muda a cada pedido)?
-- **D-Q. Item sem venda**: vale 0 (proposta) ou cai para o `npcPrice` em ouro? O `npcPrice` do `items.json` ainda
-  não está claro se é o preço de compra ou de venda no NPC.
-- **D-R. Frequência e retenção**: `market.medias` a cada 60 min e 30 dias de `market_prices`?
-- **D-S. Página `/mercado`** nesta fase, ou só as métricas e o card?
+- **D-O. Moeda**: as duas, gemas e ouro, com métricas separadas.
+- **D-P. Preço**: o da hora do drop (último snapshot antes do fim da hora); o histórico fica estável.
+- **D-Q. Item sem venda**: em ouro, cai para o `npc_price` do catálogo; em gemas, 0. O `npcPrice` ainda não foi
+  conferido no jogo (compra ou venda no NPC); a página `/mercado` mostra quando o valor veio dele.
+- **D-R. Frequência e retenção**: `market.medias` a cada 60 min; 30 dias de `market_prices`.
+- **D-S. Página `/mercado`**: entra nesta fase.
 
 ## Casos de teste propostos
 
@@ -119,7 +120,9 @@ SQL (`supabase/tests/drops_value_test.sql`):
 6. `drop_units` soma `qty` (dois drops de 3 e 1 → 4).
 7. `drops_value_orb`: 3 Water Stone com média 12,5 → 37,5; preço tirado do último snapshot antes do fim da hora
    (um snapshot depois da hora não muda o valor).
-8. Item sem média em ouro → `drops_value_gold` 0 para ele; nome fora do catálogo → `drops_unpriced` 1.
+8. Item sem média em ouro → `drops_value_gold` usa o `npc_price` (2 unidades de um item com `npc_price` 5000 →
+   10.000); sem média em gemas → `drops_value_orb` 0; nome fora do catálogo → 0 nas duas e `drops_unpriced` 1;
+   drop antes de qualquer snapshot → só o `npc_price` em ouro.
 9. Retenção: `purge_market_prices()` apaga snapshots com mais de 30 dias.
 
 Painel: `npm run typecheck`, build e conferência no navegador.
