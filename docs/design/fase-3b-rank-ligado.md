@@ -14,6 +14,12 @@ Diferenças do texto abaixo para o que foi implementado:
   espera zera: a próxima queda da flag religa assim que o rate limiter (30 s) deixar.
 - Se o rate limiter barra o `hunt.select` (ex.: menos de 20 s depois do anterior), o plugin tenta de novo quando
   ele deixar.
+- **Timer da trava** (corrigido em 15/11, depois de ligar na conta): conferir a trava só a cada evento não
+  funciona. Numa hunt em que o selvagem ataca (Bellsprout), o golpe que encerra a janela livre chega no mesmo frame
+  que renova o `centroLivreEm`, e a sessão aplica o estado antes de publicar os eventos; o plugin sempre via a
+  trava fechada (havia janelas de até 18 s). Agora, com a trava fechada, o plugin agenda um timer para o fim dela
+  (`centroLivreEm`/`trocaLivreEm` + `switch_margin_s`) e tenta de novo nesse instante (caso 23b). O primeiro
+  `hunt.select` passou porque o Magikarp não ataca.
 
 É o passo 5 da [ordem de implementação da 3b](fase-3b-rank-semanal.md#8-ordem-de-implementação). O passo 4
 ([plugin em ensaio](fase-3b-plugin-rank.md)) já decide a hunt alvo e grava o que faria. Aqui ele passa a mandar

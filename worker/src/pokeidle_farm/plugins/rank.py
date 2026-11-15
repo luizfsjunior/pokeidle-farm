@@ -16,6 +16,8 @@ Ver docs/design/fase-3b-plugin-rank.md (ensaio) e docs/design/fase-3b-rank-ligad
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 from collections import deque
 from dataclasses import asdict
 from datetime import UTC, date, datetime, timedelta
@@ -88,6 +90,7 @@ class RankPlugin(Plugin):
 
     def __init__(self) -> None:
         self.now = lambda: datetime.now(UTC)
+        self.sleep = asyncio.sleep  # trocado nos testes
 
     # --- subida -------------------------------------------------------------
 
@@ -123,6 +126,11 @@ class RankPlugin(Plugin):
         self._mode: dict[str, Any] | None = None  # último rank.mode publicado
         self._auto_sent: dict[str, Any] | None = None
         self._auto_sent_at: datetime | None = None
+        # a trava de combate é renovada no mesmo frame do golpe que a fecha: esperar
+        # o próximo evento nunca a encontra aberta, então um timer acorda quando ela acaba
+        self._lock = asyncio.Lock()
+        self._timer: asyncio.Task[None] | None = None
+        self._timer_at: datetime | None = None
         if not self.cfg.dry_run:
             await self._check_restock()
         await self._try_boot()
@@ -216,7 +224,18 @@ class RankPlugin(Plugin):
 
     # --- eventos ------------------------------------------------------------
 
+    async def stop(self) -> None:
+        if self._timer is not None:
+            self._timer.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._timer
+            self._timer = None
+
     async def on_event(self, event: Event) -> None:
+        async with self._lock:
+            await self._handle(event)
+
+    async def _handle(self, event: Event) -> None:
         if not self._ready:
             if event.type == "state.snapshot":
                 await self._try_boot()
@@ -480,8 +499,11 @@ class RankPlugin(Plugin):
             return
         st = self.ctx.state
         locks = [t for t in (st.combat_free_at, st.switch_free_at) if t is not None]
-        if locks and st.server_now(now) < max(locks) + timedelta(seconds=self.cfg.switch_margin_s):
-            return  # trava de combate ou trocaLivreEm: confere de novo no próximo evento
+        free_at = max(locks) + timedelta(seconds=self.cfg.switch_margin_s) if locks else None
+        if free_at is not None and st.server_now(now) < free_at:
+            # trava de combate ou trocaLivreEm: tenta de novo quando acabar
+            self._schedule(now + (free_at - st.server_now(now)))
+            return
         try:
             await self.ctx.actions.submit(HuntSelect(slug=slug), source=self.name)
         except ActionBlocked as exc:
@@ -491,6 +513,23 @@ class RankPlugin(Plugin):
         self._pending = (slug, now)
         self._switches.append(now)
         self._capped = False
+
+    def _schedule(self, at: datetime) -> None:
+        """Acorda o plugin em `at` (relógio local) para tentar a troca de novo."""
+        if self._timer is not None and not self._timer.done():
+            if self._timer_at is not None and self._timer_at <= at:
+                return  # já vai acordar antes
+            self._timer.cancel()
+        self._timer_at = at
+        delay = max(0.0, (at - self.now()).total_seconds())
+        self._timer = asyncio.get_running_loop().create_task(self._wake(delay))
+
+    async def _wake(self, delay: float) -> None:
+        await self.sleep(delay)
+        async with self._lock:
+            self._timer = None
+            self._timer_at = None
+            await self._pump()
 
     async def _switch_failed(self, reason: str) -> None:
         assert self._pending is not None

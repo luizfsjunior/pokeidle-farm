@@ -530,6 +530,46 @@ async def test_combat_lock_delays_switch():
     assert selects(h) == ["caterpie"]
 
 
+async def wake(h: Harness) -> None:
+    """Roda os timers do plugin; o sleep falso só avança o relógio."""
+    while h.plugin._timer is not None:
+        await h.plugin._timer
+
+
+def fake_sleep(h: Harness):
+    async def sleep(seconds: float) -> None:
+        h.now += timedelta(seconds=seconds)
+
+    return sleep
+
+
+async def test_timer_switches_when_lock_ends_without_events():
+    # caso 23b: o golpe que fecha a janela chega no mesmo frame que a renova, então
+    # nenhum evento enxerga a trava aberta; o timer acorda quando ela acaba
+    h = acting()
+    h.plugin.sleep = fake_sleep(h)
+    h.state.combat_free_at = NOW + 3 * S
+    await h.start()
+    assert selects(h) == []
+    h.now += 1 * S
+    h.state.combat_free_at = NOW + 4 * S  # golpe novo renovou a trava
+    await h.send_ev(ev("state.patch"))
+    assert selects(h) == []
+    await wake(h)
+    assert selects(h) == ["caterpie"]
+    assert h.now >= NOW + 4.5 * S
+
+
+async def test_stop_cancels_timer():
+    h = acting()
+    h.state.combat_free_at = NOW + 30 * S
+    await h.start()
+    assert h.plugin._timer is not None
+    await h.plugin.stop()
+    assert h.plugin._timer is None
+    assert selects(h) == []
+
+
 async def test_switch_free_at_delays_switch():
     h = acting()
     h.state.switch_free_at = NOW + 8 * S
