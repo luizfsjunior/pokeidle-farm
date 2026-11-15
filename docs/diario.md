@@ -73,6 +73,12 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   anúncios abertos de Water Stone (4.607 unidades) estão todos a **2 gemas**, o mínimo do Mercado; a "média de 7 dias"
   do `market.medias` (~30) não é o preço de venda de hoje. As estimativas de gemas/h e US$/mês do foco gemas e do
   `/compensa` estão infladas e precisam usar o menor anúncio e a fila de cada pedra.
+- **Progressão e Mercado** ([analise-progressao-e-mercado.md](analise-progressao-e-mercado.md)): vendas reais (Key Fragment
+  ~222 gemas, 28 em 6 min; Mega Shiny Stone Fragment ~538), shiny anunciados a 35–175 mil gemas; fragmentos só na
+  Outland (nível 150). Curva de XP e dano tiradas da wiki; XP/h real por hunt (Horsea 68 mil/h, 3,5× o Geodude); o time
+  é só o Bulbasaur 23 com quatro Magikarps nível 1. Protocolo para contas novas: ~50 h de farm até o 150.
+- **Ritmo por nível do ativo** ([design/ritmo-por-nivel.md](design/ritmo-por-nivel.md)): abates com o nível do ativo,
+  ritmo projetado pelo fator de dano. 234 testes; aguardando deploy.
 - **Todas as pedras estão a 2 gemas** (primeira leitura completa, 22:07 UTC): 17 pedras, filas de centenas a 45 mil
   unidades, inclusive a Thunder (média 145). O `seller` em ensaio guarda tudo (piso de 85% da média).
 - **Preço real das pedras e venda em ensaio** ([fase-9-venda-de-pedras.md](design/fase-9-venda-de-pedras.md)):
@@ -86,6 +92,9 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 ### Pendente
 
+- Deploy do ritmo por nível (`a1b80aa`) e da varredura.
+- Foco XP e equipar o ativo pela hunt (`team.active`).
+- Filtro de pokémon no histórico global de vendas.
 - Conferir os `seller.plan` em ensaio e decidir se liga a venda de verdade (`dry_run: false`).
 - Equipar o melhor time para a hunt (`team.active`/`team.move`).
 - Fase 5: cadastrar as outras duas contas de farm (nick, token e dispositivo) e rodar as três juntas.
