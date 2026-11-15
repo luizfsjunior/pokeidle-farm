@@ -43,7 +43,6 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 - Push do passo 6 (aplica a migration `rank_points` e publica o card) e rebuild do worker; conferir no painel se as
   espécies e a posição batem com a tela do Top Catch do jogo.
 - Ainda a ver no jogo: o erro de `hunt.select` durante a trava (não apareceu com o timer).
-- Limpar a DigitalOcean (droplet e *Actions secrets*).
 
 ## 2026-11-14
 
@@ -97,7 +96,6 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   `restock`, `fallback`, `weekly_ball_budget`).
 - Ainda a ver no jogo: o erro de `hunt.select` durante a trava, `m`/`ini` do `estado.topCatch` e se o `welcome`
   traz o `topCatch` da semana.
-- Limpar a DigitalOcean (droplet e *Actions secrets*).
 
 ## 2026-11-13
 
