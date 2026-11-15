@@ -6,6 +6,7 @@ import { CommandTable } from "@/components/CommandTable";
 import { Shell } from "@/components/Shell";
 import { requireUser } from "@/lib/supabase/server";
 import { STATUS_LABEL, type Account, type Command } from "@/lib/types";
+import { FocusCard } from "./FocusCard";
 import { NewPlugin } from "./NewPlugin";
 import { PluginEditor } from "./PluginEditor";
 
@@ -39,10 +40,13 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
           <CommandButtons account={account} />
         </section>
 
+        <FocusCard accountId={account.id} plugins={plugins} />
+
         <h2 style={{ margin: ".5rem 0 0" }}>Plugins</h2>
         <p className="muted small" style={{ margin: 0 }}>
           A telemetria é sempre ligada e não aparece aqui. Os campos do <code>restock</code> estão em
-          docs/design/fase-3-reposicao.md, seção 7; os do <code>rank</code>, em docs/design/fase-3b-plugin-rank.md, seção 1.
+          docs/design/fase-3-reposicao.md, seção 7; os do <code>rank</code>, em docs/design/fase-3b-plugin-rank.md, seção 1, e
+          docs/design/fase-3b-rank-ligado.md, seção 8.
         </p>
         {plugins.map((p) => (
           <PluginEditor key={p.plugin} accountId={account.id} plugin={p.plugin} enabled={p.enabled} config={p.config ?? {}} />

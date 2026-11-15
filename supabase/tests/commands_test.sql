@@ -107,6 +107,11 @@ begin
   update public.commands set created_at = now() - interval '31 days' where status = 'done';
   assert public.purge_commands() = 1, 'purge deveria apagar 1';
 
+  -- focus.set (fase 3b, passo 5) é um tipo aceito
+  insert into public.commands (owner_id, account_id, type, params) values
+    ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000ac01', 'focus.set',
+     '{"focus": "rank"}');
+
   delete from public.accounts where nick in ('cmd-dono', 'cmd-outro');
   delete from auth.users where id in ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000b2');
   raise notice 'comandos: ok';

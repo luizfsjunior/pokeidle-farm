@@ -3,6 +3,30 @@
 Registro curto do que foi feito em cada dia, o que deu errado e o que ficou pendente.
 As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
+## 2026-11-15
+
+### Feito
+
+- **Ensaio do `rank` religado**: o worker tinha saído de forma limpa às 17:06 de 14/11 (Docker fechado; o
+  `restart: on-failure` não religa nesse caso). Na subida, já na semana nova (`2026-11-15`): 0 espécies, 32 hunts
+  na fila, alvo Bellsprout em ~8 min.
+- **Trava de combate medida**: nos `state.patch`, o `centroLivreEm` fica de 2,4 s a 5 s à frente do relógio do
+  servidor depois de cada golpe; dá para trocar de hunt entre um golpe e outro, sem ir ao Centro.
+- **Passo 5 da 3b** ([fase-3b-rank-ligado.md](design/fase-3b-rank-ligado.md), decisões D-E a D-J): o `rank`
+  agindo de verdade (troca de hunt respeitando a trava e o `trocaLivreEm`, confirmação pelo `hunt.changed`,
+  nova tentativa, teto de 10 trocas por hora, Lançar até Capturar religado em toda captura, `rank.mode`),
+  `restock` com `focus: "rank"` e `fallback_focus`, comando `focus.set` e o card **Foco** na página da conta.
+  O padrão do `restock.focus` passou a ser `gold_xp_drop`. 179 testes, os testes SQL e o build do web passando.
+
+### Pendente
+
+- Push (aplica a migration `commands_focus_set` e publica o painel), rebuild do worker e, logo em seguida, gravar
+  o foco da conta pelo card (o `restock` atual não tem `focus` na config e, com o padrão novo, ficaria em
+  ouro-xp-drop).
+- Ligar o foco rank em `luizfsjunior_1` e acompanhar o primeiro `hunt.select`, o `hunt.changed`, o `auto.set` e
+  a primeira captura que pontua; anotar a chave do `erro` se o jogo recusar a troca na trava.
+- 3b, passo 6: métricas `rank_points`/`rank_species_week` e o card do rank no painel.
+
 ## 2026-11-14
 
 ### Feito

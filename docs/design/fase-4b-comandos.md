@@ -67,6 +67,7 @@ No worker (`commands.py`):
 | `account.disable` | — | fecha a sessão de forma limpa e `enabled = false` |
 | `session.reconnect` | — | derruba e reconecta (útil depois de `needs_login` + token novo) |
 | `plugin.set` | `{plugin, enabled?, config?}` | grava em `strategy_configs` e recarrega o plugin sem reiniciar |
+| `focus.set` | `{focus, rank?}` | foco da conta (`capture`, `gold_xp_drop`, `rank`): grava `restock` e `rank` juntos (fase 3b, [fase-3b-rank-ligado.md](fase-3b-rank-ligado.md#7-painel-seletor-de-foco-d-i)) |
 | `ping` | — | responde `{latency_ms, state}`; serve para testar o caminho todo |
 
 Depois (fase 3 em diante): `hunt.set`, `auto.set`, `pokecenter.go`. Esses mandam mensagem ao jogo

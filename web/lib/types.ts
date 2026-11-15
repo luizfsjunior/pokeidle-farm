@@ -72,7 +72,7 @@ export const STATUS_LABEL: Record<Account["status"], string> = {
 
 export const IV_STATS = ["hp", "atk", "def", "spa", "spd", "spe"] as const;
 
-export type CommandType = "ping" | "account.enable" | "account.disable" | "session.reconnect" | "plugin.set";
+export type CommandType = "ping" | "account.enable" | "account.disable" | "session.reconnect" | "plugin.set" | "focus.set";
 export type CommandStatus = "pending" | "running" | "done" | "failed" | "cancelled" | "expired";
 
 export type Command = {
@@ -95,6 +95,7 @@ export const COMMAND_LABEL: Record<CommandType, string> = {
   "account.disable": "Desligar conta",
   "session.reconnect": "Reconectar",
   "plugin.set": "Configurar plugin",
+  "focus.set": "Mudar foco",
 };
 
 export const COMMAND_STATUS_LABEL: Record<CommandStatus, string> = {

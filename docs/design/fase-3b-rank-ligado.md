@@ -1,7 +1,19 @@
 # Fase 3b: plugin `rank` agindo de verdade (passo 5)
 
-Status: **rascunho v2**, 15/11/2026. Decisões D-E a D-J tomadas em 15/11 (fim do documento); falta aprovar a
-spec e os casos de teste.
+Status: **implementado** (15/11/2026), decisões D-E a D-J tomadas (fim do documento). Código em
+`worker/src/pokeidle_farm/plugins/rank.py` e `restock.py`, `focus.set` em `commands.py`, trava e relógio do
+servidor em `plugins/base.py` (`AccountStateView`), migration `20261115010000_commands_focus_set.sql` e o card
+`web/app/contas/[id]/FocusCard.tsx`. Testes: casos 22 a 37 em `test_rank_plugin.py`, 38 no caso 20, 39 a 42 e
+47 em `test_restock.py`, 43 a 45 em `test_commands.py`, 46 em `test_session.py`.
+
+Diferenças do texto abaixo para o que foi implementado:
+- Sem `dry_run` mas com o `restock` em outro foco, o `rank` grava `rank.would` como no ensaio e não publica
+  `rank.mode`.
+- O `auto.set` também espera quando o gateway recusa (rate limit: o tempo que falta; `observe_only`:
+  `retry_after_s`), para não gravar um `action.blocked` a cada abate. Quando o `estado` reflete o `auto.set`, a
+  espera zera: a próxima queda da flag religa assim que o rate limiter (30 s) deixar.
+- Se o rate limiter barra o `hunt.select` (ex.: menos de 20 s depois do anterior), o plugin tenta de novo quando
+  ele deixar.
 
 É o passo 5 da [ordem de implementação da 3b](fase-3b-rank-semanal.md#8-ordem-de-implementação). O passo 4
 ([plugin em ensaio](fase-3b-plugin-rank.md)) já decide a hunt alvo e grava o que faria. Aqui ele passa a mandar

@@ -10,7 +10,7 @@ export function commandSummary(c: Command): string {
   if (c.status !== "done" || !c.result) return base;
   const r = c.result as Record<string, unknown>;
   if (c.type === "ping") return `${base} — sessão ${String(r.state)}${r.holder ? ` em ${String(r.holder)}` : ""}`;
-  if (c.type === "plugin.set") return `${base} — vale ${String(r.applied)}`;
+  if (c.type === "plugin.set" || c.type === "focus.set") return `${base} — vale ${String(r.applied)}`;
   return base;
 }
 

@@ -16,6 +16,7 @@ function detail(c: Command): string {
   if (c.error) return c.error;
   const parts: string[] = [];
   if (c.type === "plugin.set" && c.params?.plugin) parts.push(String(c.params.plugin));
+  if (c.type === "focus.set" && c.params?.focus) parts.push(String(c.params.focus));
   if (c.result) parts.push(JSON.stringify(c.result));
   return parts.join(" · ");
 }

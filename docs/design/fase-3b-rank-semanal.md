@@ -203,5 +203,7 @@ As duas passam pelo `ActionGateway` (modo, rate limiter, `action.sent`). Teto de
    captura.
 4. ~~Plugin `rank` em ensaio~~ (14/11, [fase-3b-plugin-rank.md](fase-3b-plugin-rank.md)): grava `rank.plan` e as
    ações que faria (`rank.would`). Conferir por alguns dias.
-5. `ball.throw` ligado, depois `hunt.select`.
+5. ~~`hunt.select` e Lançar até Capturar de verdade~~ (15/11, [fase-3b-rank-ligado.md](fase-3b-rank-ligado.md)):
+   trava de combate, confirmação, `rank.mode`, foco `rank` no `restock`, `fallback` e o seletor de foco no
+   painel. O `ball.throw` ficou como plano B.
 6. Métricas e card no painel.

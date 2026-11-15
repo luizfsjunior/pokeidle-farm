@@ -68,6 +68,22 @@ select received_at, data->>'reason' as motivo, data->'target'->>'slug' as alvo,
 
 Os campos da config estão em [../docs/design/fase-3b-plugin-rank.md](../docs/design/fase-3b-plugin-rank.md).
 
+Para o `rank` agir de verdade (passo 5, [../docs/design/fase-3b-rank-ligado.md](../docs/design/fase-3b-rank-ligado.md)),
+use o card **Foco** da página da conta, que manda o comando `focus.set`: ele grava o `restock` com
+`focus: "rank"` e o `rank` com `dry_run: false` de uma vez. O `rank` se recusa a agir (e continua gravando
+`rank.would`) se o `restock` não estiver em `focus: "rank"`, porque os dois brigariam pelo `auto.set`. Agindo,
+ele:
+
+- manda o `hunt.select` só quando a trava de combate (`centroLivreEm`) e o `trocaLivreEm` passaram, no relógio do
+  servidor; confirma pelo `hunt.changed`; com erro do jogo ou 15 s sem confirmação grava `rank.failed` e tenta de
+  novo em 60 s (na 3ª falha seguida, pula a espécie); no máximo 10 trocas por hora;
+- liga o Lançar até Capturar junto com a troca e religa sempre que o servidor desliga (em toda captura);
+- publica `rank.mode` (`active` com a bola, ou `fallback` quando a fila acaba). Em `fallback`, o `restock` age
+  como o `fallback_focus` (ouro-xp-drop por padrão), então a conta nunca fica parada.
+
+**Gotcha:** o padrão do `restock.focus` passou de `capture` para `gold_xp_drop` em 15/11. Uma conta com
+`restock` sem `focus` na config para de jogar bola depois do rebuild; grave o foco pelo card antes.
+
 Ordem segura para ligar algo novo: primeiro com `ACTION_MODE=observe_only`, conferindo os `action.blocked`
 na tabela `events`; depois `ACTION_MODE=enabled` (com "d") e `docker compose up -d --force-recreate`, porque
 o `restart` não relê o `.env`.
@@ -155,7 +171,7 @@ MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W)/worker:/src" python:3.12-slim  
 | `gamedata.py` | catálogo de hunts do `welcome`, Pokedex com estágio evolutivo e `SpeciesSync` (fase 3b) |
 | `rank_queue.py` | fila de hunts do foco rank por tempo esperado até a captura (funções puras) |
 | `session.py` | `AccountSession`: handshake, heartbeat, reconexão, lease, renovação de token |
-| `plugins/` | interface, registry (entry points), `telemetry` (grava os eventos), `restock` (fase 3a, ver [docs/design/fase-3-reposicao.md](../docs/design/fase-3-reposicao.md)) e `rank` (fase 3b em ensaio, ver [docs/design/fase-3b-plugin-rank.md](../docs/design/fase-3b-plugin-rank.md)) |
+| `plugins/` | interface, registry (entry points), `telemetry` (grava os eventos), `restock` (fase 3a, ver [docs/design/fase-3-reposicao.md](../docs/design/fase-3-reposicao.md)) e `rank` (fase 3b, ver [docs/design/fase-3b-plugin-rank.md](../docs/design/fase-3b-plugin-rank.md) e [fase-3b-rank-ligado.md](../docs/design/fase-3b-rank-ligado.md)) |
 | `store/` | interface `Store`, implementação em memória e no Supabase |
 | `sim/` | sorteios dos Termos (`rolls.py`) e gerador de eventos simulados |
 | `commands.py` | `Supervisor` (sessões de todas as contas de farm) e `CommandLoop` (comandos do painel, fase 4b) |

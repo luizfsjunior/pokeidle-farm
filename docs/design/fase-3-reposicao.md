@@ -190,7 +190,8 @@ O ouro bruto já existe (`gold` em `metric_hourly`). Para o líquido, o custo do
 
 | Campo | Padrão | O que faz |
 |---|---|---|
-| `focus` | `"capture"` | `"capture"` ou `"gold_xp_drop"` |
+| `focus` | `"gold_xp_drop"` | `"capture"`, `"gold_xp_drop"` ou `"rank"` (fase 3b: com o `rank` ativo, não mexe nas flags de bola e repõe a bola dele; ver [fase-3b-rank-ligado.md](fase-3b-rank-ligado.md#4-restock-com-foco-rank-e-o-fallback-d-f-d-h)). Era `"capture"` até 15/11 |
+| `fallback_focus` | `"gold_xp_drop"` | só com `focus: "rank"`: como agir quando a fila do rank acaba |
 | `items` | `[]` | regras de poções e revives: `{"id", "min", "target"}` |
 | `ball_min` / `ball_target` | 100 / 1.000 | estoque da bola escolhida |
 | `gold_reserve` | 5.000 | ouro que nunca é gasto |
