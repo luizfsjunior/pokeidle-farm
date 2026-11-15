@@ -50,13 +50,22 @@ HOURS_PER_WEEK = 168
 class StonePrice:
     gems: float  # média de 7 dias em gemas
     sold_week: float  # unidades vendidas por semana no Mercado
+    min_ask: float | None = None  # menor anúncio aberto de outros vendedores (o preço de hoje)
+
+    @property
+    def sell(self) -> float:
+        """Preço de venda realista: o menor entre a média e o menor anúncio aberto.
+
+        Em 15/11 a Water Stone tinha média de ~30 gemas e 4.607 unidades anunciadas a 2.
+        """
+        return min(self.gems, self.min_ask) if self.min_ask is not None else self.gems
 
 
 @dataclass(frozen=True)
 class StoneYield:
     name: str
     chance: float  # por abate
-    gems: float | None
+    gems: float | None  # preço de venda realista (o menor entre média e anúncio)
     sold_week: float | None
     per_week: float  # unidades por semana a esse ritmo (24 h/dia)
     counted_week: float  # quantas contam depois do teto de liquidez
@@ -141,9 +150,9 @@ def rank_options(
                 continue
             room = max(0.0, max_share * p.sold_week - taken.get(stone, 0.0))
             counted = min(per_week, room)
-            raw += kph * chance * p.gems
-            capped += counted / HOURS_PER_WEEK * p.gems
-            yields.append(StoneYield(stone, chance, p.gems, p.sold_week, per_week, counted))
+            raw += kph * chance * p.sell
+            capped += counted / HOURS_PER_WEEK * p.sell
+            yields.append(StoneYield(stone, chance, p.sell, p.sold_week, per_week, counted))
         out.append(
             GemOption(
                 slug=h.slug,

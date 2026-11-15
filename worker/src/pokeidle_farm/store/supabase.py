@@ -6,7 +6,7 @@ e `set_account_token`, que usam o Supabase Vault e só a service_role executa.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -223,6 +223,39 @@ class SupabaseStore:
             entry = out.setdefault(name, {})
             entry[r["currency"]] = r["avg"]
             entry[f"{r['currency']}_units_week"] = (r.get("units") or 0) * 7 / days
+        asks = await self.latest_asks()
+        for item_id, a in asks.items():
+            name = names.get(item_id)
+            if name is not None and a.get("min_price") is not None:
+                entry = out.setdefault(name, {})
+                entry["orb_min_ask"] = a["min_price"]
+                entry["orb_ask_units"] = a.get("total_units")
+        return out
+
+    async def stone_items(self) -> dict[int, str]:
+        res = await (
+            self._db.table("game_items").select("item_id,name").eq("category", "stone").execute()
+        )
+        return {r["item_id"]: r["name"] for r in res.data or []}
+
+    async def save_market_asks(self, rows: list[dict[str, Any]]) -> None:
+        if rows:
+            await self._db.table("market_asks").upsert(rows).execute()
+
+    async def latest_asks(self) -> dict[int, dict[str, Any]]:
+        since = (datetime.now(UTC) - timedelta(hours=6)).isoformat()
+        res = await (
+            self._db.table("market_asks")
+            .select("taken_at,item_id,min_price,units_at_min,total_units,listings")
+            .eq("currency", "orb")
+            .gte("taken_at", since)
+            .order("taken_at", desc=True)
+            .limit(1000)
+            .execute()
+        )
+        out: dict[int, dict[str, Any]] = {}
+        for r in res.data or []:
+            out.setdefault(r["item_id"], r)  # o mais recente de cada item
         return out
 
     async def save_game_file(self, path: str, etag: str | None, content: str) -> None:

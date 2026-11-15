@@ -1,30 +1,44 @@
-"""Plugin seller: vende no Mercado as pedras que passam da reserva (fase 9, em construção).
+"""Plugin seller: vende no Mercado as pedras que passam da reserva (fase 9).
 
-Ver docs/design/fase-9-venda-de-pedras.md. Por enquanto, só o que serve para conferir o protocolo:
+Ver docs/design/fase-9-venda-de-pedras.md. Decisões (15/11): só pedras; guarda `keep` (5) de
+cada; anuncia 1 gema abaixo do menor anúncio dos outros vendedores (nunca menos que o mínimo do
+Mercado, 2), mas não abaixo de `floor_ratio` (85%) da média de 7 dias: abaixo disso, guarda.
 
-- **sonda** (`probe_price`): na subida lê os anúncios abertos do item e anuncia 1 unidade a esse
-  preço (alto, para não vender). A resposta `market` aba `criado` traz o anúncio com
-  `editavelEm` (30 min depois de criado: antes disso não dá para mexer); o cancelamento é
-  agendado para depois disso;
-- **cancelar** (`cancel_ids`): tenta `market.cancelar` de cada id a cada `cancel_retry_s` até o
-  anúncio não aparecer mais em `market.meus` (ou aparecer com estado diferente de "aberto").
+A cada `interval_min`:
+1. lê os próprios anúncios (`market.meus`);
+2. para cada pedra: total = inventário + já anunciado; quer vender total − `keep`;
+3. preço-alvo = max(2, menor anúncio − 1) (sem anúncio de ninguém: a média); piso = 85% da média;
+4. sem anúncio próprio → anuncia o excesso; com anúncio mais caro que o alvo → cancela e anuncia de
+   novo no alvo; com `min_lot` ou mais unidades novas → anuncia um lote à parte; até 20 anúncios.
 
-Tudo vira `seller.probe`, e as respostas do jogo ficam em `market.reply` (com o `raw`).
+Com `dry_run` (padrão) grava `seller.would` em vez de mandar. Grava `seller.plan` a cada ciclo.
+Também tem a sonda do protocolo (`probe_price`) e o cancelamento por id (`cancel_ids`).
 """
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
+import math
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..actions import ActionBlocked, MarketCancel, MarketCreate, MarketItemRequest, MarketMine
+from ..actions import (
+    ActionBlocked,
+    ActionSpec,
+    MarketCancel,
+    MarketCreate,
+    MarketItemRequest,
+    MarketMine,
+)
 from ..events import Event
 from .base import Plugin, PluginContext
+
+MIN_ORB_PRICE = 2  # PRECO_MIN_ORB do jogo: ceil(1 / (1 − 15%))
+MAX_LISTINGS = 20  # regra do Mercado: até 20 anúncios abertos por conta
 
 
 class SellerConfig(BaseModel):
@@ -33,6 +47,8 @@ class SellerConfig(BaseModel):
     dry_run: bool = True
     keep: int = Field(5, ge=0)  # unidades guardadas de cada pedra
     floor_ratio: float = Field(0.85, gt=0, le=1)  # piso: fração da média de 7 dias
+    interval_min: float = Field(30.0, ge=5)
+    min_lot: int = Field(5, ge=1)  # unidades novas para abrir outro anúncio do mesmo item
     probe_price: int | None = Field(None, ge=1)  # sonda: anuncia 1 unidade a esse preço
     probe_item_id: int = 142  # Water Stone
     cancel_ids: list[int] = Field(default_factory=list)  # anúncios próprios a cancelar
@@ -41,7 +57,7 @@ class SellerConfig(BaseModel):
 
 class SellerPlugin(Plugin):
     name: ClassVar[str] = "seller"
-    description: ClassVar[str] = "Vende no Mercado as pedras acima da reserva (por enquanto, sonda)"
+    description: ClassVar[str] = "Vende no Mercado as pedras acima da reserva"
     config_model: ClassVar[type[BaseModel]] = SellerConfig
     subscribes: ClassVar[set[str]] = {"market.reply", "game.error"}
 
@@ -54,10 +70,15 @@ class SellerPlugin(Plugin):
         self.cfg: SellerConfig = ctx.config  # type: ignore[assignment]
         self._to_cancel: set[int] = set(self.cfg.cancel_ids)
         self._tasks: list[asyncio.Task[None]] = []
+        self._mine: list[dict[str, Any]] | None = None
+        self._mine_event = asyncio.Event()
+        loop = asyncio.get_running_loop()
         if self._to_cancel:
-            self._tasks.append(asyncio.get_running_loop().create_task(self._cancel_loop()))
+            self._tasks.append(loop.create_task(self._cancel_loop()))
         if self.cfg.probe_price is not None:
             await self._probe()
+        else:
+            self._tasks.append(loop.create_task(self._sell_loop()))
 
     async def stop(self) -> None:
         for t in self._tasks:
@@ -65,7 +86,9 @@ class SellerPlugin(Plugin):
             with contextlib.suppress(asyncio.CancelledError):
                 await t
 
-    async def _send(self, action: Any, step: str) -> bool:
+    # --- envio --------------------------------------------------------------------
+
+    async def _send(self, action: ActionSpec, step: str) -> bool:
         try:
             await self.ctx.actions.submit(action, source=self.name)
         except ActionBlocked as exc:
@@ -73,6 +96,132 @@ class SellerPlugin(Plugin):
             return False
         await self.ctx.actions.note("seller.probe", {"step": step, "sent": action.to_wire()})
         return True
+
+    async def _do(self, action: ActionSpec, why: dict[str, Any]) -> None:
+        """Ação de venda: grava `seller.would` em dry_run, senão manda (com espaço entre envios)."""
+        if self.cfg.dry_run:
+            await self.ctx.actions.note(
+                "seller.would", {"action": action.name, "input": action.to_wire(), **why}
+            )
+            return
+        await self.sleep(type(action).min_interval_s + 1)
+        try:
+            await self.ctx.actions.submit(action, source=self.name)
+        except ActionBlocked as exc:
+            await self.ctx.actions.note(
+                "seller.failed", {"action": action.name, "reason": exc.reason, **why}
+            )
+
+    # --- ciclo de venda -------------------------------------------------------------
+
+    async def _sell_loop(self) -> None:
+        while True:
+            try:
+                await self.cycle()
+            except Exception as exc:  # um ciclo com erro não derruba o plugin
+                self.ctx.log.warning("seller: ciclo falhou (%s)", exc)
+            await self.sleep(self.cfg.interval_min * 60)
+
+    async def _read_mine(self) -> list[dict[str, Any]] | None:
+        self._mine_event.clear()
+        try:
+            await self.ctx.actions.submit(MarketMine(), source=self.name)
+        except ActionBlocked:
+            return None
+        try:
+            await asyncio.wait_for(self._mine_event.wait(), timeout=10)
+        except TimeoutError:
+            return None
+        return self._mine
+
+    async def cycle(self) -> None:
+        store = self.ctx.store
+        stones = await store.stone_items()
+        prices = await store.latest_item_prices()
+        asks = await store.latest_asks()
+        mine = await self._read_mine()
+        if mine is None:
+            await self.ctx.actions.note("seller.plan", {"skipped": "sem market.meus"})
+            return
+        open_mine = [a for a in mine if a.get("estado", "aberto") == "aberto"]
+        n_listings = len(open_mine)
+        items = self.ctx.state.items or {}
+        decisions: list[dict[str, Any]] = []
+        for item_id, name in sorted(stones.items()):
+            stock = int(items.get(str(item_id), 0))
+            listed = [a for a in open_mine if a.get("itemId") == item_id]
+            listed_qty = sum(int(a.get("qtd") or 0) for a in listed)
+            total = stock + listed_qty
+            if total <= self.cfg.keep:
+                continue
+            avg = (prices.get(name) or {}).get("orb")
+            ask = (asks.get(item_id) or {}).get("min_price")
+            d: dict[str, Any] = {
+                "item_id": item_id,
+                "name": name,
+                "stock": stock,
+                "listed": listed_qty,
+                "avg": avg,
+                "min_ask": ask,
+            }
+            decisions.append(d)
+            if avg is None:
+                d["decision"] = "sem_media"
+                continue
+            if ask is not None:
+                target = max(MIN_ORB_PRICE, int(ask) - 1)
+            else:
+                target = max(MIN_ORB_PRICE, round(avg))
+            floor = max(MIN_ORB_PRICE, math.ceil(self.cfg.floor_ratio * avg))
+            d.update(target=target, floor=floor)
+            if target < floor:
+                d["decision"] = "guarda_abaixo_do_piso"
+                continue
+            want = total - self.cfg.keep
+            pricier = [a for a in listed if (a.get("preco") or 0) > target]
+            if pricier:
+                # outro vendedor passou na frente: cancela e anuncia de novo no alvo
+                for a in pricier:
+                    await self._do(
+                        MarketCancel(id=a["id"]), {"reason": "reprecificar", "item_id": item_id}
+                    )
+                    n_listings -= 1
+                kept = sum(int(a.get("qtd") or 0) for a in listed if a not in pricier)
+                qty = want - kept
+                if qty > 0 and n_listings < MAX_LISTINGS:
+                    await self._do(
+                        MarketCreate(itemId=item_id, qtd=qty, preco=target),
+                        {"reason": "reprecificar", "item_id": item_id},
+                    )
+                    n_listings += 1
+                d["decision"] = "reprecificado"
+                continue
+            extra = want - listed_qty
+            if not listed and extra > 0:
+                if n_listings >= MAX_LISTINGS:
+                    d["decision"] = "limite_de_anuncios"
+                    continue
+                await self._do(
+                    MarketCreate(itemId=item_id, qtd=extra, preco=target),
+                    {"reason": "anunciar", "item_id": item_id},
+                )
+                n_listings += 1
+                d["decision"] = "anunciado"
+            elif extra >= self.cfg.min_lot and n_listings < MAX_LISTINGS:
+                await self._do(
+                    MarketCreate(itemId=item_id, qtd=extra, preco=target),
+                    {"reason": "lote_novo", "item_id": item_id},
+                )
+                n_listings += 1
+                d["decision"] = "lote_novo"
+            else:
+                d["decision"] = "ok"
+        await self.ctx.actions.note(
+            "seller.plan",
+            {"dry_run": self.cfg.dry_run, "listings": n_listings, "stones": decisions},
+        )
+
+    # --- sonda e cancelamento ----------------------------------------------------------
 
     async def _probe(self) -> None:
         item = self.cfg.probe_item_id
@@ -107,6 +256,9 @@ class SellerPlugin(Plugin):
         if event.type != "market.reply":
             return
         aba = d.get("aba")
+        if aba == "meus":
+            self._mine = [a for a in raw.get("linhas") or [] if isinstance(a, dict)]
+            self._mine_event.set()
         if aba == "criado" and self.cfg.probe_price is not None:
             a = raw.get("anuncio") or {}
             if a.get("itemId") == self.cfg.probe_item_id and a.get("preco") == self.cfg.probe_price:

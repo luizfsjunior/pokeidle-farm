@@ -185,6 +185,33 @@ class MemoryStore:
             entry = out.setdefault(name, {})
             entry[r["currency"]] = r["avg"]
             entry[f"{r['currency']}_units_week"] = (r.get("units") or 0) * 7 / days
+        asks = await self.latest_asks()
+        for item_id, a in asks.items():
+            name = names.get(item_id)
+            if name is not None and a.get("min_price") is not None:
+                entry = out.setdefault(name, {})
+                entry["orb_min_ask"] = a["min_price"]
+                entry["orb_ask_units"] = a.get("total_units")
+        return out
+
+    async def stone_items(self) -> dict[int, str]:
+        return {
+            k: v["name"]
+            for k, v in getattr(self, "game_items", {}).items()
+            if v.get("category") == "stone"
+        }
+
+    async def save_market_asks(self, rows: list[dict[str, Any]]) -> None:
+        self.market_asks = [*getattr(self, "market_asks", []), *rows]
+
+    async def latest_asks(self) -> dict[int, dict[str, Any]]:
+        out: dict[int, dict[str, Any]] = {}
+        for r in getattr(self, "market_asks", []):
+            if r.get("currency", "orb") != "orb":
+                continue
+            cur = out.get(r["item_id"])
+            if cur is None or r["taken_at"] >= cur["taken_at"]:
+                out[r["item_id"]] = r
         return out
 
     async def save_game_file(self, path: str, etag: str | None, content: str) -> None:

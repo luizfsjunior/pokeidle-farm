@@ -18,7 +18,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..actions import ActionBlocked, MarketAverages
+from ..actions import ActionBlocked, MarketAverages, MarketItemRequest
 from ..events import Event
 from .base import Plugin, PluginContext
 
@@ -34,7 +34,7 @@ class MarketPricesPlugin(Plugin):
     name: ClassVar[str] = "market_prices"
     description: ClassVar[str] = "Guarda as médias de preço do Mercado (uma conta por worker)"
     config_model: ClassVar[type[BaseModel]] = MarketPricesConfig
-    subscribes: ClassVar[set[str]] = {"market.prices"}
+    subscribes: ClassVar[set[str]] = {"market.prices", "market.reply"}
     always_on: ClassVar[bool] = True
 
     # conta que pede pelo worker inteiro (os preços são os mesmos para todas)
@@ -48,6 +48,7 @@ class MarketPricesPlugin(Plugin):
         await super().start(ctx)
         self.cfg: MarketPricesConfig = ctx.config  # type: ignore[assignment]
         self._task: asyncio.Task[None] | None = None
+        self._scan: asyncio.Task[None] | None = None
         cls = type(self)
         if cls._owner not in (None, ctx.account_id):
             self.active = False
@@ -57,6 +58,10 @@ class MarketPricesPlugin(Plugin):
         self._task = asyncio.get_running_loop().create_task(self._loop())
 
     async def stop(self) -> None:
+        if self._scan is not None:
+            self._scan.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._scan
         if self._task is not None:
             self._task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -78,7 +83,12 @@ class MarketPricesPlugin(Plugin):
         return self.cfg.interval_min * 60
 
     async def on_event(self, event: Event) -> None:
-        if not self.active or event.type != "market.prices":
+        if not self.active:
+            return
+        if event.type == "market.reply":
+            await self._on_asks(event)
+            return
+        if event.type != "market.prices":
             return
         d = event.data
         rows = price_rows(event.received_at or self.now(), d.get("days"), d.get("prices"))
@@ -89,6 +99,41 @@ class MarketPricesPlugin(Plugin):
         except Exception as exc:
             self.ctx.log.warning("market_prices: não consegui gravar os preços (%s)", exc)
             return
+        if self._scan is None or self._scan.done():
+            self._scan = asyncio.get_running_loop().create_task(self._scan_asks())
+
+    async def _scan_asks(self) -> None:
+        """Lê os anúncios abertos de cada pedra (o preço de venda real) e depois o potencial."""
+        try:
+            stones = await self.ctx.store.stone_items()
+        except Exception as exc:
+            self.ctx.log.warning("market_prices: não consegui ler as pedras (%s)", exc)
+            stones = {}
+        for n, item_id in enumerate(sorted(stones)):
+            if n:
+                await self.sleep(MarketItemRequest.min_interval_s + 1)
+            try:
+                await self.ctx.actions.submit(
+                    MarketItemRequest(itemId=item_id, moeda="orb"), source=self.name
+                )
+            except ActionBlocked:
+                continue
+        if stones:
+            await self.sleep(5)  # a última resposta chegar
+        await self._potential()
+
+    async def _on_asks(self, event: Event) -> None:
+        if event.data.get("aba") != "item":
+            return
+        row = ask_row(event.received_at or self.now(), event.raw, self.ctx.nick)
+        if row is None:
+            return
+        try:
+            await self.ctx.store.save_market_asks([row])
+        except Exception as exc:
+            self.ctx.log.warning("market_prices: não consegui gravar os anúncios (%s)", exc)
+
+    async def _potential(self) -> None:
         # potencial em gemas das melhores hunts, com os preços novos (análise de 15/11, proposta D)
         from .gems import compute_potential
 
@@ -99,6 +144,32 @@ class MarketPricesPlugin(Plugin):
             return
         if potential is not None:
             await self.ctx.actions.note("gems.potential", potential)
+
+
+def ask_row(taken_at: datetime, raw: dict[str, Any], own_nick: str) -> dict[str, Any] | None:
+    """Resumo de `market` aba `item`: menor preço, unidades nele e a fila (sem a própria conta)."""
+    item_id, moeda = raw.get("itemId"), raw.get("moeda") or "orb"
+    if not isinstance(item_id, int) or moeda not in ("orb", "gold"):
+        return None
+    lines = [
+        a
+        for a in raw.get("linhas") or []
+        if isinstance(a, dict)
+        and a.get("estado", "aberto") == "aberto"
+        and a.get("vendedor") != own_nick
+        and isinstance(a.get("preco"), int | float)
+    ]
+    prices = [a["preco"] for a in lines]
+    low = min(prices) if prices else None
+    return {
+        "taken_at": taken_at.isoformat(),
+        "item_id": item_id,
+        "currency": moeda,
+        "min_price": low,
+        "units_at_min": sum(int(a.get("qtd") or 0) for a in lines if a["preco"] == low),
+        "total_units": sum(int(a.get("qtd") or 0) for a in lines),
+        "listings": len(lines),
+    }
 
 
 def price_rows(taken_at: datetime, days: Any, prices: Any) -> list[dict[str, Any]]:

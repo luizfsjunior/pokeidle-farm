@@ -130,7 +130,20 @@ class Store(Protocol):
         ...
 
     async def latest_item_prices(self) -> dict[str, dict[str, Any]]:
-        """Último snapshot por nome de item: {name: {orb, orb_units_week, gold, gold_units_week}}."""
+        """Último snapshot por nome de item: {name: {orb, orb_units_week, gold, gold_units_week,
+        orb_min_ask, orb_ask_units}} (o menor anúncio aberto das últimas 6 h, se houver)."""
+        ...
+
+    async def stone_items(self) -> dict[int, str]:
+        """Pedras do catálogo de itens: {item_id: nome}."""
+        ...
+
+    async def save_market_asks(self, rows: list[dict[str, Any]]) -> None:
+        """Grava o resumo dos anúncios abertos de itens (linhas de market_asks)."""
+        ...
+
+    async def latest_asks(self) -> dict[int, dict[str, Any]]:
+        """Último resumo de anúncios em gemas por item (das últimas 6 h)."""
         ...
 
     # --- arquivos do jogo (wiki e fórmulas; análise de 15/11) ---------------------

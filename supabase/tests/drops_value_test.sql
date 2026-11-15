@@ -67,6 +67,14 @@ begin
                       where account_id = v_acc and hour = v_h1 and metric = 'drops_value_orb'),
     'drops_value_orb na hora 10 deveria ser 0 (sem linha)';
 
+  -- preço real: com um anúncio aberto a 2 gemas, a Pedra Teste vale 2 (não a média de 12,5)
+  insert into public.market_asks (taken_at, item_id, currency, min_price, units_at_min, total_units, listings)
+  values ('2001-01-01 12:40+00', 900001, 'orb', 2, 4607, 4607, 60);
+  perform public.refresh_metric_hourly(v_h2, v_h2);
+  select value into v from public.metric_hourly
+   where account_id = v_acc and hour = v_h2 and metric = 'drops_value_orb';
+  assert v = 8, format('drops_value_orb com anúncio a 2: %s ≠ 8', v);
+
   -- caso 9: retenção
   insert into public.market_prices (taken_at, item_id, currency, avg) values
     (now() - interval '31 days', 900001, 'orb', 1);
@@ -76,6 +84,7 @@ begin
 
   delete from public.metric_hourly where account_id = v_acc;
   delete from public.market_prices where item_id in (900001, 900002);
+  delete from public.market_asks where item_id in (900001, 900002);
   delete from public.game_items where item_id in (900001, 900002);
   delete from public.accounts where id = v_acc;
   delete from auth.users where id = v_owner;

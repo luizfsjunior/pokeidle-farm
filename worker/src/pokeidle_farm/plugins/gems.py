@@ -159,7 +159,11 @@ class GemsPlugin(Plugin):
                 self._degraded.append("prices")
             return
         self._prices = {
-            name: StonePrice(gems=float(p["orb"]), sold_week=float(p.get("orb_units_week") or 0))
+            name: StonePrice(
+                gems=float(p["orb"]),
+                sold_week=float(p.get("orb_units_week") or 0),
+                min_ask=float(p["orb_min_ask"]) if p.get("orb_min_ask") is not None else None,
+            )
             for name, p in rows.items()
             if p.get("orb") is not None
         }
@@ -283,7 +287,11 @@ async def compute_potential(
     default = total_k / total_m * 60 if total_k > 0 and total_m > 0 else 300.0
     raw = await ctx.store.latest_item_prices()
     prices = {
-        name: StonePrice(gems=float(p["orb"]), sold_week=float(p.get("orb_units_week") or 0))
+        name: StonePrice(
+            gems=float(p["orb"]),
+            sold_week=float(p.get("orb_units_week") or 0),
+            min_ask=float(p["orb_min_ask"]) if p.get("orb_min_ask") is not None else None,
+        )
         for name, p in raw.items()
         if p.get("orb") is not None
     }
