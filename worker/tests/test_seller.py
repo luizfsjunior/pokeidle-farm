@@ -206,6 +206,14 @@ async def test_cycle_decisions():
     ]
     # Leaf: 3, abaixo da reserva de 5: nem entra no plano
     assert "Leaf Stone" not in by
+
+
+async def test_cycle_waits_for_asks():
+    r = await started({str(SUN): 12})
+    market(r, {})  # médias sim, nenhuma leitura de anúncios ainda
+    assert await run_cycle(r, []) == []
+    plan = [d for t, d in r.recorded if t == "seller.plan"][-1]
+    assert plan["stones"][0]["decision"] == "sem_leitura_de_anuncios"
     assert plan["dry_run"] is True
 
 

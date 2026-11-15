@@ -155,7 +155,8 @@ class SellerPlugin(Plugin):
             if total <= self.cfg.keep:
                 continue
             avg = (prices.get(name) or {}).get("orb")
-            ask = (asks.get(item_id) or {}).get("min_price")
+            ask_row = asks.get(item_id)
+            ask = (ask_row or {}).get("min_price")
             d: dict[str, Any] = {
                 "item_id": item_id,
                 "name": name,
@@ -167,6 +168,10 @@ class SellerPlugin(Plugin):
             decisions.append(d)
             if avg is None:
                 d["decision"] = "sem_media"
+                continue
+            if ask_row is None:
+                # sem leitura recente dos anúncios não dá para saber se o mercado está lotado
+                d["decision"] = "sem_leitura_de_anuncios"
                 continue
             if ask is not None:
                 target = max(MIN_ORB_PRICE, int(ask) - 1)

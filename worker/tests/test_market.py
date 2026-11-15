@@ -274,3 +274,21 @@ async def test_items_sync_by_etag():
     assert asked == [None, '"v1"', '"v1"']
     assert sorted(store.game_items) == [1, 2, 142]
     assert store.game_catalog["items_json"]["data"] == {"etag": '"v2"'}
+
+
+async def test_ask_scan_only_priced_stones():
+    r = Rig()
+    r.store.game_items = {
+        142: {"item_id": 142, "name": "Water Stone", "category": "stone", "source": "json"},
+        900: {"item_id": 900, "name": "Gyaradosite", "category": "stone", "source": "json"},
+        5: {"item_id": 5, "name": "Bone", "category": "loot", "source": "json"},
+    }
+    r.store.market_prices = [
+        {"taken_at": "t", "item_id": 142, "currency": "orb", "avg": 30, "units": 1000, "days": 7}
+    ]
+    r.plugin.ctx = r.ctx
+    r.plugin.sleep = lambda s: asyncio.sleep(0)
+    await r.plugin._scan_asks()
+    assert [p for p in r.sent if p["t"] == "market.item"] == [
+        {"t": "market.item", "itemId": 142, "moeda": "orb"}
+    ]

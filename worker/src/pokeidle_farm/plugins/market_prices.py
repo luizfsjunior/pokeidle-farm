@@ -106,9 +106,12 @@ class MarketPricesPlugin(Plugin):
         """Lê os anúncios abertos de cada pedra (o preço de venda real) e depois o potencial."""
         try:
             stones = await self.ctx.store.stone_items()
+            priced = await self.ctx.store.latest_item_prices()
         except Exception as exc:
             self.ctx.log.warning("market_prices: não consegui ler as pedras (%s)", exc)
-            stones = {}
+            stones, priced = {}, {}
+        # a categoria "stone" tem ~200 itens (mega stones etc.); só as que negociam em gemas
+        stones = {i: n for i, n in stones.items() if (priced.get(n) or {}).get("orb") is not None}
         for n, item_id in enumerate(sorted(stones)):
             if n:
                 await self.sleep(MarketItemRequest.min_interval_s + 1)
