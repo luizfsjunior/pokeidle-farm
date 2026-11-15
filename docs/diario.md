@@ -40,6 +40,10 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 - **Fase 7 no ar**: a resposta real do `market.medias` bateu com o `app.js` (36 itens; Water Stone a 29 gemas ou
   ~129 mil de ouro). Nos 7 dias, ~435 gemas em drops. Os drops de antes do primeiro snapshot ficam pelo preço do
   NPC (decidido: as métricas valem daqui para a frente).
+- **Fase 8** ([fase-8-compensa.md](design/fase-8-compensa.md), D-T a D-X): página `/compensa` com a renda mensal
+  projetada (como está e 24 h/dia), custo de energia, lucro, veredito e liquidez, calculados por
+  `evaluation_summary`/`evaluation_liquidity` no banco. Comissão de 15% confirmada no `shared/taxa-mercado.mjs`
+  público. Testes SQL e build do web passando. O custo de energia ainda não foi informado.
 - **Eventos do simulador apagados** da `luizfsjunior_1`: 34.441 eventos com `raw._sim = true` (09/11 a 12/11),
   com as métricas recalculadas desde 12/11.
 

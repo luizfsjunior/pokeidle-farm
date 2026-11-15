@@ -1,7 +1,14 @@
 # Fase 8: "Compensa?" (avaliar a renda contra o custo)
 
-Status: **rascunho v2**, 15/11/2026. Decisões D-T a D-X tomadas em 15/11 (fim do documento); falta aprovar a
-spec e os casos de teste.
+Status: **implementado** (15/11/2026), decisões D-T a D-X tomadas (fim do documento). Código: migration
+`20261115040000_evaluation.sql` (`evaluation_settings`, `evaluation_summary`, `evaluation_liquidity` e
+`evaluation_constants` com a comissão e o preço da gema), página `web/app/compensa/` (`page.tsx` e
+`SettingsForm.tsx`). Testes: casos 1 a 7 em `supabase/tests/evaluation_test.sql`.
+
+Diferenças do texto abaixo para o que foi implementado:
+- O custo de energia é da máquina, não de cada conta: as linhas por conta mostram só a renda; o custo e o lucro
+  aparecem no total e na linha "com 3 contas" (a mesma máquina rodaria as três).
+- A `window_days` fica na tabela, mas a página ainda não tem campo para mudá-la (o padrão é 7, como decidido).
 
 É a fase 8 do [roadmap](../roadmap.md): com as métricas da fase 7, responder se o farm compensa. A fase pede 1 a 2
 semanas de dados; a proposta é montar a conta **agora**, numa página que fica mais confiável sozinha conforme os

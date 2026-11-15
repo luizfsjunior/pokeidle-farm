@@ -13,6 +13,9 @@ Next.js 16 (App Router) + Supabase Auth. Lê as contas, as métricas da fase 4a
   Mercado em gemas e ouro (último snapshot; sem vendas em ouro, o preço do NPC) e o valor total. A visão geral
   mostra o valor dos drops por hora ativa (métricas `drops_value_orb` e `drops_value_gold`, que usam o preço da
   hora de cada drop).
+- **Compensa?** (`/compensa`): renda mensal projetada em US$ (gemas dos drops × 0,85 × 0,009, como está e com
+  24 h/dia), custo de energia (parâmetros editáveis em `evaluation_settings`), lucro, veredito e liquidez por item.
+  Os números vêm das funções `evaluation_summary` e `evaluation_liquidity` no banco.
 - **Objetivos** (`/objetivos`): criar sem SQL, progresso, ritmo, previsão e chance até o prazo; histórico das fotos em `/objetivos/<id>`.
 
 ## Segurança

@@ -10,6 +10,7 @@ export function Shell({ email, children }: { email: string; children: React.Reac
           <Link href="/metricas">Métricas</Link>
           <Link href="/objetivos">Objetivos</Link>
           <Link href="/mercado">Mercado</Link>
+          <Link href="/compensa">Compensa?</Link>
           <Link href="/comandos">Comandos</Link>
         </nav>
         <span className="muted small">{email}</span>

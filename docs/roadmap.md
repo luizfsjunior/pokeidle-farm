@@ -12,7 +12,7 @@
 | 5 | Docker e deploy, subindo para 3 contas, numa máquina em casa ([ADR 0011](decisions/0011-worker-em-ip-residencial.md)) | casa | ⬜ |
 | 6 | Escopo B: plugins de hunt, restock e captura | casa | ⬜ |
 | 7 | Métricas derivadas do Mercado (valor dos drops em gold) e objetivos sobre elas | casa | ✅ [no ar desde 15/11](design/fase-7-precos-do-mercado.md): médias do Mercado por hora, catálogo de itens, valor dos drops em gemas e ouro e a página `/mercado` |
-| 8 | Avaliar se compensa: 1–2 semanas de métricas e preços do Mercado | casa | ⬜ |
+| 8 | Avaliar se compensa: 1–2 semanas de métricas e preços do Mercado | casa | 🟡 [página `/compensa`](design/fase-8-compensa.md) pronta em 15/11 (renda em gemas, custo de energia, liquidez); o veredito fica confiável com 7 dias de preços (a partir de 22/11) |
 | 9 | Escopo C: plugins de venda e sniper no Mercado | casa | ⬜ |
 
 As fases seguem o [ADR 0008](decisions/0008-escopo-completo-modular.md): escopo completo, entregue em etapas (A → B → C).
