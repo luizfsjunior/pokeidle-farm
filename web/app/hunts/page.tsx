@@ -38,7 +38,11 @@ type Summary = {
 
 const perHour = (v: number, mins: number) => (mins > 0 ? (v * 60) / mins : null);
 const stoneText = (stones: Stone[]) =>
-  stones.length === 0 ? "—" : stones.map((s) => `${s.name.replace(" Stone", "")} ${s.gems == null ? "s/ preço" : num(s.gems)}`).join(", ");
+  stones.length === 0
+    ? "—"
+    : stones
+        .map((s) => `${s.name.replace(" Stone", "")} ${s.gems == null ? "s/ preço" : `${num(s.gems)} (${num(s.soldWeek)}/sem)`}`)
+        .join(", ");
 
 /** Painel de hunts: as visitadas (o que renderam) e o catálogo alcançável (o que a pedra vale). */
 export default async function HuntsPage({ searchParams }: { searchParams: Promise<{ conta?: string; dias?: string; q?: string }> }) {
@@ -180,7 +184,7 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
         </div>
         <table style={{ marginTop: ".75rem" }}>
           <thead>
-            <tr><th>Hunt</th><th>Nível</th><th>Área</th><th>Pedras (gemas)</th><th>Gemas / 1.000 abates</th><th>Abates/h medidos</th><th>Gemas/h</th></tr>
+            <tr><th>Hunt</th><th>Nível</th><th>Área</th><th>Pedras (gemas e vendidas por semana)</th><th>Gemas / 1.000 abates</th><th>Abates/h medidos</th><th>Gemas/h</th></tr>
           </thead>
           <tbody>
             {reachable.map(({ h, stones, g1000, kph, gemsHour }) => (
@@ -190,7 +194,7 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
                   {current.has(h.slug) && <span className="badge ready" style={{ marginLeft: ".4rem" }}>agora</span>}
                 </td>
                 <td>{h.level}</td>
-                <td className="small">{[h.region, h.area].filter(Boolean).join(" · ")}</td>
+                <td className="small">{[...new Set([h.region, h.area].filter(Boolean))].join(" · ")}</td>
                 <td className="small">{stoneText(stones)}</td>
                 <td><strong>{num(g1000)}</strong></td>
                 <td>{kph == null ? <span className="muted">—</span> : num(kph)}</td>
@@ -201,8 +205,8 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
         </table>
         <p className="muted small" style={{ marginBottom: 0 }}>
           Gemas / 1.000 abates = Σ chance da pedra × preço médio em gemas (último snapshot{priceInfo.takenAt ? ` de ${ago(priceInfo.takenAt)}` : ""}).
-          Não depende do ritmo: multiplique pelos abates/h da hunt. O foco gemas usa isso, com o ritmo medido e o teto de
-          liquidez.
+          Não depende do ritmo: multiplique pelos abates/h da hunt. Pedra que vende pouco por semana (ex.: Thunder) não
+          aguenta muito volume: o foco gemas só conta até 10% do vendido por semana, com o ritmo medido.
         </p>
       </section>
     </Shell>
