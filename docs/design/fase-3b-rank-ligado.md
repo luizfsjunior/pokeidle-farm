@@ -16,8 +16,9 @@ Diferenças do texto abaixo para o que foi implementado:
   ele deixar.
 - **Timer da trava** (corrigido em 15/11, depois de ligar na conta): conferir a trava só a cada evento não
   funciona. Numa hunt em que o selvagem ataca (Bellsprout), o golpe que encerra a janela livre chega no mesmo frame
-  que renova o `centroLivreEm`, e a sessão aplica o estado antes de publicar os eventos; o plugin sempre via a
-  trava fechada (havia janelas de até 18 s). Agora, com a trava fechada, o plugin agenda um timer para o fim dela
+  que renova o `centroLivreEm`, e a sessão aplica o estado antes de publicar os eventos; o plugin quase sempre via
+  a trava fechada (havia janelas de até 18 s). Na primeira captura (Bellsprout, 17:09:20) a troca para o Caterpie
+  só saiu às 17:11:22, quando um evento caiu por acaso numa janela. Agora, com a trava fechada, o plugin agenda um timer para o fim dela
   (`centroLivreEm`/`trocaLivreEm` + `switch_margin_s`) e tenta de novo nesse instante (caso 23b). O primeiro
   `hunt.select` passou porque o Magikarp não ataca.
 
