@@ -118,6 +118,13 @@ class RankWeekData(_Data):
     species: dict[str, int] = Field(default_factory=dict)  # chave da espécie -> minuto da semana
 
 
+class RankBoardData(_Data):
+    """Ranking do Top Catch da semana (`ranking` aba `capturas`): até o último premiado."""
+
+    week_start: str | None = None
+    rows: list[dict[str, Any]] = Field(default_factory=list)  # {nick, level, valor}
+
+
 class CatchUntilCaptureOffData(_Data):
     """O Lançar até Capturar passou de ligado para desligado (o servidor desliga na captura)."""
 
@@ -204,7 +211,8 @@ NOISE_TYPES = {
 }
 
 # Eventos que passam pelo barramento mas não são gravados.
-NOT_PERSISTED = frozenset({"attack", "wild.spawned", *NOISE_TYPES.values()})
+# rank.board: ~100 linhas por resposta; o plugin rank grava só o resultado (rank.position).
+NOT_PERSISTED = frozenset({"attack", "wild.spawned", "rank.board", *NOISE_TYPES.values()})
 
 
 class Translator:
@@ -293,6 +301,14 @@ class Translator:
                     week_start=raw.get("s"), week_species=raw.get("n"), species=species
                 )
                 return [self._ev("rank.week", data, raw)]
+            if msg.t == "ranking" and raw.get("aba") == "capturas":
+                rows = [
+                    {"nick": r.get("nick"), "level": r.get("level"), "valor": r.get("valor")}
+                    for r in raw.get("linhas") or []
+                    if isinstance(r, dict)
+                ]
+                data = RankBoardData(week_start=raw.get("semana"), rows=rows)
+                return [self._ev("rank.board", data, raw)]
             if msg.t == "shiny.captura":
                 pk = raw.get("pokemon") or {}
                 data = GlobalShinyData(

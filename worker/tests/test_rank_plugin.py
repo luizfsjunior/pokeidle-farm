@@ -11,7 +11,13 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from pokeidle_farm.actions import ActionGateway, ActionMode, HuntSelect, RateLimiter
+from pokeidle_farm.actions import (
+    ActionGateway,
+    ActionMode,
+    HuntSelect,
+    RankingRequest,
+    RateLimiter,
+)
 from pokeidle_farm.bus import EventBus
 from pokeidle_farm.events import Event
 from pokeidle_farm.gamedata import HuntCatalog, SpeciesCatalog
@@ -177,7 +183,7 @@ async def test_without_catalog_waits_for_snapshot():
 
 async def test_start_plans_and_records_what_it_would_do():
     h = await Harness().start()
-    assert h.sent == [{"t": "topcatch.pedir"}]
+    assert h.sent == [{"t": "topcatch.pedir"}, {"t": "ranking.pedir", "aba": "capturas"}]
     plan = h.plans()[-1]
     assert plan["reason"] == "start"
     assert plan["dry_run"] is True
@@ -195,7 +201,7 @@ async def test_start_plans_and_records_what_it_would_do():
     assert a["autoBallSemParar"] is False
     assert a["ballIds"][0] == 4
     # nada que mude a conta foi mandado
-    assert all(p["t"] == "topcatch.pedir" for p in h.sent)
+    assert all(p["t"] in ("topcatch.pedir", "ranking.pedir") for p in h.sent)
 
 
 # --- 3. pontuadas na subida ------------------------------------------------------------
@@ -230,7 +236,7 @@ def test_week_start_in_brasilia():
 
 async def test_measured_rate_and_default():
     store = StatsStore([HuntStats("magikarp", 2000, 60), HuntStats("metapod", 100, 20)])
-    h = await Harness(store=store, queue_preview=10).start()
+    h = await Harness(store=store, queue_preview=10, min_active_minutes=30).start()
     q = {i["slug"]: i for i in h.plans()[-1]["queue"]}
     assert q["magikarp"]["kills_per_hour"] == pytest.approx(2000)
     assert q["magikarp"]["kph_known"] is True
@@ -428,7 +434,7 @@ async def test_without_dry_run_goes_through_gateway():
     h = Harness(mode=ActionMode.OBSERVE_ONLY, dry_run=False, restock_focus="rank")
     await h.start()
     blocked = [d["action"] for d in h.events("action.blocked")]
-    assert blocked == ["topcatch.pedir", "hunt.select", "auto.set"]
+    assert blocked == ["topcatch.pedir", "ranking.pedir", "hunt.select", "auto.set"]
     assert h.would() == []
     assert h.sent == []
 
@@ -651,7 +657,12 @@ async def test_hourly_switch_cap():
 
 async def test_auto_set_goes_with_hunt_select():
     h = await acting(hunt_slug="magikarp").start()
-    assert [p["t"] for p in h.sent] == ["topcatch.pedir", "hunt.select", "auto.set"]
+    assert [p["t"] for p in h.sent] == [
+        "topcatch.pedir",
+        "ranking.pedir",
+        "hunt.select",
+        "auto.set",
+    ]
     assert selects(h) == ["caterpie"]
     (a,) = autos(h)
     assert a["autoBallAteCapturar"] is True
@@ -705,7 +716,7 @@ async def test_restock_in_other_focus_only_records(focus):
     plan = h.plans()[-1]
     assert plan["degraded"] == ["restock_focus"]
     assert [w["action"] for w in h.would()] == ["hunt.select", "auto.set"]
-    assert h.sent == [{"t": "topcatch.pedir"}]
+    assert [p["t"] for p in h.sent] == ["topcatch.pedir", "ranking.pedir"]
     assert h.events("rank.mode") == []
 
 
@@ -756,3 +767,92 @@ async def test_back_from_fallback_on_level_up():
     assert h.events("rank.mode")[-1]["mode"] == "active"
     assert selects(h) == ["treecko_hoenn"]
     assert len(autos(h)) == 1
+
+
+# === passo 6: posição no ranking (docs/design/fase-3b-metricas-e-card.md) ==============
+
+
+async def test_min_active_minutes_default_is_five():
+    # caso 5 do passo 6 (D-M)
+    assert RankConfig().min_active_minutes == 5
+    store = StatsStore([HuntStats("magikarp", 100, 6), HuntStats("metapod", 100, 4)])
+    h = await Harness(store=store).start()
+    q = {i["slug"]: i for i in h.plans()[-1]["queue"]}
+    assert q["magikarp"]["kph_known"] is True
+    assert q["metapod"]["kph_known"] is False
+
+
+def boards(h: Harness) -> list[dict[str, Any]]:
+    return [p for p in h.sent if p["t"] == "ranking.pedir"]
+
+
+async def test_ranking_request_on_start_and_after_scoring():
+    # caso 9
+    assert RankingRequest().to_wire() == {"t": "ranking.pedir", "aba": "capturas"}
+    assert RankingRequest.min_interval_s == 300
+    h = await Harness().start()  # dry_run: vai mesmo assim
+    assert len(boards(h)) == 1
+    h.now += timedelta(minutes=6)
+    await h.send_ev(ev("rank.catch", species_id=10, week_start=WEEK, scores=True, week_species=1))
+    assert len(boards(h)) == 2
+    h.now += timedelta(minutes=1)  # o rate limiter segura
+    await h.send_ev(ev("rank.catch", species_id=11, week_start=WEEK, scores=True, week_species=2))
+    assert len(boards(h)) == 2
+
+
+def row(nick: str, valor: int, level: int = 100) -> dict[str, Any]:
+    return {"nick": nick, "level": level, "valor": valor}
+
+
+async def started_with_n(n: int) -> Harness:
+    h = Harness()
+    h.stored("rank.week", NOW - timedelta(hours=1), week_start=WEEK, week_species=n, species={})
+    return await h.start()
+
+
+async def test_position_when_in_list():
+    # caso 11
+    h = await started_with_n(5)
+    await h.send_ev(ev("rank.board", week_start=WEEK, rows=[row("a", 9), row("farm1", 5, 150)]))
+    (p,) = h.events("rank.position")
+    assert p["position"] == 2
+    assert p["inside"] is True and p["missing"] == 0
+    assert p["species"] == 5 and p["week_start"] == WEEK
+    assert p["above"] == {"nick": "a", "valor": 9}
+
+
+async def test_position_tie_by_level():
+    # caso 12: farm1 tem nível 150
+    h = await started_with_n(5)
+    rows = [row("a", 9), row("b", 5, level=200), row("c", 5, level=100)]
+    await h.send_ev(ev("rank.board", week_start=WEEK, rows=rows))
+    (p,) = h.events("rank.position")
+    assert p["position"] == 3
+    assert p["above"] == {"nick": "b", "valor": 5}
+
+
+async def test_position_outside_top():
+    # caso 13
+    h = await started_with_n(4)
+    rows = [row(f"j{i}", 200 - i) for i in range(99)] + [row("ultimo", 41)]
+    await h.send_ev(ev("rank.board", week_start=WEEK, rows=rows))
+    (p,) = h.events("rank.position")
+    assert p["position"] is None
+    assert p["inside"] is False
+    assert p["list_size"] == 100
+    assert p["cutoff"] == 41
+    assert p["missing"] == 38
+
+
+async def test_position_ignores_other_week_and_repeats():
+    # caso 14
+    h = await started_with_n(5)
+    await h.send_ev(ev("rank.board", week_start="2026-11-01", rows=[row("a", 9)]))
+    assert h.events("rank.position") == []
+    for _ in range(2):
+        await h.send_ev(ev("rank.board", week_start=WEEK, rows=[row("a", 9)]))
+    assert len(h.events("rank.position")) == 1
+    # espécie nova muda a posição gravada
+    await h.send_ev(ev("rank.catch", species_id=10, week_start=WEEK, scores=True, week_species=6))
+    await h.send_ev(ev("rank.board", week_start=WEEK, rows=[row("a", 9)]))
+    assert [p["species"] for p in h.events("rank.position")] == [5, 6]

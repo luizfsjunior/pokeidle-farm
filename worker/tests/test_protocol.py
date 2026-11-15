@@ -545,3 +545,26 @@ def test_3b_top_catch_week():
     assert "rank.week" not in NOT_PERSISTED
     empty = _one(Translator(uuid4(), uuid4()), {"t": "topCatch", "s": "2026-11-08", "n": 0})
     assert empty.data["species"] == {}
+
+
+# --- ranking do Top Catch (docs/design/fase-3b-metricas-e-card.md, caso 10) ---------
+
+
+def test_3b_ranking_capturas_becomes_rank_board():
+    frame = {
+        "t": "ranking",
+        "aba": "capturas",
+        "semana": "2026-11-15",
+        "linhas": [{"nick": "a", "level": 10, "valor": 9, "looktype": 1, "vs": [], "rank": 1}],
+    }
+    ev = _one(Translator(uuid4(), uuid4()), frame)
+    assert ev.type == "rank.board"
+    assert ev.data == {
+        "week_start": "2026-11-15",
+        "rows": [{"nick": "a", "level": 10, "valor": 9}],
+    }
+    assert "rank.board" in NOT_PERSISTED
+    other = Translator(uuid4(), uuid4()).translate(
+        *codec.decode(json.dumps({"t": "ranking", "aba": "nivel", "linhas": []}))
+    )
+    assert [e.type for e in other] != ["rank.board"]

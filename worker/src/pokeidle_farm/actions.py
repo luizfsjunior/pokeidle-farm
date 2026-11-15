@@ -92,6 +92,18 @@ class TopCatchRequest(ActionSpec):
         return {"t": "topcatch.pedir"}
 
 
+class RankingRequest(ActionSpec):
+    name: ClassVar[str] = "ranking.pedir"
+    description: ClassVar[str] = "Pede o ranking do Top Catch da semana (aba capturas, só leitura)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 300.0
+
+    aba: str = "capturas"
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "ranking.pedir", "aba": self.aba}
+
+
 class HuntSelect(ActionSpec):
     name: ClassVar[str] = "hunt.select"
     description: ClassVar[str] = "Troca de hunt (só fora da trava de combate e do trocaLivreEm)"

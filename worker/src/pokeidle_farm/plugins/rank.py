@@ -25,7 +25,14 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..actions import ActionBlocked, ActionSpec, AutoSet, HuntSelect, TopCatchRequest
+from ..actions import (
+    ActionBlocked,
+    ActionSpec,
+    AutoSet,
+    HuntSelect,
+    RankingRequest,
+    TopCatchRequest,
+)
 from ..catalog import BALLS
 from ..events import Event
 from ..rank_queue import QueueItem, observed_chances, plan_queue
@@ -34,6 +41,7 @@ from .base import Plugin, PluginContext
 BRT = timedelta(hours=-3)  # Brasília, sem horário de verão
 HYSTERESIS = 0.10  # só troca de hunt se a nova for pelo menos 10% mais rápida (D-C)
 SWITCH_FAILS_TO_SKIP = 3  # falhas seguidas de hunt.select até pular a espécie
+PRIZED = 100  # premiados no Top Catch (PREMIADOS_TOP_CATCH do cliente; 11º-100º ganham 5 diamantes)
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
@@ -59,7 +67,7 @@ class RankConfig(BaseModel):
     max_hunt_factor: float = Field(3.0, gt=0)
     min_hunt_minutes: float = Field(10.0, ge=0)
     history_days: int = Field(14, ge=1)
-    min_active_minutes: float = Field(30.0, ge=0)
+    min_active_minutes: float = Field(5.0, ge=0)  # D-M: o rank passa ~8 min em cada hunt
     default_kills_per_hour: float = Field(300.0, gt=0)
     queue_preview: int = Field(10, ge=0)
     # passo 5 (docs/design/fase-3b-rank-ligado.md, seção 8)
@@ -86,6 +94,7 @@ class RankPlugin(Plugin):
         "state.patch",
         "session.connected",
         "game.error",
+        "rank.board",
     }
 
     def __init__(self) -> None:
@@ -115,6 +124,9 @@ class RankPlugin(Plugin):
         self._target_since: datetime | None = None
         self._sent: dict[str, dict[str, Any]] = {}
         self._catch_until_off_at: str | None = None
+        # passo 6: espécies da semana pelo jogo (n) e a última posição gravada
+        self._week_n: int | None = None
+        self._position_key: tuple[Any, ...] | None = None
         # passo 5: troca de hunt de verdade
         self._acting = False  # sem dry_run e com o restock em focus "rank"
         self._want_slug: str | None = None  # hunt para onde a conta deve ir
@@ -159,6 +171,7 @@ class RankPlugin(Plugin):
         self._ready = True
         await self._load()
         await self._request_week()
+        await self._request_board()
         self._ball = self._ball_choice()
         await self._replan("start")
 
@@ -177,6 +190,7 @@ class RankPlugin(Plugin):
                 if data.get("week_start") == self._week:
                     base_at = at
                     self._scored = _species_keys(data.get("species"))
+                    self._note_n(data.get("week_species"))
             for at, data in catches:
                 if (
                     data.get("scores") is True
@@ -185,6 +199,7 @@ class RankPlugin(Plugin):
                     and (base_at is None or at >= base_at)
                 ):
                     self._scored.add(data["species_id"])
+                    self._note_n(data.get("week_species"))
         try:
             stats = await store.rank_hunt_stats(
                 acc, self.now() - timedelta(days=self.cfg.history_days)
@@ -222,6 +237,62 @@ class RankPlugin(Plugin):
         except ActionBlocked:
             pass  # o gateway já registrou o motivo
 
+    async def _request_board(self) -> None:
+        """Ranking da semana para a posição (passo 6); só leitura, vai mesmo com dry_run."""
+        try:
+            await self.ctx.actions.submit(RankingRequest(), source=self.name)
+        except ActionBlocked:
+            pass
+
+    def _note_n(self, n: Any) -> None:
+        if isinstance(n, int) and (self._week_n is None or n > self._week_n):
+            self._week_n = n
+
+    async def _on_board(self, d: dict[str, Any]) -> None:
+        """Posição no Top Catch, com a mesma regra da tela do jogo (`tcPosicaoCom`)."""
+        n = self._week_n
+        if d.get("week_start") != self._week or not n:
+            return
+        rows = [r for r in d.get("rows") or [] if isinstance(r, dict)]
+        me, level = self.ctx.nick, self._level
+        i_me = next((i for i, r in enumerate(rows) if r.get("nick") == me), -1)
+        if i_me >= 0 and _num(rows[i_me].get("valor")) == n:
+            above = rows[:i_me]
+        else:
+            above = [
+                r
+                for r in rows
+                if r.get("nick") != me
+                and (
+                    _num(r.get("valor")) > n
+                    or (_num(r.get("valor")) == n and _num(r.get("level")) >= level)
+                )
+            ]
+        pos = len(above) + 1
+        inside = pos <= PRIZED
+        cutoff = _num(rows[-1].get("valor")) if rows else None
+        missing = 0 if inside or cutoff is None else max(1, cutoff - n + 1)
+        key = (pos if inside else None, n, cutoff)
+        if key == self._position_key:
+            return
+        self._position_key = key
+        last = above[-1] if above else None
+        await self.ctx.actions.note(
+            "rank.position",
+            {
+                "week_start": self._week,
+                "species": n,
+                "position": pos if inside else None,
+                "inside": inside,
+                "list_size": len(rows),
+                "cutoff": cutoff,
+                "missing": missing,
+                "above": {"nick": last.get("nick"), "valor": _num(last.get("valor"))}
+                if last
+                else None,
+            },
+        )
+
     # --- eventos ------------------------------------------------------------
 
     async def stop(self) -> None:
@@ -244,6 +315,7 @@ class RankPlugin(Plugin):
         t = event.type
         if t == "session.connected":
             await self._request_week()
+            await self._request_board()
         elif t == "game.error":
             if self._pending is not None:
                 await self._switch_failed(str(d.get("key") or "erro"))
@@ -251,6 +323,8 @@ class RankPlugin(Plugin):
             await self._on_kill(d)
         elif t == "item.consumed" and self._window:
             self._window[-1][1] += (d.get("qty") or 0) * (d.get("unit_price") or 0)
+        elif t == "rank.board":
+            await self._on_board(d)
         elif t == "rank.week":
             await self._on_week(d)
         elif t == "rank.catch":
@@ -276,6 +350,7 @@ class RankPlugin(Plugin):
 
     async def _on_kill(self, d: dict[str, Any]) -> None:
         if week_start(self.now()) > self._week:
+            self._week_n = None
             await self._rollover(week_start(self.now()), set(), "week_rollover")
             await self._request_week()
             return
@@ -304,8 +379,11 @@ class RankPlugin(Plugin):
             return
         species = _species_keys(d.get("species"))
         if ws > self._week:
+            self._week_n = None
+            self._note_n(d.get("week_species"))
             await self._rollover(ws, species, "week")
             return
+        self._note_n(d.get("week_species"))
         self._scored = species
         await self._replan("week")
 
@@ -313,11 +391,16 @@ class RankPlugin(Plugin):
         ws, sp = d.get("week_start"), d.get("species_id")
         scores = d.get("scores") is True and isinstance(sp, int)
         if isinstance(ws, str) and ws > self._week:
+            self._week_n = None
+            self._note_n(d.get("week_species"))
             await self._rollover(ws, {sp} if scores else set(), "week_rollover")  # type: ignore[arg-type]
+            await self._request_board()
             return
         if not scores or (isinstance(ws, str) and ws != self._week) or sp in self._scored:
             return
+        self._note_n(d.get("week_species"))
         self._scored.add(sp)  # type: ignore[arg-type]
+        await self._request_board()
         if self._target is not None and sp == self._target.species_id:
             await self._replan("captured")
         elif any(q.species_id == sp for q in self._queue):
@@ -572,6 +655,13 @@ class RankPlugin(Plugin):
             self._auto_sent_at = now + timedelta(seconds=wait - self.cfg.retry_after_s)
             return
         self._auto_sent, self._auto_sent_at = want, now
+
+
+def _num(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _species_keys(species: Any) -> set[int]:
