@@ -34,7 +34,8 @@ export function currentFocus(plugins: PluginRow[]): { focus: Focus; label: strin
     const ok = rankOn && !rankDry;
     return { focus: "rank", label: FOCUS_LABEL.rank + (ok ? "" : " · plugin rank desligado ou em ensaio") };
   }
-  // sem restock ou sem focus na config: o padrão do app
+  // conta sem nada configurado: o padrão do app é gemas (ainda precisa salvar para ligar)
+  if (!restock && !gems && !rank) return { focus: "gems", label: `${FOCUS_LABEL.gems} · padrão, ainda não aplicado` };
   const focus: Focus = restockFocus === "capture" ? "capture" : "gold_xp_drop";
   return { focus, label: FOCUS_LABEL[focus] + (rankOn && rankDry ? " · rank em ensaio" : "") };
 }

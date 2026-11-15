@@ -68,6 +68,8 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   Achado no código do jogo: toda hunt dropa a pedra do tipo a 0,2/0,35/0,5% por abate, e as pedras valem 8 a 142
   gemas. Implementados direto: ritmo aprendido no rank, foco gemas, wiki e fórmulas no banco, "Compensa?" a partir do
   primeiro preço com o potencial por hunt, ajustes no painel e o objetivo "Dratini" corrigido. 214 testes.
+- **Foco gemas virou o padrão** e `luizfsjunior_1` passou para ele (20:51 UTC, Geodude, ~47 gemas/h estimadas); o rank
+  fica desligado, com a config guardada.
 - **Roadmap organizado**: fases 1 a 4 concluídas, fase 5 com o Docker em casa pronto e faltando as contas.
 
 ### Pendente

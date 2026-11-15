@@ -12,6 +12,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
   (rank semanal: fila de hunts com troca de hunt e Lançar até Capturar), `gems` (foco gemas: a hunt que mais rende
   pedras de evolução) e `market_prices` (médias do Mercado);
   métricas com objetivos; painel com visão geral, foco por conta, card do rank, `/mercado` e `/compensa`.
+- **Foco padrão:** gemas (a conta fica na hunt que mais rende pedras de evolução no Mercado).
 - **Juntando dados:** o veredito do "Compensa?" (renda em gemas contra o custo de energia) fica confiável com 7 dias
   de preços, por volta de 22/11/2026.
 - **Próximo:** fase 5, rodar as 3 contas de farm.

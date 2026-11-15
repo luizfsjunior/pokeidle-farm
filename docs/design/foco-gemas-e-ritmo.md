@@ -39,8 +39,10 @@ teto: de cada pedra conta no máximo max_market_share (10%) do que o Mercado ven
 - com várias contas no worker, cada uma registra quanto tira de cada pedra (`_claims`) e as outras descontam.
 
 **Foco no painel:** "Gemas (pedras)" no card Foco manda `focus.set` com `focus: "gems"`: `restock` em
-`gold_xp_drop` (sem bola: o foco é abater rápido), `rank` desligado, `gems` ligado com `dry_run: false`. O foco da
-conta **não foi trocado**: continua rank até você escolher.
+`gold_xp_drop` (sem bola: o foco é abater rápido), `rank` desligado, `gems` ligado com `dry_run: false`.
+
+**Gemas é o foco padrão** (decidido em 15/11): `luizfsjunior_1` passou para gemas às 20:51 UTC (foi para o Geodude), e
+uma conta nova, sem nada configurado, aparece no card Foco com "Gemas" selecionado (é preciso salvar para ligar).
 
 ## C. Wiki e fórmulas no banco (`GameFilesSync`, tabela `game_files`)
 
