@@ -1,6 +1,7 @@
 # Fase 8: "Compensa?" (avaliar a renda contra o custo)
 
-Status: **rascunho**, 15/11/2026. Decisões D-T a D-X em aberto (fim do documento).
+Status: **rascunho v2**, 15/11/2026. Decisões D-T a D-X tomadas em 15/11 (fim do documento); falta aprovar a
+spec e os casos de teste.
 
 É a fase 8 do [roadmap](../roadmap.md): com as métricas da fase 7, responder se o farm compensa. A fase pede 1 a 2
 semanas de dados; a proposta é montar a conta **agora**, numa página que fica mais confiável sozinha conforme os
@@ -49,13 +50,17 @@ Tabela nova `evaluation_settings` (uma linha por dono, editável na página, RLS
 
 | Campo | Padrão | Uso |
 |---|---|---|
-| `machine_watts` | em aberto | consumo médio da máquina que roda o worker |
-| `marginal` | em aberto | `true`: a máquina ficaria ligada de qualquer jeito, então o custo de energia do farm é 0 |
-| `kwh_price_brl` | em aberto | tarifa de energia (R$/kWh) |
-| `usd_brl` | em aberto | câmbio para converter o custo em dólar |
+| `machine_watts` | vazio | consumo médio da máquina que roda o worker |
+| `marginal` | `false` | `true`: a máquina ficaria ligada de qualquer jeito, então o custo de energia do farm é 0 |
+| `kwh_price_brl` | vazio | tarifa de energia (R$/kWh, vem na conta de luz) |
+| `usd_brl` | vazio | câmbio para converter o custo em dólar |
 | `window_days` | `7` | janela da projeção |
 
 `custo_mensal_usd = marginal ? 0 : machine_watts / 1000 × 24 × 30 × kwh_price_brl ÷ usd_brl`
+
+Com `marginal = false` e algum dos três campos vazio, o custo é **desconhecido**: a função devolve `cost_usd` nulo,
+o lucro é calculado sem o custo e a página mostra "custo de energia não informado" ao lado do veredito, com os
+campos para preencher.
 
 ### 3. Liquidez (D-W)
 
@@ -75,15 +80,15 @@ dropado na janela: unidades dropadas por semana ÷ unidades vendidas por semana 
 - Renda de pokémon capturados e dos prêmios do Top Catch (diamantes): sem preço simples por enquanto.
 - Vender de verdade (fase 9). A conta aqui supõe que tudo se vende pela média.
 
-## Decisões em aberto
+## Decisões (tomadas em 15/11)
 
-- **D-T. Base da projeção**: mostrar as duas (dias corridos e 24 h/dia, proposta) ou só uma?
-- **D-U. Janela**: 7 dias (proposta) ou 14?
-- **D-V. Custo de energia**: qual o consumo da máquina (W), a tarifa (R$/kWh) e o câmbio para os padrões? E a
-  máquina fica ligada de qualquer jeito (custo marginal 0)?
-- **D-W. Liquidez**: alertar acima de 10% das unidades vendidas na semana?
-- **D-X. Veredito**: "compensa" quando o lucro mensal projetado (como está) for maior que 0, ou exigir um mínimo
-  (ex.: o saque mínimo de US$ 9 por mês)?
+- **D-T. Base da projeção**: as duas, dias corridos ("como está") e 24 h/dia.
+- **D-U. Janela**: 7 dias.
+- **D-V. Custo de energia**: sem valores conhecidos ainda. Os campos começam vazios e a página avisa que o lucro está
+  sem o custo até serem preenchidos.
+- **D-W. Liquidez**: marcar acima de 10% das unidades vendidas na semana.
+- **D-X. Veredito**: "compensa" quando o lucro mensal projetado (como está) for maior que 0; com o custo
+  desconhecido, o veredito vem com a ressalva. Com menos de 7 dias de dado: "dados insuficientes".
 
 ## Casos de teste propostos
 
@@ -93,7 +98,8 @@ SQL (`supabase/tests/evaluation_test.sql`), com uma conta, `metric_hourly` monta
    do mês 3.000 (como está) e 6.000 (24 h/dia).
 2. Renda: 3.000 gemas × 0,85 × 0,009 = US$ 22,95.
 3. Custo: 60 W, R$ 0,90/kWh, câmbio 5,0 → 60/1000 × 720 × 0,90 ÷ 5 = US$ 7,78; lucro US$ 15,17. Com
-   `marginal = true` → custo 0.
+   `marginal = true` → custo 0. Sem a tarifa (campo vazio) e `marginal = false` → `cost_usd` nulo e lucro = renda
+   (US$ 22,95). Sem linha em `evaluation_settings` → igual ao caso sem tarifa.
 4. Conta com abates só nos últimos 3 dias → dias de dado 3 e gemas por dia corrido sobre 3 dias, não 7.
 5. Duas contas → linha de total com a soma; linha "com 3 contas" = média por conta × 3.
 6. RLS: outro usuário não vê as contas nem os parâmetros do dono.
