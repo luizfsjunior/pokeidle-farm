@@ -11,6 +11,10 @@ Next.js 16 (App Router) + Supabase Auth. Lê as contas, as métricas da fase 4a
   em `/contas/<id>`. Na visão geral, contas com o `rank` ligado mostram as espécies da semana e o alvo.
 - **Página da conta**: card Foco (captura, ouro-xp-drop, rank ou gemas), cards Rank e Gemas (alvo e potencial em
   gemas das melhores hunts) e os plugins em JSON recolhidos em "Avançado".
+- **Hunts** (`/hunts`): as hunts visitadas no período (24 h, 7 ou 30 dias; por conta ou todas), com tempo, abates/h,
+  gemas/h dos drops reais, ouro, drops, capturas e espécies novas (função `hunt_summary` no banco), e o catálogo das
+  hunts que a conta alcança com as pedras que dropam, "gemas por 1.000 abates" e, onde há ritmo medido, gemas/h.
+  O modelo das pedras está em `lib/hunts.ts` (o mesmo do worker).
 - **Mercado** (`/mercado`): itens dropados nos últimos 7 dias, por conta ou todas, com a média de 7 dias do
   Mercado em gemas e ouro (último snapshot; sem vendas em ouro, o preço do NPC) e o valor total. A visão geral
   mostra o valor dos drops por hora ativa (métricas `drops_value_orb` e `drops_value_gold`, que usam o preço da
