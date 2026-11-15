@@ -16,7 +16,7 @@ a DigitalOcean, [ADR 0011](decisions/0011-worker-em-ip-residencial.md)); hoje, o
 | `AccountSession` | Uma por conta. Faz a conexão WebSocket, o handshake com o token, o heartbeat e a reconexão com backoff exponencial. |
 | `protocol` | Modelos Pydantic das mensagens do jogo (entrada e saída). Nada de JSON solto fora daqui. |
 | `events` | `Translator`: traduz as mensagens do jogo em eventos tipados (abate, drop, captura, estado, troca de hunt, Top Catch, ranking, médias do Mercado). A sessão publica no barramento (`bus`); os plugins assinam. |
-| `plugins/` | Plugins com interface comum (`Plugin`, `PluginContext`), ligados e configurados por conta em `strategy_configs`: `telemetry` e `market_prices` (sempre ligados), `restock` e `rank`. Ver [ADR 0008](decisions/0008-escopo-completo-modular.md) e os desenhos em `design/`. |
+| `plugins/` | Plugins com interface comum (`Plugin`, `PluginContext`), ligados e configurados por conta em `strategy_configs`: `telemetry` e `market_prices` (sempre ligados), `restock`, `rank` e `gems`. Ver [ADR 0008](decisions/0008-escopo-completo-modular.md) e os desenhos em `design/`. |
 | `actions` | `ActionGateway`: único caminho para mandar ações ao jogo (`ShopBuy`, `AutoSet`, `HuntSelect`, `TopCatchRequest`, `RankingRequest`, `MarketAverages`), com o `ACTION_MODE` e um `RateLimiter` por ação e conta, para cumprir o "não sobrecarregar o servidor". |
 | `gamedata` | Catálogo de hunts (do `welcome`), Pokedex e itens (dos JSON públicos do jogo, por ETag), gravados no banco só quando mudam. |
 | `commands` | `Supervisor` (sessões de todas as contas) e `CommandLoop`: busca os comandos pendentes do painel a cada `COMMANDS_POLL_S` (5 s) e executa um por vez. |
@@ -43,6 +43,7 @@ Postgres no Supabase, com RLS ligada em todas as tabelas.
 | `goals` | objetivos de métrica (somar até um alvo) ou de captura (N pokémon que batem com um filtro), com prazo e contas |
 | `goal_snapshots` | progresso de hora em hora de cada objetivo (valor atual, ritmo, previsão, chance até o prazo) |
 | `market_prices` | médias de 7 dias do Mercado por item e moeda, um snapshot por hora (30 dias), para dar valor aos drops |
+| `game_files` | wiki (`pokepedia.mjs`) e módulos de fórmulas do jogo, como vieram (só no banco; o repositório é público) |
 | `game_hunts`, `game_species`, `game_items`, `game_catalog` | dados do jogo: hunts, Pokedex com estágio evolutivo, itens com preço de NPC e a versão de cada um |
 | `evaluation_settings` | parâmetros do custo de energia para o "Compensa?" |
 | `strategy_configs` | quais plugins estão ligados por conta, e com quais parâmetros |

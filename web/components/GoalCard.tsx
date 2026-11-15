@@ -29,10 +29,16 @@ export function GoalSummary({ goal, progress, metric, link = true }: { goal: Goa
       <div className="stats" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}>
         <div className="stat"><div className="label">Progresso</div><div className="value">{num(progress?.current, { compact: true })} / {num(goal.target, { compact: true })} <span className="muted small">{unit}</span></div></div>
         <div className="stat"><div className="label">Ritmo (últimas 24 h)</div><div className="value">{progress?.rate_per_hour ? `${num(progress.rate_per_hour < 1 ? progress.rate_per_hour * 24 : progress.rate_per_hour, { compact: true })}/${progress.rate_per_hour < 1 ? "dia" : "h"}` : "—"}</div></div>
-        <div className="stat"><div className="label">Previsão</div><div className="value">{progress && progress.current >= goal.target ? "batido" : dateTime(progress?.eta)}</div></div>
+        <div className="stat"><div className="label">Previsão</div><div className="value">{progress && progress.current >= goal.target ? "batido" : etaText(progress?.eta)}</div></div>
         {goal.kind === "capture" && <div className="stat"><div className="label">Captura que bate o filtro</div><div className="value">{chance(progress?.p_match)}</div></div>}
         {goal.kind === "capture" && goal.deadline && <div className="stat"><div className="label">Chance até o prazo</div><div className="value">{chance(progress?.chance_by_deadline)}</div></div>}
       </div>
     </section>
   );
+}
+
+/** Previsão para mais de 5 anos é ruído do ritmo baixo, não uma data útil. */
+function etaText(eta: string | null | undefined): string {
+  if (!eta) return "sem previsão";
+  return new Date(eta).getTime() - Date.now() > 5 * 365 * 86400_000 ? "sem previsão (ritmo baixo demais)" : dateTime(eta);
 }

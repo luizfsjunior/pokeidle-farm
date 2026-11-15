@@ -63,6 +63,11 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   frente): sem `erro` nem `hunt.changed`; o plugin registrou `rank.failed` por timeout e a nova tentativa passou.
 - **Ritmo por hunt medido** (nível 19): ~1.000/h em Magikarp e ~900/h em Poliwag, Weedle e Oddish, contra
   ~60–115/h em Nidoran, Zubat e Bulbasaur. A fila do rank já usa o ritmo medido.
+- **Análise e melhorias** ([analise-2026-11-15.md](analise-2026-11-15.md), [foco-gemas-e-ritmo.md](design/foco-gemas-e-ritmo.md)):
+  o modelo de captura bate (7 capturas contra 7,1 previstas); o problema do rank era o ritmo das hunts não medidas.
+  Achado no código do jogo: toda hunt dropa a pedra do tipo a 0,2/0,35/0,5% por abate, e as pedras valem 8 a 142
+  gemas. Implementados direto: ritmo aprendido no rank, foco gemas, wiki e fórmulas no banco, "Compensa?" a partir do
+  primeiro preço com o potencial por hunt, ajustes no painel e o objetivo "Dratini" corrigido. 214 testes.
 - **Roadmap organizado**: fases 1 a 4 concluídas, fase 5 com o Docker em casa pronto e faltando as contas.
 
 ### Pendente

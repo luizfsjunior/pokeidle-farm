@@ -76,13 +76,13 @@ export default async function Overview() {
                 </div>
               )}
               <div className="stats">
+                <Stat label="Drops (gemas)/h" value={num(perHour(t?.drops_value_orb ?? 0, mins))} />
                 <Stat label="Abates/h" value={num(perHour(t?.kills ?? 0, mins))} />
                 <Stat label="XP/h" value={num(perHour(t?.xp ?? 0, mins), { compact: true })} />
                 <Stat label="Gold/h" value={num(perHour(t?.gold ?? 0, mins), { compact: true })} />
                 <Stat label="Gold líquido/h" value={num(perHour(t?.gold_net ?? 0, mins), { compact: true })} />
                 <Stat label="Capturas/h" value={num(perHour(t?.captures ?? 0, mins))} />
                 <Stat label="Taxa de captura" value={t?.capture_attempts ? `${num((t.captures * 100) / t.capture_attempts)}%` : "—"} />
-                <Stat label="Drops (gemas)/h" value={num(perHour(t?.drops_value_orb ?? 0, mins))} />
                 <Stat label="Drops (ouro)/h" value={num(perHour(t?.drops_value_gold ?? 0, mins), { compact: true })} />
                 <Stat label="Tempo ativo" value={mins ? `${num(mins / 60)} h` : "—"} />
               </div>

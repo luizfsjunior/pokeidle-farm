@@ -1,6 +1,7 @@
 import { Shell } from "@/components/Shell";
 import { num } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
+import { GemsCard, type GemsPotentialData } from "../contas/[id]/GemsCard";
 import { SettingsForm, type EvalSettings } from "./SettingsForm";
 
 export const dynamic = "force-dynamic";
@@ -45,10 +46,15 @@ export default async function EvaluationPage() {
     machine_watts: null, marginal: false, kwh_price_brl: null, usd_brl: null, window_days: 7,
   };
   const days = settings.window_days;
-  const [sumRes, liqRes] = await Promise.all([
+  const [sumRes, liqRes, potRes] = await Promise.all([
     supabase.rpc("evaluation_summary", { p_days: days }),
     supabase.rpc("evaluation_liquidity", { p_days: days }),
+    supabase.from("events").select("received_at, data").eq("type", "gems.potential")
+      .order("received_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
+  const potential: GemsPotentialData | null = potRes.data
+    ? { at: potRes.data.received_at as string, ...(potRes.data.data as Omit<GemsPotentialData, "at">) }
+    : null;
   const rows = (sumRes.data ?? []) as Summary[];
   const accounts = rows.filter((r) => r.kind === "account");
   const total = rows.find((r) => r.kind === "total") ?? null;
@@ -67,7 +73,7 @@ export default async function EvaluationPage() {
     <Shell email={email}>
       <h1>Compensa?</h1>
       <p className="secondary small">
-        Últimos {days} dias. Renda = gemas dos drops por mês × (1 − 15% de comissão) × US$ 0,009 por gema (saque). Supõe
+        Últimos {days} dias (contando a partir do primeiro preço do Mercado). Renda = gemas dos drops por mês × (1 − 15% de comissão) × US$ 0,009 por gema (saque). Supõe
         vender tudo pela média de 7 dias do Mercado; o ouro não sai do jogo e não entra na renda.
       </p>
       {err && <p className="error">Erro ao ler o Supabase: {err}</p>}
@@ -98,6 +104,16 @@ export default async function EvaluationPage() {
           </>
         )}
       </section>
+
+      {potential && (
+        <div style={{ marginTop: "1rem" }}>
+          <p className="muted small" style={{ margin: "0 0 .5rem" }}>
+            Potencial: o que a conta renderia no foco gemas, nas melhores hunts que ela alcança (a renda acima é a do
+            foco atual).
+          </p>
+          <GemsCard plan={null} potential={potential} />
+        </div>
+      )}
 
       {accounts.length > 0 && (
         <div className="card" style={{ overflowX: "auto", marginTop: "1rem" }}>

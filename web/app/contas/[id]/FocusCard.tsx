@@ -4,13 +4,14 @@ import { useState } from "react";
 import { commandSummary } from "@/components/CommandButtons";
 import { useCommand } from "@/lib/useCommand";
 
-type Focus = "capture" | "gold_xp_drop" | "rank";
+type Focus = "capture" | "gold_xp_drop" | "rank" | "gems";
 type PluginRow = { plugin: string; enabled: boolean; config: Record<string, unknown> };
 
 const FOCUS_LABEL: Record<Focus, string> = {
   capture: "Captura",
   gold_xp_drop: "Ouro, XP e drop",
   rank: "Rank semanal",
+  gems: "Gemas (pedras)",
 };
 // mesma ordem dos padrões do RankConfig (Ultra, Super, Great, Poke)
 const BALLS: { id: number; name: string }[] = [
@@ -24,6 +25,8 @@ const BALLS: { id: number; name: string }[] = [
 export function currentFocus(plugins: PluginRow[]): { focus: Focus; label: string } {
   const restock = plugins.find((p) => p.plugin === "restock");
   const rank = plugins.find((p) => p.plugin === "rank");
+  const gems = plugins.find((p) => p.plugin === "gems");
+  if (gems?.enabled && gems.config.dry_run === false) return { focus: "gems", label: FOCUS_LABEL.gems };
   const restockFocus = (restock?.enabled ? restock.config.focus : undefined) as Focus | undefined;
   const rankOn = rank?.enabled === true;
   const rankDry = rank?.config.dry_run !== false;
@@ -120,11 +123,17 @@ export function FocusCard({ accountId, plugins }: { accountId: string; plugins: 
           </label>
         </fieldset>
       )}
+      {focus === "gems" && (
+        <p className="muted small" style={{ margin: 0 }}>
+          Fica na hunt que mais rende pedras de evolução em gemas (preço médio do Mercado), sem passar de 10% do que o
+          Mercado vende de cada pedra por semana. As bolas ficam desligadas (restock em ouro-xp-drop).
+        </p>
+      )}
       {(formError || error) && <p className="error">{formError ?? error}</p>}
       {cmd && <p className={`small ${cmd.status === "failed" ? "error" : "muted"}`}>{commandSummary(cmd)}</p>}
       <div><button type="submit" disabled={busy}>{busy ? "Enviando…" : "Salvar e aplicar"}</button></div>
       <p className="muted small" style={{ margin: 0 }}>
-        Grava o <code>restock</code> e o <code>rank</code> juntos (comando <code>focus.set</code>). O rank só age de
+        Grava o <code>restock</code>, o <code>rank</code> e o <code>gems</code> juntos (comando <code>focus.set</code>). O rank só age de
         verdade com o restock no foco rank; os outros campos continuam nos editores abaixo.
       </p>
     </form>

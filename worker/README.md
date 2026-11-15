@@ -173,10 +173,13 @@ MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W)/worker:/src" python:3.12-slim  
 | `bus.py` | barramento assíncrono com fila por assinante |
 | `actions.py` | `ActionGateway` e `RateLimiter`; ações com schema Pydantic (`ShopBuy`, `AutoSet`, `TopCatchRequest`, `RankingRequest`, `HuntSelect`) |
 | `catalog.py` | preços da loja do NPC (bolas, poções, revives) e chance das bolas |
-| `gamedata.py` | catálogo de hunts do `welcome`, Pokedex com estágio evolutivo e `SpeciesSync` (fase 3b); catálogo de itens (`ItemsSync`, `items.json` por ETag, e `itensNossos` do `welcome`; fase 7) |
+| `pace.py` | ritmo de abates por hunt aprendido na sessão, com estimativa pelo nível medido mais próximo (rank e gems) |
+| `gems_model.py` | valor em gemas de cada hunt: pedra do tipo a 0,2/0,35/0,5% por abate e teto de liquidez |
+| `hunt_switch.py` | `HuntSwitcher`: troca de hunt com trava, timer, confirmação e nova tentativa (usado pelo gems) |
+| `gamedata.py` | catálogo de hunts do `welcome`, Pokedex com estágio evolutivo e `SpeciesSync` (fase 3b); catálogo de itens (`ItemsSync`, `items.json` por ETag, e `itensNossos` do `welcome`; fase 7); wiki e fórmulas do jogo (`GameFilesSync`, em `game_files`) |
 | `rank_queue.py` | fila de hunts do foco rank por tempo esperado até a captura (funções puras) |
 | `session.py` | `AccountSession`: handshake, heartbeat, reconexão, lease, renovação de token |
-| `plugins/` | interface, registry (entry points), `telemetry` (grava os eventos), `restock` (fase 3a, ver [docs/design/fase-3-reposicao.md](../docs/design/fase-3-reposicao.md)), `market_prices` (fase 7, sempre ligado: pede as médias do Mercado a cada hora numa conta só e grava em `market_prices`; ver [docs/design/fase-7-precos-do-mercado.md](../docs/design/fase-7-precos-do-mercado.md)) e `rank` (fase 3b, ver [docs/design/fase-3b-plugin-rank.md](../docs/design/fase-3b-plugin-rank.md) e [fase-3b-rank-ligado.md](../docs/design/fase-3b-rank-ligado.md)) |
+| `plugins/` | interface, registry (entry points), `telemetry` (grava os eventos), `restock` (fase 3a, ver [docs/design/fase-3-reposicao.md](../docs/design/fase-3-reposicao.md)), `gems` (foco gemas, ver [docs/design/foco-gemas-e-ritmo.md](../docs/design/foco-gemas-e-ritmo.md)), `market_prices` (fase 7, sempre ligado: pede as médias do Mercado a cada hora numa conta só e grava em `market_prices`; ver [docs/design/fase-7-precos-do-mercado.md](../docs/design/fase-7-precos-do-mercado.md)) e `rank` (fase 3b, ver [docs/design/fase-3b-plugin-rank.md](../docs/design/fase-3b-plugin-rank.md) e [fase-3b-rank-ligado.md](../docs/design/fase-3b-rank-ligado.md)) |
 | `store/` | interface `Store`, implementação em memória e no Supabase |
 | `sim/` | sorteios dos Termos (`rolls.py`) e gerador de eventos simulados |
 | `commands.py` | `Supervisor` (sessões de todas as contas de farm) e `CommandLoop` (comandos do painel, fase 4b) |

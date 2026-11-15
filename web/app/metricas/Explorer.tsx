@@ -14,6 +14,17 @@ const RANGES = {
 } as const;
 type RangeKey = keyof typeof RANGES;
 
+// grupos do seletor (análise de 15/11): por tema, não por tipo de métrica
+const GROUPS = ["Ritmo", "Ouro", "Drops e gemas", "Captura", "Rank", "Sessão"] as const;
+function groupOf(key: string): (typeof GROUPS)[number] {
+  if (key.startsWith("drops") || key.startsWith("drop_")) return "Drops e gemas";
+  if (key.startsWith("rank")) return "Rank";
+  if (key.startsWith("gold") || key.startsWith("consumables")) return "Ouro";
+  if (key.startsWith("captur") || key === "shinies") return "Captura";
+  if (key === "pokecenter" || key === "disconnects" || key === "active_minutes") return "Sessão";
+  return "Ritmo";
+}
+
 export function Explorer({ defs, accounts, hunts }: { defs: MetricDef[]; accounts: Account[]; hunts: string[] }) {
   const supabase = useMemo(() => createClient(), []);
   const [metric, setMetric] = useState(defs.find((d) => d.key === "kills_per_hour")?.key ?? defs[0]?.key ?? "");
@@ -90,12 +101,14 @@ export function Explorer({ defs, accounts, hunts }: { defs: MetricDef[]; account
       <div className="filters">
         <label>Métrica
           <select value={metric} onChange={(e) => setMetric(e.target.value)}>
-            <optgroup label="Ritmos e taxas">
-              {defs.filter((d) => d.kind === "ratio").map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
-            </optgroup>
-            <optgroup label="Totais">
-              {defs.filter((d) => d.kind === "base").map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
-            </optgroup>
+            {GROUPS.map((g) => {
+              const items = defs.filter((d) => groupOf(d.key) === g);
+              return items.length === 0 ? null : (
+                <optgroup key={g} label={g}>
+                  {items.map((d) => <option key={d.key} value={d.key}>{d.label}{d.kind === "ratio" ? "" : " (total)"}</option>)}
+                </optgroup>
+              );
+            })}
           </select>
         </label>
         <label>Período

@@ -10,6 +10,7 @@ import { STATUS_LABEL, type Account, type Command } from "@/lib/types";
 import { FocusCard } from "./FocusCard";
 import { NewPlugin } from "./NewPlugin";
 import { PluginEditor } from "./PluginEditor";
+import { GemsCard, type GemsPlanData, type GemsPotentialData } from "./GemsCard";
 import { RankCard } from "./RankCard";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,21 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
   const commands = (cmds.data ?? []) as Command[];
   const rankOn = plugins.some((p) => p.plugin === "rank" && p.enabled);
   const rank = rankOn ? await rankSummary(supabase, account.id) : null;
+  const gemsOn = plugins.some((p) => p.plugin === "gems" && p.enabled);
+  const [gemsPlanRes, potentialRes] = await Promise.all([
+    gemsOn
+      ? supabase.from("events").select("received_at, data").eq("account_id", id).eq("type", "gems.plan")
+          .order("received_at", { ascending: false }).limit(1).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.from("events").select("received_at, data").eq("account_id", id).eq("type", "gems.potential")
+      .order("received_at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const gemsPlan = gemsPlanRes.data
+    ? { at: gemsPlanRes.data.received_at as string, ...(gemsPlanRes.data.data as Omit<GemsPlanData, "at">) }
+    : null;
+  const potential = potentialRes.data
+    ? { at: potentialRes.data.received_at as string, ...(potentialRes.data.data as Omit<GemsPotentialData, "at">) }
+    : null;
 
   return (
     <Shell email={email}>
@@ -52,6 +68,11 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
           </>
         )}
 
+        <GemsCard plan={gemsPlan} potential={potential} />
+
+        <details className="card">
+          <summary><strong>Avançado: plugins em JSON</strong></summary>
+          <div className="stack" style={{ marginTop: ".75rem" }}>
         <h2 style={{ margin: ".5rem 0 0" }}>Plugins</h2>
         <p className="muted small" style={{ margin: 0 }}>
           A telemetria é sempre ligada e não aparece aqui. Os campos do <code>restock</code> estão em
@@ -62,6 +83,8 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
           <PluginEditor key={p.plugin} accountId={account.id} plugin={p.plugin} enabled={p.enabled} config={p.config ?? {}} />
         ))}
         <NewPlugin accountId={account.id} existing={plugins.map((p) => p.plugin)} />
+          </div>
+        </details>
 
         <section className="card">
           <h2>Últimos comandos</h2>
