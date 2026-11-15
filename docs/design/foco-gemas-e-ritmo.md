@@ -17,6 +17,10 @@ spec prévia, a pedido. As decisões abaixo foram tomadas na implementação e p
 
 ## B. Foco gemas (`gems_model.py`, `plugins/gems.py`, `hunt_switch.py`)
 
+**Correção (15/11, à noite):** o preço de cada pedra passou a ser o menor entre a média de 7 dias e o menor anúncio
+aberto ([fase-9-venda-de-pedras.md](fase-9-venda-de-pedras.md)): a Water Stone tinha média ~30 e 4.607 unidades a 2
+gemas. As estimativas de gemas/h anteriores a isso estavam infladas.
+
 **Modelo** (do código público do jogo, `/shared/loot-pedras.mjs` e `pedras-evolucao.mjs`): todo selvagem pode
 dropar a pedra de evolução de cada um dos seus tipos, com 0,2% / 0,35% / 0,5% por abate conforme a posição na
 cadeia evolutiva (espécie sem evolução conta como a última). Conferido: 0,26% de Water Stone em 4.260 abates de

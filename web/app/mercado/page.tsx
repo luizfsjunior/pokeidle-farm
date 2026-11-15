@@ -11,6 +11,7 @@ const MAX_KILLS = 5000; // abates com drop lidos por vez (bem acima do que uma c
 
 type Price = { avg: number; units: number | null };
 type Row = {
+  ask: { min: number | null; queue: number } | null;
   name: string;
   qty: number;
   itemId: number | null;
@@ -63,6 +64,15 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
   const pricesRes = takenAt && ids.length
     ? await supabase.from("market_prices").select("item_id, currency, avg, units").eq("taken_at", takenAt).in("item_id", ids)
     : { data: [] as { item_id: number; currency: string; avg: number; units: number | null }[] };
+  const asksRes = ids.length
+    ? await supabase.from("market_asks").select("item_id, min_price, total_units").eq("currency", "orb")
+        .in("item_id", ids).gte("taken_at", new Date(Date.now() - 6 * 3600_000).toISOString())
+        .order("taken_at", { ascending: false }).limit(500)
+    : { data: [] as { item_id: number; min_price: number | null; total_units: number }[] };
+  const asks = new Map<number, { min: number | null; queue: number }>();
+  for (const a of (asksRes.data ?? []) as { item_id: number; min_price: number | null; total_units: number }[]) {
+    if (!asks.has(a.item_id)) asks.set(a.item_id, { min: a.min_price == null ? null : Number(a.min_price), queue: Number(a.total_units) || 0 });
+  }
   const prices = new Map<string, Price>();
   for (const p of (pricesRes.data ?? []) as { item_id: number; currency: string; avg: number; units: number | null }[]) {
     prices.set(`${p.item_id}:${p.currency}`, { avg: Number(p.avg), units: p.units == null ? null : Number(p.units) });
@@ -74,15 +84,18 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
       name,
       qty: byName.get(name) ?? 0,
       itemId: it?.item_id ?? null,
+      ask: it ? asks.get(it.item_id) ?? null : null,
       orb: it ? prices.get(`${it.item_id}:orb`) ?? null : null,
       gold: it ? prices.get(`${it.item_id}:gold`) ?? null : null,
       npc: it?.npc_price ?? null,
     };
   });
   const goldOf = (r: Row) => (r.gold ? r.gold.avg : r.npc ?? 0);
+  // gemas: o menor entre a média de 7 dias e o menor anúncio aberto (o preço pelo qual vende hoje)
+  const orbOf = (r: Row) => (r.orb ? (r.ask?.min != null ? Math.min(r.orb.avg, r.ask.min) : r.orb.avg) : 0);
   // mais valioso primeiro: gemas, depois ouro
-  rows.sort((a, b) => (b.orb?.avg ?? 0) * b.qty - (a.orb?.avg ?? 0) * a.qty || goldOf(b) * b.qty - goldOf(a) * a.qty);
-  const totalOrb = rows.reduce((s, r) => s + r.qty * (r.orb?.avg ?? 0), 0);
+  rows.sort((a, b) => orbOf(b) * b.qty - orbOf(a) * a.qty || goldOf(b) * b.qty - goldOf(a) * a.qty);
+  const totalOrb = rows.reduce((s, r) => s + r.qty * orbOf(r), 0);
   const totalGold = rows.reduce((s, r) => s + r.qty * goldOf(r), 0);
   const err = accountsRes.error?.message ?? killsRes.error?.message;
 
@@ -90,8 +103,8 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
     <Shell email={email}>
       <h1>Mercado</h1>
       <p className="secondary small">
-        Drops dos últimos {DAYS} dias{chosen ? ` de ${chosen.nick}` : " de todas as contas"}, valorados pelas médias de 7
-        dias do Mercado {takenAt ? `(snapshot de ${dateTime(takenAt)})` : "(ainda sem snapshot de preços)"}. Sem vendas em
+        Drops dos últimos {DAYS} dias{chosen ? ` de ${chosen.nick}` : " de todas as contas"}, valorados pelo preço de venda em
+        gemas (o menor entre a média de 7 dias e o menor anúncio aberto) e pela média em ouro do Mercado {takenAt ? `(snapshot de ${dateTime(takenAt)})` : "(ainda sem snapshot de preços)"}. Sem vendas em
         ouro, vale o preço do NPC (marcado com *). As métricas usam o preço da hora de cada drop.
       </p>
       <p className="small">
@@ -117,7 +130,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
           <table>
             <thead>
               <tr>
-                <th>Item</th><th>Unidades</th><th>Gemas (média)</th><th>Vendidas</th>
+                <th>Item</th><th>Unidades</th><th>Gemas (média)</th><th>Menor anúncio (fila)</th><th>Vendidas</th>
                 <th>Ouro (média)</th><th>Vendidas</th><th>Valor (gemas)</th><th>Valor (ouro)</th>
               </tr>
             </thead>
@@ -127,10 +140,11 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
                   <td>{r.name}{r.itemId === null && <span className="error small"> · fora do catálogo</span>}</td>
                   <td>{num(r.qty)}</td>
                   <td>{r.orb ? num(r.orb.avg) : "—"}</td>
+                  <td>{r.ask?.min != null ? `${num(r.ask.min)} (${num(r.ask.queue)})` : "—"}</td>
                   <td className="muted">{r.orb ? num(r.orb.units) : "—"}</td>
                   <td>{r.gold ? num(r.gold.avg, { compact: true }) : r.npc != null ? `${num(r.npc, { compact: true })}*` : "—"}</td>
                   <td className="muted">{r.gold ? num(r.gold.units) : "—"}</td>
-                  <td>{num(r.qty * (r.orb?.avg ?? 0))}</td>
+                  <td>{num(r.qty * orbOf(r))}</td>
                   <td>{num(r.qty * goldOf(r), { compact: true })}</td>
                 </tr>
               ))}

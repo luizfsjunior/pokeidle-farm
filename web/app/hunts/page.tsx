@@ -41,7 +41,13 @@ const stoneText = (stones: Stone[]) =>
   stones.length === 0
     ? "—"
     : stones
-        .map((s) => `${s.name.replace(" Stone", "")} ${s.gems == null ? "s/ preço" : `${num(s.gems)} (${num(s.soldWeek)}/sem)`}`)
+        .map((s) => {
+          const label = s.name.replace(" Stone", "");
+          if (s.gems == null) return `${label} s/ preço`;
+          const avg = s.avg != null && s.avg > s.gems ? ` (média ${num(s.avg)})` : "";
+          const queue = s.queue != null ? `, fila ${num(s.queue)}` : "";
+          return `${label} ${num(s.gems)}${avg} · ${num(s.soldWeek)}/sem${queue}`;
+        })
         .join(", ");
 
 /** Painel de hunts: as visitadas (o que renderam) e o catálogo alcançável (o que a pedra vale). */
@@ -184,7 +190,7 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
         </div>
         <table style={{ marginTop: ".75rem" }}>
           <thead>
-            <tr><th>Hunt</th><th>Nível</th><th>Área</th><th>Pedras (gemas e vendidas por semana)</th><th>Gemas / 1.000 abates</th><th>Abates/h medidos</th><th>Gemas/h</th></tr>
+            <tr><th>Hunt</th><th>Nível</th><th>Área</th><th>Pedras (preço de venda, vendidas/semana, fila)</th><th>Gemas / 1.000 abates</th><th>Abates/h medidos</th><th>Gemas/h</th></tr>
           </thead>
           <tbody>
             {reachable.map(({ h, stones, g1000, kph, gemsHour }) => (
@@ -204,7 +210,8 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
           </tbody>
         </table>
         <p className="muted small" style={{ marginBottom: 0 }}>
-          Gemas / 1.000 abates = Σ chance da pedra × preço médio em gemas (último snapshot{priceInfo.takenAt ? ` de ${ago(priceInfo.takenAt)}` : ""}).
+          Gemas / 1.000 abates = Σ chance da pedra × preço de venda em gemas: o menor entre a média de 7 dias e o menor
+          anúncio aberto, que é o preço de hoje (último snapshot{priceInfo.takenAt ? ` de ${ago(priceInfo.takenAt)}` : ""}).
           Não depende do ritmo: multiplique pelos abates/h da hunt. Pedra que vende pouco por semana (ex.: Thunder) não
           aguenta muito volume: o foco gemas só conta até 10% do vendido por semana, com o ritmo medido.
         </p>

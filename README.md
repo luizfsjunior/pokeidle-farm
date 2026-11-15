@@ -10,7 +10,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
 
 - **No ar:** worker no Docker de um PC em casa, contra o jogo; plugins `restock` (bola e consumíveis), `rank`
   (rank semanal: fila de hunts com troca de hunt e Lançar até Capturar), `gems` (foco gemas: a hunt que mais rende
-  pedras de evolução) e `market_prices` (médias do Mercado);
+  pedras de evolução), `market_prices` (médias e anúncios do Mercado) e `seller` (venda das pedras, em ensaio);
   métricas com objetivos; painel com visão geral, foco por conta, card do rank, `/mercado` e `/compensa`.
 - **Foco padrão:** gemas (a conta fica na hunt que mais rende pedras de evolução no Mercado).
 - **Juntando dados:** o veredito do "Compensa?" (renda em gemas contra o custo de energia) fica confiável com 7 dias
@@ -28,7 +28,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
                                                      │
 [Máquina com IP residencial — Docker] worker Python (asyncio) ── WebSocket ──> pokeidle.io
    ├─ AccountSession × 3
-   ├─ Plugins: restock, rank, gems, market_prices (venda e sniper: fase 9)
+   ├─ Plugins: restock, rank, gems, market_prices, seller (sniper: fase 9)
    └─ ActionGateway (RateLimiter) + telemetry
 ```
 

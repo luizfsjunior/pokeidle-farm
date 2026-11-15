@@ -13,7 +13,7 @@
 | 6 | Escopo B: plugins de hunt, restock e captura | casa | 🟡 [foco gemas](design/foco-gemas-e-ritmo.md) pronto em 15/11 (hunt escolhida pelo valor das pedras em gemas, com teto de liquidez); ligar quando decidir trocar o foco da conta |
 | 7 | Métricas derivadas do Mercado (valor dos drops em gold) e objetivos sobre elas | casa | ✅ [no ar desde 15/11](design/fase-7-precos-do-mercado.md): médias do Mercado por hora, catálogo de itens, valor dos drops em gemas e ouro e a página `/mercado` |
 | 8 | Avaliar se compensa: 1–2 semanas de métricas e preços do Mercado | casa | 🟡 [página `/compensa`](design/fase-8-compensa.md) pronta em 15/11 (renda em gemas, custo de energia, liquidez); o veredito fica confiável com 7 dias de preços (a partir de 22/11) |
-| 9 | Escopo C: plugins de venda e sniper no Mercado | casa | ⬜ |
+| 9 | Escopo C: plugins de venda e sniper no Mercado | casa | 🟡 [venda de pedras](design/fase-9-venda-de-pedras.md) em ensaio desde 15/11 (guarda 5, anuncia 1 abaixo do menor anúncio com piso de 85% da média); sniper: não começou |
 
 As fases seguem o [ADR 0008](decisions/0008-escopo-completo-modular.md): escopo completo, entregue em etapas (A → B → C).
 

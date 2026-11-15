@@ -77,7 +77,8 @@ export function GemsCard({ plan, potential }: { plan: GemsPlanData | null; poten
       )}
       <p className="muted small" style={{ margin: 0 }}>
         Chance de pedra por abate pela posição na cadeia evolutiva (0,2% / 0,35% / 0,5%, do código do jogo); cada pedra
-        conta até 10% do que o Mercado vende dela por semana. US$ com 15% de comissão e saque a US$ 0,009 por gema.
+        vale o menor entre a média de 7 dias e o menor anúncio aberto, e conta até 10% do que o Mercado vende dela por
+        semana. US$ com 15% de comissão e saque a US$ 0,009 por gema.
       </p>
     </section>
   );
