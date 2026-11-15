@@ -367,8 +367,12 @@ class AccountSession:
         if not catalog.hunts:
             return  # welcome sem catálogo: mantém o anterior
         self.catalog = catalog
+        species = self._species()
         for plugin in self.plugins.running.values():  # plugins seguem vivos entre reconexões
             plugin.ctx.catalog = catalog
+            # os sempre ligados (ex.: market_prices) sobem antes da Pokedex terminar de carregar
+            if plugin.ctx.species is None and species is not None:
+                plugin.ctx.species = species
         task = asyncio.get_running_loop().create_task(self._save_catalog(catalog))
         self._bg.add(task)
         task.add_done_callback(self._bg.discard)

@@ -273,3 +273,36 @@ def test_state_view_locks_and_server_clock():
     assert view.server_now(now) == now
     view.server_offset = timedelta(seconds=5)
     assert view.server_now(now) == now + timedelta(seconds=5)
+
+
+async def test_running_plugins_get_species_on_welcome(fake_game, make_session, store):
+    """Os plugins sempre ligados sobem antes da Pokedex; o welcome entrega a Pokedex a eles."""
+    hunt = {
+        "area": "kanto",
+        "nome": "Caterpie",
+        "slug": "caterpie",
+        "nivel": 1,
+        "especies": [{"nome": "Caterpie", "pokeId": 10, "pontos": 15}],
+        "totalSpawns": 15,
+    }
+    go = asyncio.Event()
+
+    async def script(ws, hello, n):
+        await go.wait()
+        frame = json.loads(welcome())
+        frame["hunts"] = [hunt]
+        await ws.send(json.dumps(frame))
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    session = make_session(game.url)
+    task = asyncio.create_task(session.run())
+    await wait_until(lambda: "market_prices" in session.plugins.running)
+    assert session.plugins.running["market_prices"].ctx.species is None
+    pokedex = object()
+    session._species = lambda: pokedex
+    go.set()
+    await wait_until(lambda: session.catalog is not None)
+    assert session.plugins.running["market_prices"].ctx.species is pokedex
+    session.stop()
+    await task
