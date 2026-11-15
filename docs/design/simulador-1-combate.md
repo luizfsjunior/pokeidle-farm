@@ -1,6 +1,7 @@
 # Simulador, camada 1: combate (abates por hora)
 
-Status: **rascunho**, 15/11/2026. Decisões S-A a S-D em aberto (fim do documento).
+Status: **aprovado** (15/11/2026), decisões S-A a S-D tomadas (fim do documento). Em implementação, em duas etapas:
+(1) coleta: regras do `welcome`, golpes e stats na Pokedex, onda de cada abate; (2) modelo e validação.
 
 ## Objetivo do simulador
 
@@ -38,14 +39,21 @@ Os módulos `/shared/*.mjs` que o cliente importa são as regras do servidor (10
 ## O modelo
 
 ```
-tempo por abate = tempo de deslocamento + HP do selvagem ÷ dano por segundo do ativo
-abates/h = 3600 ÷ tempo por abate
+tempo de uma onda = Σ (andar até o selvagem + matar o selvagem) + espera até a onda seguinte
+abates/h = 3600 × selvagens por onda ÷ tempo de uma onda
 ```
 
-- **Dano por segundo**: simula a sequência de ataques (golpes por prioridade de dano, recargas, Investida) contra o
-  selvagem daquela hunt, com o dano médio (aleatório 0,925).
-- **Selvagem**: espécie da hunt, nível = nível da hunt, stats com IV e qualidade médios (S-B).
-- **Deslocamento**: constante calibrada pelo teto medido (~1.100 abates/h → ~3,3 s por abate quando o dano é alto).
+- **Matar**: simula a sequência de ataques (golpes por prioridade de dano, recargas, Investida; intervalo mínimo de
+  0,9 s entre golpes) contra o selvagem, até zerar o HP de combate × 5. Dano médio (aleatório 0,925).
+- **Selvagem** (S-B, distribuição real): espécie da hunt, nível da hunt, IVs de 1 a 32 e qualidade e potência pelas
+  tabelas do jogo (`potencias` do `welcome`, faixas de qualidade da wiki); a simulação sorteia selvagens e tira a média.
+  O dano dele (×1,8, a cada 1,4 s) entra para estimar poções e idas ao Centro.
+- **Ondas** (S-C): selvagens nascem em ondas, nos pontos de spawn da área; quando o campo esvazia, a seguinte entra em
+  poucos segundos; o pokémon anda 290 ms por tile. "Toda área tem o mesmo ritmo." Tamanho da onda, distância média entre
+  selvagens e a espera são **medidos** (`ondaSeq`/`combateOndaSeq` do `estado`, carimbados nos abates) e o teto (~1.100
+  abates/h) confere o resultado.
+- **Regras do servidor** que vêm no `welcome` e passam a ser guardadas: `tabelaTipos`, `ampliacaoHunt` (1,5),
+  `multHpSelvagem` (5), `multDanoSelvagem` (1,8), `chanceShiny`, `potencias`, `maxEquipe`, `outlandTiers`.
 
 ## Validação (o que decide se a camada está pronta)
 
@@ -62,13 +70,14 @@ Magikarp e Geodude ~1.000–1.100/h (teto), Nidoran e Zubat ~100/h, Charmander e
 - Script de validação contra os eventos da conta, com a tabela previsto × medido.
 - Uso imediato: escolher o **pokémon ativo** pela hunt (o de mais abates/h previstos entre os da conta).
 
-## Decisões em aberto
+## Decisões (15/11)
 
-- **S-A. Onde rodar**: no worker (Python, perto dos dados e das ações) — proposta — ou num serviço à parte?
-- **S-B. Selvagem**: IV médio (16,5) e qualidade 1,0, ou tirar a distribuição do jogo (`captura-degrau`/qualidade)?
-- **S-C. Deslocamento**: uma constante calibrada (proposta) ou modelar a onda de spawn do mapa?
-- **S-D. Fonte dos golpes**: portar a leitura de `golpes-planilhas.mjs` (JavaScript) para Python (proposta), ou tirar
-  dos `creatures*.json` (o campo `attacks` que hoje descartamos)?
+- **S-A.** No worker, em Python.
+- **S-B.** Selvagem pela **distribuição real** do jogo (IV, qualidade e potência sorteados; média por simulação).
+- **S-C.** **Modelar as ondas**, com tamanho, distância e espera medidos nos dados da conta.
+- **S-D.** Os `creatures*.json` já trazem stats base e os golpes completos (poder, tipo, categoria, recarga, nível que
+  libera): são a base. O `golpes-planilhas.mjs` é a camada de balanceamento que o jogo aplica por cima em algumas espécies;
+  entra como ajuste (portado para Python) depois de a base estar validada.
 
 ## Casos de teste propostos
 
