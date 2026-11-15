@@ -68,6 +68,11 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   Achado no código do jogo: toda hunt dropa a pedra do tipo a 0,2/0,35/0,5% por abate, e as pedras valem 8 a 142
   gemas. Implementados direto: ritmo aprendido no rank, foco gemas, wiki e fórmulas no banco, "Compensa?" a partir do
   primeiro preço com o potencial por hunt, ajustes no painel e o objetivo "Dratini" corrigido. 214 testes.
+- **Sonda do Mercado** (plugin `seller`): anunciou 1 Water Stone a 999 gemas e cancelou (estoque 15 → 14 → 15).
+  Protocolo de `market.item`/`criar`/`meus`/`cancelar` no [protocolo.md](protocolo.md). **Achado grave:** os 60
+  anúncios abertos de Water Stone (4.607 unidades) estão todos a **2 gemas**, o mínimo do Mercado; a "média de 7 dias"
+  do `market.medias` (~30) não é o preço de venda de hoje. As estimativas de gemas/h e US$/mês do foco gemas e do
+  `/compensa` estão infladas e precisam usar o menor anúncio e a fila de cada pedra.
 - **Painel de hunts** (`/hunts`): visitadas por período e conta (função `hunt_summary`) e o catálogo alcançável com
   as pedras e "gemas por 1.000 abates".
 - **Foco gemas virou o padrão** e `luizfsjunior_1` passou para ele (20:51 UTC, Geodude, ~47 gemas/h estimadas); o rank
@@ -76,6 +81,8 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 ### Pendente
 
+- Refazer o valor das pedras com o menor anúncio aberto e o tamanho da fila (`market.item` de cada pedra), antes de
+  vender ou de confiar no foco gemas.
 - Fase 5: cadastrar as outras duas contas de farm (nick, token e dispositivo) e rodar as três juntas.
 - Fase 8: veredito do `/compensa` por volta de 22/11 (7 dias de preços); trocar a estimativa de energia se houver
   números reais.
