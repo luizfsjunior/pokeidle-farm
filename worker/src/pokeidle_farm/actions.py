@@ -127,6 +127,65 @@ class MarketItemRequest(ActionSpec):
         return {"t": "market.item", "itemId": self.itemId, "moeda": self.moeda}
 
 
+class MarketHistoryGlobal(ActionSpec):
+    name: ClassVar[str] = "market.historicoGlobal"
+    description: ClassVar[str] = "Histórico global de vendas do Mercado (só leitura, paginado)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 10.0
+
+    pagina: int = 0
+    tipo: Literal["pokemon", "item"] | None = None
+    moeda: Literal["orb", "gold"] | None = None
+    seq: int = 1
+
+    def to_wire(self) -> dict[str, Any]:
+        msg: dict[str, Any] = {
+            "t": "market.historicoGlobal",
+            "pagina": self.pagina,
+            "seq": self.seq,
+        }
+        if self.tipo:
+            msg["tipo"] = self.tipo
+        if self.moeda:
+            msg["moeda"] = self.moeda
+        return msg
+
+
+class MarketListPokemon(ActionSpec):
+    name: ClassVar[str] = "market.listar"
+    description: ClassVar[str] = "Anúncios abertos de pokémon no Mercado (só leitura, paginado)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 10.0
+
+    ordem: Literal["caros", "baratos", "recentes"] = "caros"
+    moeda: Literal["orb", "gold"] = "orb"
+    pagina: int = 0
+    soShiny: bool = False  # nome do protocolo
+
+    def to_wire(self) -> dict[str, Any]:
+        # o mesmo pedido do navegador (app.js, pedirLeiturasDoMercado) com os filtros padrão
+        return {
+            "t": "market.listar",
+            "tipo": "pokemon",
+            "moeda": self.moeda,
+            "busca": "",
+            "ordem": self.ordem,
+            "criterios": [],
+            "elementos": [],
+            "tiposUnidos": True,
+            "categoria": "",
+            "soShiny": self.soShiny,
+            "soP5": False,
+            "soMega": False,
+            "soLendario": False,
+            "soTmElemental": False,
+            "soTmAoe": False,
+            "semOutland": False,
+            "pagina": self.pagina,
+            "especieId": 0,
+        }
+
+
 class MarketMine(ActionSpec):
     name: ClassVar[str] = "market.meus"
     description: ClassVar[str] = "Lê os próprios anúncios no Mercado (só leitura)"

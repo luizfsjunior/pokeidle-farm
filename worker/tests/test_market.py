@@ -282,13 +282,32 @@ async def test_ask_scan_only_priced_stones():
         142: {"item_id": 142, "name": "Water Stone", "category": "stone", "source": "json"},
         900: {"item_id": 900, "name": "Gyaradosite", "category": "stone", "source": "json"},
         5: {"item_id": 5, "name": "Bone", "category": "loot", "source": "json"},
+        7: {"item_id": 7, "name": "Key Fragment", "category": "key-item", "source": "json"},
     }
     r.store.market_prices = [
-        {"taken_at": "t", "item_id": 142, "currency": "orb", "avg": 30, "units": 1000, "days": 7}
+        {"taken_at": "t", "item_id": 142, "currency": "orb", "avg": 30, "units": 1000, "days": 7},
+        {"taken_at": "t", "item_id": 7, "currency": "orb", "avg": 240, "units": 9410, "days": 7},
     ]
     r.plugin.ctx = r.ctx
-    r.plugin.sleep = lambda s: asyncio.sleep(0)
+    r.plugin.cfg = r.ctx.config
+
+    async def advance(seconds: float) -> None:
+        r.clock[0] += seconds
+
+    r.plugin.sleep = advance
     await r.plugin._scan_asks()
     assert [p for p in r.sent if p["t"] == "market.item"] == [
-        {"t": "market.item", "itemId": 142, "moeda": "orb"}
+        {"t": "market.item", "itemId": 7, "moeda": "orb"},
+        {"t": "market.item", "itemId": 142, "moeda": "orb"},
     ]
+    # a varredura do histórico global e dos pokémon roda na primeira vez
+    hist = [p for p in r.sent if p["t"] == "market.historicoGlobal"]
+    assert len(hist) == 10 and hist[0] == {
+        "t": "market.historicoGlobal",
+        "pagina": 0,
+        "seq": 1,
+        "tipo": "pokemon",
+        "moeda": "orb",
+    }
+    listar = [p for p in r.sent if p["t"] == "market.listar"]
+    assert len(listar) == 4 and listar[-1]["soShiny"] is True and listar[0]["ordem"] == "caros"

@@ -194,6 +194,14 @@ class MemoryStore:
                 entry["orb_ask_units"] = a.get("total_units")
         return out
 
+    async def item_ids_by_name(self, names: list[str]) -> dict[int, str]:
+        wanted, out = set(names), {}
+        for k in sorted(getattr(self, "game_items", {})):
+            n = self.game_items[k]["name"]
+            if n in wanted and n not in out.values():
+                out[k] = n
+        return out
+
     async def stone_items(self) -> dict[int, str]:
         return {
             k: v["name"]

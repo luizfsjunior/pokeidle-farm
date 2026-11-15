@@ -134,6 +134,10 @@ class Store(Protocol):
         orb_min_ask, orb_ask_units}} (o menor anúncio aberto das últimas 6 h, se houver)."""
         ...
 
+    async def item_ids_by_name(self, names: list[str]) -> dict[int, str]:
+        """Itens do catálogo com esses nomes: {item_id: nome} (o menor id de cada nome)."""
+        ...
+
     async def stone_items(self) -> dict[int, str]:
         """Pedras do catálogo de itens: {item_id: nome}."""
         ...

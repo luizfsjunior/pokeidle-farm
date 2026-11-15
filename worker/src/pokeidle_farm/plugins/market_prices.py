@@ -18,7 +18,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..actions import ActionBlocked, MarketAverages, MarketItemRequest
+from ..actions import (
+    ActionBlocked,
+    ActionSpec,
+    MarketAverages,
+    MarketHistoryGlobal,
+    MarketItemRequest,
+    MarketListPokemon,
+)
 from ..events import Event
 from .base import Plugin, PluginContext
 
@@ -27,6 +34,8 @@ class MarketPricesConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     interval_min: float = Field(60.0, ge=5)
+    survey_every_h: float = Field(6.0, ge=1)  # varredura do histórico global e dos pokémon
+    survey_pages: int = Field(5, ge=0, le=50)
     retry_s: float = Field(60.0, gt=0)  # depois de uma recusa que não é de rate limit
 
 
@@ -43,12 +52,15 @@ class MarketPricesPlugin(Plugin):
     def __init__(self) -> None:
         self.now = lambda: datetime.now(UTC)
         self.sleep = asyncio.sleep  # trocado nos testes
+        self._scan: asyncio.Task[None] | None = None
+        self._last_survey: datetime | None = None
 
     async def start(self, ctx: PluginContext) -> None:
         await super().start(ctx)
         self.cfg: MarketPricesConfig = ctx.config  # type: ignore[assignment]
         self._task: asyncio.Task[None] | None = None
         self._scan: asyncio.Task[None] | None = None
+        self._last_survey: datetime | None = None
         cls = type(self)
         if cls._owner not in (None, ctx.account_id):
             self.active = False
@@ -110,8 +122,17 @@ class MarketPricesPlugin(Plugin):
         except Exception as exc:
             self.ctx.log.warning("market_prices: não consegui ler as pedras (%s)", exc)
             stones, priced = {}, {}
-        # a categoria "stone" tem ~200 itens (mega stones etc.); só as que negociam em gemas
+        # a categoria "stone" tem ~200 itens (mega stones etc.); só as que negociam em gemas.
+        # Além delas, todos os outros itens com preço em gemas (fragmentos, tickets, casas...)
+        by_name = (
+            {n: i for i, n in (await self.ctx.store.item_ids_by_name(list(priced))).items()}
+            if priced
+            else {}
+        )
         stones = {i: n for i, n in stones.items() if (priced.get(n) or {}).get("orb") is not None}
+        for name, p in priced.items():
+            if p.get("orb") is not None and name in by_name:
+                stones.setdefault(by_name[name], name)
         for n, item_id in enumerate(sorted(stones)):
             if n:
                 await self.sleep(MarketItemRequest.min_interval_s + 1)
@@ -124,6 +145,35 @@ class MarketPricesPlugin(Plugin):
         if stones:
             await self.sleep(5)  # a última resposta chegar
         await self._potential()
+        if self._survey_due():
+            await self._survey()
+
+    def _survey_due(self) -> bool:
+        last = self._last_survey
+        return last is None or (self.now() - last).total_seconds() >= self.cfg.survey_every_h * 3600
+
+    async def _survey(self) -> None:
+        """Histórico global de vendas (pokémon e itens, em gemas) e os pokémon anunciados mais caros.
+
+        As respostas viram `market.reply` (gravadas com o raw) para a análise do que dá dinheiro.
+        """
+        self._last_survey = self.now()
+        actions: list[ActionSpec] = []
+        for tipo in ("pokemon", "item"):
+            for page in range(self.cfg.survey_pages):
+                actions.append(
+                    MarketHistoryGlobal(pagina=page, tipo=tipo, moeda="orb", seq=page + 1)
+                )
+        for page in range(min(3, self.cfg.survey_pages)):
+            actions.append(MarketListPokemon(ordem="caros", pagina=page))
+        actions.append(MarketListPokemon(ordem="caros", soShiny=True))
+        for n, action in enumerate(actions):
+            if n:
+                await self.sleep(type(action).min_interval_s + 1)
+            try:
+                await self.ctx.actions.submit(action, source=self.name)
+            except ActionBlocked:
+                continue
 
     async def _on_asks(self, event: Event) -> None:
         if event.data.get("aba") != "item":

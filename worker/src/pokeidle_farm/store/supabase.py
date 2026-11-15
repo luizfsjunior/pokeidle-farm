@@ -232,6 +232,16 @@ class SupabaseStore:
                 entry["orb_ask_units"] = a.get("total_units")
         return out
 
+    async def item_ids_by_name(self, names: list[str]) -> dict[int, str]:
+        if not names:
+            return {}
+        res = await self._db.table("game_items").select("item_id,name").in_("name", names).execute()
+        out: dict[int, str] = {}
+        for r in sorted(res.data or [], key=lambda r: r["item_id"]):
+            if r["name"] not in out.values():
+                out[r["item_id"]] = r["name"]
+        return out
+
     async def stone_items(self) -> dict[int, str]:
         res = await (
             self._db.table("game_items").select("item_id,name").eq("category", "stone").execute()
