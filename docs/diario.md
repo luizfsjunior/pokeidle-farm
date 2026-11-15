@@ -73,6 +73,8 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   anúncios abertos de Water Stone (4.607 unidades) estão todos a **2 gemas**, o mínimo do Mercado; a "média de 7 dias"
   do `market.medias` (~30) não é o preço de venda de hoje. As estimativas de gemas/h e US$/mês do foco gemas e do
   `/compensa` estão infladas e precisam usar o menor anúncio e a fila de cada pedra.
+- **Todas as pedras estão a 2 gemas** (primeira leitura completa, 22:07 UTC): 17 pedras, filas de centenas a 45 mil
+  unidades, inclusive a Thunder (média 145). O `seller` em ensaio guarda tudo (piso de 85% da média).
 - **Preço real das pedras e venda em ensaio** ([fase-9-venda-de-pedras.md](design/fase-9-venda-de-pedras.md)):
   `market_asks` de hora em hora, valor em gemas = o menor entre a média e o menor anúncio (modelo, métricas recalculadas
   e painéis), e o `seller` completo (guarda 5, alvo 1 abaixo do menor anúncio, piso de 85% da média) em `dry_run`.

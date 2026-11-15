@@ -32,6 +32,26 @@ Por isso, antes da venda:
    o foco gemas (`StonePrice.sell`), para a métrica `drops_value_orb` (recalculada desde 12/11), para o `/compensa`,
    para `/hunts`, `/mercado` e o card de gemas.
 
+## Primeira leitura de todas as pedras (15/11, 22:07 UTC)
+
+**Todas as 17 pedras que negociam em gemas estavam com o menor anúncio a 2 gemas**, com filas de milhares de unidades
+(a resposta do `market.item` traz no máximo 60 anúncios, então a fila real pode ser maior):
+
+| Pedra | Média 7 dias | Vendidas/semana | Fila a 2 gemas |
+|---|---|---|---|
+| Thunder | 145 | 144 | 3.696 |
+| Sun | 65 | 439 | 114 |
+| Ice | 64 | 741 | 5.073 |
+| Enigma | 63 | 516 | 16.725 |
+| Heart | 39 | 344 | 6.500 |
+| Water, Ancient | 30 | ~1.000 | 4.607, 5.376 |
+| Punch, Darkness, Rock, Venom | 20–27 | 563–1.621 | 306 a 15.297 |
+| Fire, Feather, Earth, Cocoon, Metal, Leaf | 8–18 | 2.522–9.157 | 7.180 a 45.321 |
+
+Consequência: com o piso de 85% da média, o `seller` guarda tudo. Vender a 2 gemas rende 1 gema líquida por pedra
+(US$ 0,009), atrás de semanas de fila. O foco gemas continua escolhendo a hunt com mais pedras, mas o valor absoluto é
+pequeno (da ordem de US$ 20–40 por mês por conta, se tudo vendesse a 2).
+
 ## Ciclo do `seller` (a cada 30 min)
 
 1. Lê os próprios anúncios (`market.meus`).
