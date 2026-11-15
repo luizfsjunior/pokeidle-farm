@@ -208,3 +208,71 @@ async def test_session_reconnect_reconnects_quickly(fake_game, make_session):
     await wait_until(lambda: game.connections == 2 and session.state is State.READY, timeout=4)
     session.stop()
     await task
+
+
+# --- focus.set (docs/design/fase-3b-rank-ligado.md, casos 43 a 45) ----------------------
+
+
+async def test_focus_set_rank_writes_both_plugins(rig):
+    acc = farm(rig.store, "farm1")
+    items = [{"id": 200, "min": 50, "target": 100}]
+    rig.store.configs[acc.id] = {
+        "restock": (True, {"items": items, "focus": "capture"}),
+        "rank": (True, {"queue_preview": 5}),
+    }
+    await rig.boot()
+    c = await rig.cmd(
+        acc,
+        "focus.set",
+        focus="rank",
+        rank={"rank_balls": [2, 1], "fallback_focus": "capture", "fallback_hunt": "magikarp"},
+    )
+    assert c["status"] == "done", c["error"]
+    assert c["result"] == {"focus": "rank", "applied": "agora"}
+    assert rig.store.configs[acc.id]["restock"] == (
+        True,
+        {"items": items, "focus": "rank", "fallback_focus": "capture"},
+    )
+    assert rig.store.configs[acc.id]["rank"] == (
+        True,
+        {"queue_preview": 5, "rank_balls": [2, 1], "fallback_hunt": "magikarp", "dry_run": False},
+    )
+
+
+async def test_focus_set_other_focus_turns_rank_off(rig):
+    acc = farm(rig.store, "farm1")
+    acc2 = farm(rig.store, "farm2")
+    rig.store.configs[acc.id] = {
+        "restock": (True, {"focus": "rank", "fallback_focus": "capture"}),
+        "rank": (True, {"dry_run": False, "rank_balls": [2]}),
+    }
+    await rig.boot()
+    c = await rig.cmd(acc, "focus.set", focus="gold_xp_drop")
+    assert c["status"] == "done", c["error"]
+    assert rig.store.configs[acc.id]["restock"] == (
+        True,
+        {"focus": "gold_xp_drop", "fallback_focus": "capture"},
+    )
+    assert rig.store.configs[acc.id]["rank"] == (False, {"dry_run": False, "rank_balls": [2]})
+
+    # sem rank configurado: não cria a linha
+    c = await rig.cmd(acc2, "focus.set", focus="capture")
+    assert c["status"] == "done", c["error"]
+    assert rig.store.configs[acc2.id] == {"restock": (True, {"focus": "capture"})}
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"focus": "xyz"},
+        {"focus": "rank", "rank": {"rank_balls": []}},
+        {"focus": "rank", "rank": {"foo": 1}},
+    ],
+)
+async def test_focus_set_invalid_writes_nothing(rig, params):
+    acc = farm(rig.store, "farm1")
+    rig.store.configs[acc.id] = {"restock": (True, {"focus": "capture"})}
+    await rig.boot()
+    c = await rig.cmd(acc, "focus.set", **params)
+    assert c["status"] == "failed"
+    assert rig.store.configs[acc.id] == {"restock": (True, {"focus": "capture"})}

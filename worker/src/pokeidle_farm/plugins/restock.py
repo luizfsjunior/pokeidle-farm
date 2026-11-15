@@ -9,6 +9,9 @@ Ver docs/design/fase-3-reposicao.md. Resumo:
 - o teto por hora sobrevive a reinícios: ao subir, lê os `restock.bought` da última hora.
 - compra que passa do prazo de confirmação continua sendo observada por `late_confirm_s`;
   se o estoque subir depois, o gasto entra no teto (e o mesmo item não é recomprado nesse meio-tempo).
+- foco "rank" (fase 3b, docs/design/fase-3b-rank-ligado.md): enquanto o plugin rank tem alvo
+  (`rank.mode` "active"), não manda `auto.set` e só repõe a bola que ele escolheu; quando a
+  fila acaba (`rank.mode` "fallback"), age como o `fallback_focus`.
 """
 
 from __future__ import annotations
@@ -38,7 +41,8 @@ class ItemRule(BaseModel):
 class RestockConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    focus: Literal["capture", "gold_xp_drop"] = "capture"
+    focus: Literal["capture", "gold_xp_drop", "rank"] = "gold_xp_drop"
+    fallback_focus: Literal["gold_xp_drop", "capture"] = "gold_xp_drop"  # só com focus "rank"
     items: list[ItemRule] = Field(default_factory=list)  # poções e revives
     ball_min: int = 100
     ball_target: int = 1_000
@@ -65,7 +69,13 @@ class RestockPlugin(Plugin):
     name: ClassVar[str] = "restock"
     description: ClassVar[str] = "Escolhe a bola e repõe bolas, poções e revives"
     config_model: ClassVar[type[BaseModel]] = RestockConfig
-    subscribes: ClassVar[set[str]] = {"kill", "item.consumed", "state.snapshot", "state.patch"}
+    subscribes: ClassVar[set[str]] = {
+        "kill",
+        "item.consumed",
+        "state.snapshot",
+        "state.patch",
+        "rank.mode",
+    }
 
     def __init__(self) -> None:
         self.clock = time.monotonic
@@ -82,7 +92,36 @@ class RestockPlugin(Plugin):
         self._auto_sent: dict[str, Any] | None = None
         self._auto_sent_at = 0.0
         self._late: list[_Pending] = []  # passaram do prazo, mas ainda podem confirmar
+        # foco rank: modo e bola do último rank.mode (antes do primeiro: ativo, sem bola)
+        self._rank_mode = "active"
+        self._rank_ball: int | None = None
         await self._load_spent()
+        if self.cfg.focus == "rank":
+            await self._load_rank_mode()
+
+    async def _load_rank_mode(self) -> None:
+        """Último rank.mode gravado, para não esperar o rank replanejar."""
+        try:
+            rows = await self.ctx.store.recent_events(
+                self.ctx.account_id, "rank.mode", datetime.now(UTC) - timedelta(days=7)
+            )
+        except Exception as exc:
+            self.ctx.log.warning("restock: não consegui ler o último rank.mode (%s)", exc)
+            return
+        if rows:
+            self._on_rank_mode(rows[-1][1])
+
+    def _on_rank_mode(self, d: dict[str, Any]) -> None:
+        if d.get("mode") in ("active", "fallback"):
+            self._rank_mode = d["mode"]
+        ball = d.get("ball_id")
+        self._rank_ball = ball if isinstance(ball, int) else None
+
+    def _focus(self) -> str:
+        """Foco efetivo: com focus "rank", "rank" se o rank tem alvo, senão o fallback."""
+        if self.cfg.focus != "rank":
+            return self.cfg.focus
+        return "rank" if self._rank_mode == "active" else self.cfg.fallback_focus
 
     async def _load_spent(self) -> None:
         """Recupera o gasto da última hora, para o teto valer mesmo depois de reiniciar."""
@@ -109,6 +148,8 @@ class RestockPlugin(Plugin):
             self._window.append([(d.get("gold") or 0) + (d.get("gold_autosell") or 0), 0.0])
         elif event.type == "item.consumed" and self._window:
             self._window[-1][1] += (d.get("qty") or 0) * (d.get("unit_price") or 0)
+        elif event.type == "rank.mode":
+            self._on_rank_mode(d)
         await self._check_pending()
         await self._sync_automation()
         await self._restock()
@@ -126,10 +167,11 @@ class RestockPlugin(Plugin):
 
     def _desired_automation(self) -> dict[str, Any] | None:
         auto = self.ctx.state.automation
-        if auto is None:
-            return None
+        focus = self._focus()
+        if auto is None or focus == "rank":
+            return None  # com o rank ativo, as flags de bola são dele
         off = {**auto, "autoBallSemParar": False, "autoBallAteCapturar": False}
-        if self.cfg.focus == "gold_xp_drop":
+        if focus == "gold_xp_drop":
             return off
         ready, ball = self._ball_choice()
         if not ready:
@@ -213,10 +255,14 @@ class RestockPlugin(Plugin):
             for r in cfg.items
             if r.id in ITEM_PRICES
         ]
-        if cfg.focus == "capture":
+        focus = self._focus()
+        if focus == "capture":
             ready, ball = self._ball_choice()
             if ready and ball is not None:
                 rules.append(("ball", ball, cfg.ball_min, cfg.ball_target, BALLS[ball].price))
+        elif focus == "rank" and self._rank_ball in BALLS:
+            ball = self._rank_ball
+            rules.append(("ball", ball, cfg.ball_min, cfg.ball_target, BALLS[ball].price))
         return rules
 
     async def _restock(self) -> None:

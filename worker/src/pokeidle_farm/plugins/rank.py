@@ -1,12 +1,17 @@
-"""Plugin rank: escolhe a hunt do foco "rank semanal" (fase 3b, passo 4).
+"""Plugin rank: escolhe a hunt do foco "rank semanal" (fase 3b, passos 4 e 5).
 
-Ver docs/design/fase-3b-plugin-rank.md. Resumo:
+Ver docs/design/fase-3b-plugin-rank.md (ensaio) e docs/design/fase-3b-rank-ligado.md
+(agindo de verdade). Resumo:
 - monta a fila de hunts por tempo até a captura (`rank_queue.plan_queue`) com as
   espécies que já pontuaram na semana, o ritmo medido por hunt e a chance observada;
 - grava um `rank.plan` a cada decisão e replaneja na captura, na virada da semana, ao
   subir de nível, ao trocar de bola e quando estoura o tempo na hunt alvo;
 - com `dry_run` (padrão) não manda `hunt.select` nem `auto.set`: grava `rank.would`.
-  O `topcatch.pedir` (só leitura) vai sempre, respeitando o `ACTION_MODE`.
+  O `topcatch.pedir` (só leitura) vai sempre, respeitando o `ACTION_MODE`;
+- sem `dry_run`, e só com o `restock` em `focus: "rank"` (senão continua gravando
+  `rank.would`): manda o `hunt.select` quando a trava de combate e o `trocaLivreEm`
+  deixam, espera o `hunt.changed`, tenta de novo se falhar, mantém o Lançar até Capturar
+  ligado enquanto há alvo e avisa o `restock` com `rank.mode` (active/fallback).
 """
 
 from __future__ import annotations
@@ -26,6 +31,7 @@ from .base import Plugin, PluginContext
 
 BRT = timedelta(hours=-3)  # Brasília, sem horário de verão
 HYSTERESIS = 0.10  # só troca de hunt se a nova for pelo menos 10% mais rápida (D-C)
+SWITCH_FAILS_TO_SKIP = 3  # falhas seguidas de hunt.select até pular a espécie
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
@@ -54,11 +60,18 @@ class RankConfig(BaseModel):
     min_active_minutes: float = Field(30.0, ge=0)
     default_kills_per_hour: float = Field(300.0, gt=0)
     queue_preview: int = Field(10, ge=0)
+    # passo 5 (docs/design/fase-3b-rank-ligado.md, seção 8)
+    switch_margin_s: float = Field(0.5, ge=0)
+    switch_confirm_s: float = Field(15.0, gt=0)
+    switch_retry_s: float = Field(60.0, ge=0)
+    max_switches_per_hour: int = Field(10, ge=1)
+    retry_after_s: float = Field(60.0, ge=0)
+    fallback_hunt: str | None = None
 
 
 class RankPlugin(Plugin):
     name: ClassVar[str] = "rank"
-    description: ClassVar[str] = "Foco rank semanal: fila de hunts até a captura (ensaio)"
+    description: ClassVar[str] = "Foco rank semanal: fila de hunts até a captura"
     config_model: ClassVar[type[BaseModel]] = RankConfig
     subscribes: ClassVar[set[str]] = {
         "kill",
@@ -70,6 +83,7 @@ class RankPlugin(Plugin):
         "state.snapshot",
         "state.patch",
         "session.connected",
+        "game.error",
     }
 
     def __init__(self) -> None:
@@ -98,7 +112,33 @@ class RankPlugin(Plugin):
         self._target_since: datetime | None = None
         self._sent: dict[str, dict[str, Any]] = {}
         self._catch_until_off_at: str | None = None
+        # passo 5: troca de hunt de verdade
+        self._acting = False  # sem dry_run e com o restock em focus "rank"
+        self._want_slug: str | None = None  # hunt para onde a conta deve ir
+        self._pending: tuple[str, datetime] | None = None  # hunt.select sem confirmação
+        self._fails = 0  # falhas seguidas de hunt.select para o alvo atual
+        self._retry_at: datetime | None = None
+        self._switches: deque[datetime] = deque()  # hunt.select da última hora
+        self._capped = False
+        self._mode: dict[str, Any] | None = None  # último rank.mode publicado
+        self._auto_sent: dict[str, Any] | None = None
+        self._auto_sent_at: datetime | None = None
+        if not self.cfg.dry_run:
+            await self._check_restock()
         await self._try_boot()
+
+    async def _check_restock(self) -> None:
+        """D-F: só age com o restock em focus "rank" (senão os dois brigam pelo auto.set)."""
+        try:
+            configs = await self.ctx.store.plugin_configs(self.ctx.account_id)
+        except Exception as exc:
+            self.ctx.log.warning("rank: não consegui ler a config do restock (%s)", exc)
+            configs = {}
+        enabled, cfg = configs.get("restock", (False, {}))
+        if enabled and (cfg or {}).get("focus") == "rank":
+            self._acting = True
+        else:
+            self._degraded.append("restock_focus")
 
     async def _try_boot(self) -> None:
         cat = self.ctx.catalog
@@ -185,6 +225,9 @@ class RankPlugin(Plugin):
         t = event.type
         if t == "session.connected":
             await self._request_week()
+        elif t == "game.error":
+            if self._pending is not None:
+                await self._switch_failed(str(d.get("key") or "erro"))
         elif t == "kill":
             await self._on_kill(d)
         elif t == "item.consumed" and self._window:
@@ -197,7 +240,10 @@ class RankPlugin(Plugin):
             self._catch_until_off_at = self.now().isoformat()
         elif t == "hunt.changed":
             self._current = d.get("slug") or self._current
-            if not self.cfg.dry_run and self._target and self._current == self._target.slug:
+            if self._pending is not None and self._current == self._pending[0]:
+                self._pending = None
+                self._fails = 0
+            if self._acting and self._target and self._current == self._target.slug:
                 self._target_since = self.now()
         elif t in ("state.snapshot", "state.patch"):
             if self.ctx.state.hunt_slug and t == "state.snapshot":
@@ -206,6 +252,8 @@ class RankPlugin(Plugin):
             if level > self._level:
                 self._level = level
                 await self._replan("level_up")
+        if self._acting and t in ("kill", "state.patch", "state.snapshot", "hunt.changed"):
+            await self._pump()
 
     async def _on_kill(self, d: dict[str, Any]) -> None:
         if week_start(self.now()) > self._week:
@@ -319,21 +367,27 @@ class RankPlugin(Plugin):
         prev = self._target
         if target is None or prev is None or target.slug != prev.slug:
             self._sent.clear()  # alvo novo: as ações podem ser repetidas
+            self._fails = 0
+            self._retry_at = None
             if target is None:
                 self._target_since = None
-            elif self.cfg.dry_run or self._current == target.slug:
+            elif not self._acting or self._current == target.slug:
                 self._target_since = self.now()
             else:
                 self._target_since = None
         self._target = target
+        await self.ctx.actions.note("rank.plan", self._plan_data(reason))
+        await self._act(reason)
 
+    def _plan_data(self, reason: str) -> dict[str, Any]:
+        target, queue = self._target, self._queue
         data: dict[str, Any] = {
             "reason": reason,
             "dry_run": self.cfg.dry_run,
             "week_start": self._week,
             "scored": len(self._scored),
             "trainer_level": self._level,
-            "ball_id": ball,
+            "ball_id": self._ball,
             "current_hunt": self._current,
             "target": asdict(target) if target else None,
             "queue_len": len(queue),
@@ -343,42 +397,142 @@ class RankPlugin(Plugin):
         }
         if self._catch_until_off_at:
             data["catch_until_off_at"] = self._catch_until_off_at
-        await self.ctx.actions.note("rank.plan", data)
-        await self._act(reason)
+        return data
+
+    def _desired_automation(self) -> dict[str, Any] | None:
+        auto = self.ctx.state.automation
+        if auto is None or self._ball is None:
+            return None
+        ids = [b for b in auto.get("ballIds") or [] if b != self._ball]
+        return {
+            **auto,
+            "ballIds": [self._ball, *ids],
+            "autoBallSemParar": False,
+            "autoBallAteCapturar": True,
+        }
 
     async def _act(self, reason: str) -> None:
         target = self._target
+        if self._acting:
+            await self._set_mode(target)
+            self._want_slug = target.slug if target else self.cfg.fallback_hunt
+            await self._pump()
+            return
         if target is None:
             return
         if self._current != target.slug:
             await self._do(HuntSelect(slug=target.slug), reason)
-        auto = self.ctx.state.automation
-        if auto is not None and self._ball is not None:
-            ids = [b for b in auto.get("ballIds") or [] if b != self._ball]
-            want = {
-                **auto,
-                "ballIds": [self._ball, *ids],
-                "autoBallSemParar": False,
-                "autoBallAteCapturar": True,
-            }
-            if want != auto:
-                await self._do(AutoSet(automation=want), reason)
+        want = self._desired_automation()
+        if want is not None and want != self.ctx.state.automation:
+            await self._do(AutoSet(automation=want), reason)
 
     async def _do(self, action: ActionSpec, reason: str) -> None:
+        """Ensaio (dry_run, ou o restock em outro foco): grava o que faria."""
         inp = action.model_dump(mode="json")
         if self._sent.get(action.name) == inp:
             return
         self._sent[action.name] = inp
-        if self.cfg.dry_run:
-            await self.ctx.actions.note(
-                "rank.would", {"action": action.name, "input": inp, "reason": reason}
-            )
+        await self.ctx.actions.note(
+            "rank.would", {"action": action.name, "input": inp, "reason": reason}
+        )
+
+    # --- passo 5: agindo de verdade -----------------------------------------
+
+    async def _set_mode(self, target: QueueItem | None) -> None:
+        """Avisa o restock (focus "rank") de quem cuida das flags de bola."""
+        if target is not None:
+            mode: dict[str, Any] = {"mode": "active", "ball_id": self._ball}
+        else:
+            mode = {"mode": "fallback", "reason": "queue_empty"}
+        if mode != self._mode:
+            self._mode = mode
+            await self.ctx.actions.note("rank.mode", mode)
+
+    async def _pump(self) -> None:
+        """Confere a troca pendente, manda o hunt.select quando pode e religa o auto.set."""
+        now = self.now()
+        if self._pending is not None:
+            slug, sent_at = self._pending
+            if self._current == slug:
+                self._pending = None
+                self._fails = 0
+            elif now - sent_at > timedelta(seconds=self.cfg.switch_confirm_s):
+                await self._switch_failed("timeout")
+                return
+        if self._pending is None:
+            await self._maybe_switch(now)
+        if self._target is not None:
+            await self._sync_automation(now)
+
+    async def _maybe_switch(self, now: datetime) -> None:
+        slug = self._want_slug
+        if slug is None or slug == self._current:
             return
+        if self._retry_at is not None and now < self._retry_at:
+            return
+        hour_ago = now - timedelta(hours=1)
+        while self._switches and self._switches[0] <= hour_ago:
+            self._switches.popleft()
+        if len(self._switches) >= self.cfg.max_switches_per_hour:
+            if not self._capped:
+                self._capped = True
+                await self.ctx.actions.note("rank.plan", self._plan_data("switch_cap"))
+            return
+        st = self.ctx.state
+        locks = [t for t in (st.combat_free_at, st.switch_free_at) if t is not None]
+        if locks and st.server_now(now) < max(locks) + timedelta(seconds=self.cfg.switch_margin_s):
+            return  # trava de combate ou trocaLivreEm: confere de novo no próximo evento
         try:
-            await self.ctx.actions.submit(action, source=self.name)
+            await self.ctx.actions.submit(HuntSelect(slug=slug), source=self.name)
         except ActionBlocked as exc:
-            if exc.reason.startswith(("rate_limit", "not_connected")):
-                self._sent.pop(action.name, None)  # tenta de novo no próximo plano
+            wait = exc.wait_s if exc.wait_s is not None else self.cfg.switch_retry_s
+            self._retry_at = now + timedelta(seconds=wait)
+            return
+        self._pending = (slug, now)
+        self._switches.append(now)
+        self._capped = False
+
+    async def _switch_failed(self, reason: str) -> None:
+        assert self._pending is not None
+        slug = self._pending[0]
+        self._pending = None
+        self._retry_at = self.now() + timedelta(seconds=self.cfg.switch_retry_s)
+        await self.ctx.actions.note(
+            "rank.failed", {"action": "hunt.select", "slug": slug, "reason": reason}
+        )
+        tgt = self._target
+        if tgt is None or slug != tgt.slug:
+            return
+        self._fails += 1
+        if self._fails >= SWITCH_FAILS_TO_SKIP:
+            self._skipped = [s for s in self._skipped if s != tgt.species_id]
+            self._skipped.append(tgt.species_id)
+            self._target = None
+            await self._replan("switch_failed")
+
+    async def _sync_automation(self, now: datetime) -> None:
+        """D-J: com alvo, o Lançar até Capturar fica ligado (o servidor desliga na captura)."""
+        want = self._desired_automation()
+        if want is None:
+            return
+        if want == self.ctx.state.automation:
+            self._auto_sent = self._auto_sent_at = None  # refletiu: a próxima queda religa já
+            return
+        if (
+            want == self._auto_sent
+            and self._auto_sent_at is not None
+            and now < self._auto_sent_at + timedelta(seconds=self.cfg.retry_after_s)
+        ):
+            return  # ainda esperando o estado refletir o último auto.set
+        try:
+            await self.ctx.actions.submit(AutoSet(automation=want), source=self.name)
+        except ActionBlocked as exc:
+            # rate limit: tenta de novo quando ele deixar; outro motivo: depois de retry_after_s
+            wait = exc.wait_s if exc.wait_s is not None else self.cfg.retry_after_s
+            self._auto_sent = want
+            self._auto_sent_at = now + timedelta(seconds=wait - self.cfg.retry_after_s)
+            return
+        self._auto_sent, self._auto_sent_at = want, now
 
 
 def _species_keys(species: Any) -> set[int]:

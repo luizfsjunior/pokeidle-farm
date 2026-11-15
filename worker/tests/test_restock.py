@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -31,6 +32,7 @@ class Harness:
     """Plugin com gateway real (modo e relógios controlados) e estado editável."""
 
     def __init__(self, mode: ActionMode = ActionMode.ENABLED, **cfg: Any) -> None:
+        cfg.setdefault("focus", "capture")  # o padrão do app é gold_xp_drop (caso 47)
         self.now = 0.0
         self.sent: list[dict[str, Any]] = []
         self.recorded: list[tuple[str, dict[str, Any]]] = []
@@ -354,3 +356,60 @@ async def test_store_failure_on_start_does_not_break_plugin():
     await h.start()
     await h.send_ev(ev("state.patch"))
     assert len(h.wires("shop.buy")) == 1
+
+
+# --- foco rank (docs/design/fase-3b-rank-ligado.md, casos 39 a 42 e 47) -----------------
+
+
+def test_default_focus_is_gold_xp_drop():
+    assert RestockConfig().focus == "gold_xp_drop"
+    assert RestockConfig().fallback_focus == "gold_xp_drop"
+
+
+async def test_rank_active_buys_rank_ball_and_never_sets_automation():
+    h = await Harness(focus="rank").start()
+    await h.kills(60, gold=500)
+    assert h.wires("auto.set") == []
+    assert h.wires("shop.buy") == []
+    await h.send_ev(ev("rank.mode", mode="active", ball_id=2))
+    assert h.wires("shop.buy") == [{"t": "shop.buy", "kind": "ball", "id": 2, "qty": 1_000}]
+    await h.kills(60, gold=500)
+    assert h.wires("auto.set") == []
+
+
+async def test_rank_mode_is_read_from_store_on_start():
+    h = Harness(focus="rank")
+    h.ctx.store.events.append(
+        {
+            "account_id": h.ctx.account_id,
+            "type": "rank.mode",
+            "received_at": datetime.now(UTC) - timedelta(hours=1),
+            "data": {"mode": "active", "ball_id": 2},
+        }
+    )
+    await h.start()
+    await h.send_ev(ev("state.patch"))
+    assert h.wires("shop.buy") == [{"t": "shop.buy", "kind": "ball", "id": 2, "qty": 1_000}]
+
+
+async def test_rank_fallback_gold_xp_drop():
+    h = await Harness(focus="rank").start()
+    await h.send_ev(ev("rank.mode", mode="fallback", reason="queue_empty"))
+    (a,) = h.wires("auto.set")
+    assert a["autoBallSemParar"] is False and a["autoBallAteCapturar"] is False
+    await h.kills(60, gold=500)
+    assert h.wires("shop.buy") == []
+
+
+async def test_rank_fallback_capture_then_back_to_active():
+    h = await Harness(focus="rank", fallback_focus="capture").start()
+    await h.send_ev(ev("rank.mode", mode="fallback", reason="queue_empty"))
+    await h.kills(50, gold=200)
+    (a,) = h.wires("auto.set")
+    assert a["autoBallSemParar"] is True and a["ballIds"][0] == 4
+    assert h.wires("shop.buy")[0]["id"] == 4
+    await h.send_ev(ev("rank.mode", mode="active", ball_id=2))
+    h.state.automation = {**AUTOMATION, "autoBallAteCapturar": True, "autoBallSemParar": False}
+    h.now += 120
+    await h.kills(60, gold=200)
+    assert len(h.wires("auto.set")) == 1

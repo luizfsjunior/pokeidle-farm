@@ -242,3 +242,34 @@ async def test_welcome_without_hunts_saves_nothing(fake_game, make_session, stor
     assert store.game_catalog == {}
     session.stop()
     await task
+
+
+# --- AccountStateView: trava e relógio do servidor (fase-3b-rank-ligado.md, caso 46) ---
+
+
+def test_state_view_locks_and_server_clock():
+    from datetime import UTC, datetime, timedelta
+    from uuid import uuid4
+
+    from pokeidle_farm.events import Event
+    from pokeidle_farm.plugins.base import AccountStateView
+
+    def event(type_: str, **data: object) -> Event:
+        return Event(account_id=uuid4(), session_id=uuid4(), type=type_, data=data)
+
+    view = AccountStateView()
+    lock = datetime(2026, 11, 15, 15, 0, 3, tzinfo=UTC)
+    view.apply(event("state.patch", centro_livre_em=int(lock.timestamp() * 1000)))
+    assert view.combat_free_at == lock
+    view.apply(event("state.patch", gold=10))  # patch sem a trava não apaga a anterior
+    assert view.combat_free_at == lock
+
+    free = datetime(2026, 11, 15, 15, 0, 10, tzinfo=UTC)
+    view.apply(event("hunt.changed", slug="caterpie", switch_free_at=free.isoformat()))
+    assert view.switch_free_at == free
+    assert view.hunt_slug is None  # a hunt atual vem do tradutor, não daqui
+
+    now = datetime(2026, 11, 15, 15, 0, 0, tzinfo=UTC)
+    assert view.server_now(now) == now
+    view.server_offset = timedelta(seconds=5)
+    assert view.server_now(now) == now + timedelta(seconds=5)

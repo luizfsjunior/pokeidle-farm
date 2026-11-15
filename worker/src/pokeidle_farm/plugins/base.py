@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar, Literal
 from uuid import UUID
 
@@ -41,11 +42,29 @@ class AccountStateView:
     balls: dict[str, int] | None = None
     gold: int | None = None
     automation: dict[str, Any] | None = None
+    # trava de combate (estado.centroLivreEm) e intervalo entre trocas (trocaLivreEm),
+    # no relógio do servidor; a sessão copia o server_offset do tradutor
+    combat_free_at: datetime | None = None
+    switch_free_at: datetime | None = None
+    server_offset: timedelta | None = None  # servidor − local
+
+    def server_now(self, now: datetime | None = None) -> datetime:
+        """Relógio do servidor (o local, se o offset ainda não é conhecido)."""
+        now = now or datetime.now(UTC)
+        return now + self.server_offset if self.server_offset is not None else now
 
     def apply(self, event: Event) -> None:
+        d = event.data
+        if event.type == "hunt.changed":
+            free = _as_datetime(d.get("switch_free_at"))
+            if free is not None:
+                self.switch_free_at = free
+            return
         if event.type not in ("state.snapshot", "state.patch"):
             return
-        d = event.data
+        lock = d.get("centro_livre_em")
+        if isinstance(lock, int | float):
+            self.combat_free_at = datetime.fromtimestamp(lock / 1000, UTC)
         for name in ("level", "hunt_slug", "gold", "automation"):
             if d.get(name) is not None:
                 setattr(self, name, d[name])
@@ -53,6 +72,17 @@ class AccountStateView:
         for name in ("items", "balls"):
             if isinstance(d.get(name), dict):
                 setattr(self, name, {**(getattr(self, name) or {}), **d[name]})
+
+
+def _as_datetime(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
 
 
 @dataclass

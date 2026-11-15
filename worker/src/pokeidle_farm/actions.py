@@ -29,10 +29,11 @@ class ActionMode(StrEnum):
 class ActionBlocked(Exception):
     """A ação foi recusada pelo gateway (modo, rate limit ou trava do jogo)."""
 
-    def __init__(self, action: str, reason: str) -> None:
+    def __init__(self, action: str, reason: str, wait_s: float | None = None) -> None:
         super().__init__(f"{action}: {reason}")
         self.action = action
         self.reason = reason
+        self.wait_s = wait_s  # no rate_limit: quantos segundos faltam
 
 
 class ActionSpec(BaseModel):
@@ -95,7 +96,8 @@ class HuntSelect(ActionSpec):
     name: ClassVar[str] = "hunt.select"
     description: ClassVar[str] = "Troca de hunt (só fora da trava de combate e do trocaLivreEm)"
     result_model: ClassVar[type[BaseModel]] = Ack
-    min_interval_s: ClassVar[float] = 300.0
+    # cobre o trocaLivreEm (+10 s) com folga; o teto por hora fica no plugin rank (D-E)
+    min_interval_s: ClassVar[float] = 20.0
 
     slug: str
 
@@ -148,7 +150,7 @@ class ActionGateway:
         wait = self.limiter.check(key, action.min_interval_s)
         if wait > 0:
             await self._record("action.blocked", {**info, "reason": "rate_limit", "wait_s": wait})
-            raise ActionBlocked(action.name, f"rate_limit ({wait:.1f}s)")
+            raise ActionBlocked(action.name, f"rate_limit ({wait:.1f}s)", wait_s=wait)
 
         if self.send is None:
             await self._record("action.blocked", {**info, "reason": "not_connected"})

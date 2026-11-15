@@ -16,7 +16,7 @@ import time
 from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -192,6 +192,59 @@ class Supervisor:
             applied = await self.live[acc.id].session.restart_plugin(p.plugin)
         return {"enabled": enabled, "applied": "agora" if applied else "na próxima conexão"}
 
+    async def _focus_set(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Foco da conta (captura, ouro-xp-drop ou rank): restock e rank mudam juntos.
+
+        Ver docs/design/fase-3b-rank-ligado.md, seção 7. Valida as duas configs antes de
+        gravar qualquer uma; preserva o resto da config de cada plugin.
+        """
+        try:
+            p = FocusSetParams.model_validate(params)
+        except ValidationError as exc:
+            raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
+        configs = await self.store.plugin_configs(acc.id)
+        rank_fields = dict(p.rank or {})
+        fallback_focus = rank_fields.pop("fallback_focus", None)
+
+        restock_cfg = {**configs.get("restock", (True, {}))[1], "focus": p.focus}
+        if p.focus == "rank" and fallback_focus is not None:
+            restock_cfg["fallback_focus"] = fallback_focus
+        writes: list[tuple[str, bool, dict[str, Any]]] = [("restock", True, restock_cfg)]
+        if p.focus == "rank":
+            rank_cfg = {**configs.get("rank", (False, {}))[1], **rank_fields, "dry_run": False}
+            writes.append(("rank", True, rank_cfg))
+        elif "rank" in configs:
+            writes.append(("rank", False, configs["rank"][1]))
+
+        for name, _, cfg in writes:
+            cls = self.available.get(name)
+            if cls is None:
+                raise CommandError(f"plugin desconhecido: {name}")
+            try:
+                cls.config_model.model_validate(cfg)
+            except ValidationError as exc:
+                first = exc.errors()[0]
+                where = ".".join(str(x) for x in first["loc"]) or "config"
+                raise CommandError(f"config inválida em {name}.{where}: {first['msg']}") from exc
+
+        for name, enabled, cfg in writes:
+            await self.store.set_plugin_config(acc.id, name, enabled, cfg)
+        applied = False
+        if self._is_running(acc.id):
+            session = self.live[acc.id].session
+            applied = True
+            for name, _, _ in writes:  # restock antes: o rank confere o foco dele ao subir
+                applied = await session.restart_plugin(name) and applied
+        return {"focus": p.focus, "applied": "agora" if applied else "na próxima conexão"}
+
+
+class FocusSetParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    focus: Literal["capture", "gold_xp_drop", "rank"]
+    # campos do rank (rank_balls, rank_ball_rule, fallback_hunt...) e o fallback_focus do restock
+    rank: dict[str, Any] | None = None
+
 
 class PluginSetParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -208,6 +261,7 @@ _HANDLERS: dict[str, Handler] = {
     "account.disable": Supervisor._disable,
     "session.reconnect": Supervisor._reconnect,
     "plugin.set": Supervisor._plugin_set,
+    "focus.set": Supervisor._focus_set,
 }
 
 
