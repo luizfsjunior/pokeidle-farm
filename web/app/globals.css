@@ -15,6 +15,7 @@
   --critical: #c23434;
   /* moedas: a cor diz qual é */
   --gold: #c8961e;
+  --gold-line: #9e7410; /* linha de gráfico: o dourado claro não passa 3:1 sobre o cartão */
   --gem: #7652dd;
   --diamond: #2a9cc4;
   --grass-1: #a9d68a;
@@ -39,6 +40,7 @@
     --warning: #e0a531;
     --critical: #e66767;
     --gold: #e6b43c;
+    --gold-line: #e6b43c;
     --gem: #a088f2;
     --diamond: #5cc4e6;
     --grass-1: #3d6b39;
@@ -197,6 +199,76 @@ h3 { font-size: .9rem; font-weight: 600; color: var(--text-secondary); margin: 1
 .pass-track li { height: 10px; border-radius: 2px; background: var(--grid); }
 .pass-track li.done { background: var(--gold); }
 .warn-text { color: var(--warning); font-weight: 600; }
+
+/* --- gráficos de evolução (TrendChart) -------------------------------------------------- */
+
+.trends { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 1.25rem 1.5rem; }
+.trend { margin: 0; display: grid; gap: .25rem; }
+.trend-head { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; font-size: .88rem; color: var(--text-secondary); }
+.trend-value { font-size: 1.05rem; font-weight: 650; color: var(--text-primary); }
+.trend-svg { width: 100%; height: auto; display: block; overflow: visible; touch-action: pan-y; }
+.trend-svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.trend { --series: var(--accent); }
+.trend-gold { --series: var(--gold-line); }
+.trend-gem { --series: var(--gem); }
+.trend-diamond { --series: var(--diamond); }
+.trend-good { --series: var(--good); }
+.trend-line { fill: none; stroke: var(--series); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.trend-dot { fill: var(--series); stroke: var(--surface-1); stroke-width: 2; }
+.trend-axis { stroke: var(--grid); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.trend-cross { stroke: var(--text-muted); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.trend-tick { font-size: 10px; fill: var(--text-muted); }
+.trend-foot { display: flex; justify-content: space-between; gap: .5rem; align-items: start; }
+.trend-foot summary { cursor: pointer; }
+.trend-table { font-size: .8rem; max-height: 12rem; display: block; overflow-y: auto; }
+
+/* --- Pokédex ---------------------------------------------------------------------------- */
+
+.dex { display: grid; gap: 1rem; }
+.dex-summary { display: grid; grid-template-columns: repeat(3, auto) 1fr; gap: .5rem 1.5rem; align-items: end; }
+.dex-progress { height: 8px; border-radius: 4px; background: var(--grid); overflow: hidden; align-self: center; min-width: 120px; }
+.dex-progress > span { display: block; height: 100%; background: var(--good); }
+.dex-controls { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; position: sticky; top: 0; z-index: 5;
+  background: var(--surface-0); padding: .5rem 0; }
+.dex-controls input, .dex-controls select { font: inherit; padding: .4rem .6rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-1); color: var(--text-primary); }
+.dex-controls input { min-width: 12rem; }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface-1); }
+.segmented button { font: inherit; font-size: .85rem; border: 0; background: none; color: var(--text-secondary); padding: .4rem .7rem; cursor: pointer; }
+.segmented button + button { border-left: 1px solid var(--border); }
+.segmented button.on { background: var(--text-primary); color: var(--surface-1); }
+.dex-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1rem; align-items: start; }
+.dex-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: .4rem; }
+.dex-grid > li { content-visibility: auto; contain-intrinsic-size: 92px 104px; }
+.dex-cell { width: 100%; display: grid; justify-items: center; gap: .05rem; padding: .4rem .25rem .45rem; border-radius: var(--radius);
+  border: 1px solid transparent; background: var(--surface-1); font: inherit; color: inherit; cursor: pointer; position: relative; }
+.dex-cell:hover { border-color: var(--border); }
+.dex-cell.is-selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.dex-num { font-size: .68rem; color: var(--text-muted); }
+.dex-name { font-size: .78rem; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dex-count { position: absolute; top: .3rem; right: .4rem; font-size: .68rem; color: var(--good); font-weight: 650; }
+.dex-seen .sprite { filter: grayscale(1) opacity(.55); }
+.dex-missing .sprite { filter: brightness(0) opacity(.18); }
+.dex-missing .dex-name { color: var(--text-muted); }
+.dex-detail { position: sticky; top: 3.5rem; }
+.dex-stage { justify-self: center; display: grid; padding-top: .5rem; }
+.dex-close { display: none; position: absolute; top: .4rem; right: .6rem; border: 0; background: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; }
+.dex-facts { display: grid; grid-template-columns: auto 1fr; gap: .25rem .75rem; font-size: .88rem; margin: .5rem 0; }
+.dex-facts dt { color: var(--text-muted); }
+.dex-facts dd { margin: 0; }
+.dex-hunts { margin: 0; padding-left: 1rem; }
+.type-chip { display: inline-block; font-size: .75rem; border: 1px solid var(--border); border-radius: 999px; padding: 0 .5rem; margin-right: .3rem; text-transform: capitalize; }
+.linklike { font: inherit; border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; }
+.linklike:hover { text-decoration: underline; }
+@media (max-width: 760px) {
+  .dex-body { grid-template-columns: 1fr; }
+  .dex-detail { display: none; }
+  .dex-detail.is-open { display: block; position: fixed; inset: auto 0 0 0; top: auto; max-height: 75vh; overflow-y: auto; z-index: 20;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: 0 -8px 30px rgb(0 0 0 / .18); }
+  .dex-close { display: block; }
+  .dex-summary { grid-template-columns: repeat(3, auto); }
+  .dex-progress { grid-column: 1 / -1; }
+  .dex-controls input { min-width: 0; flex: 1; }
+}
 
 /* --- vendas (docs/design/pagina-vendas.md) -------------------------------------------- */
 
