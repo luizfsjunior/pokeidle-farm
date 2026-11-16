@@ -251,6 +251,22 @@ class SupabaseStore:
     async def upsert_account_profile(self, row: dict[str, Any]) -> None:
         await self._db.table("account_profile").upsert(row).execute()
 
+    async def market_reference(self) -> dict[str, dict[str, Any]]:
+        res = await self._db.rpc("market_reference", {}).execute()
+        out: dict[str, dict[str, Any]] = {}
+        for r in res.data or []:
+            if r.get("currency") != "orb" or r.get("median_unit") is None:
+                continue
+            out[r["item_name"]] = {
+                "median": float(r["median_unit"]),
+                "sales": int(r.get("sales") or 0),
+                "units": float(r.get("units") or 0),
+                "raw_mean": float(r["raw_mean_unit"])
+                if r.get("raw_mean_unit") is not None
+                else None,
+            }
+        return out
+
     async def save_market_asks(self, rows: list[dict[str, Any]]) -> None:
         if rows:
             await self._db.table("market_asks").upsert(rows).execute()

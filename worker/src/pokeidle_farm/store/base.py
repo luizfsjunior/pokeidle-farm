@@ -144,6 +144,11 @@ class Store(Protocol):
         """Pedras do catálogo de itens: {item_id: nome}."""
         ...
 
+    async def market_reference(self) -> dict[str, dict[str, Any]]:
+        """Mediana das vendas reais em gemas por item (função market_reference, 7 dias):
+        {nome: {"median", "sales", "units", "raw_mean"}}. Ver docs/design/preco-de-referencia.md."""
+        ...
+
     async def save_market_asks(self, rows: list[dict[str, Any]]) -> None:
         """Grava o resumo dos anúncios abertos de itens (linhas de market_asks)."""
         ...

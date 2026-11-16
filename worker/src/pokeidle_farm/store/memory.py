@@ -214,6 +214,9 @@ class MemoryStore:
             self.profiles: dict[str, dict[str, Any]] = {}
         self.profiles[row["account_id"]] = row
 
+    async def market_reference(self) -> dict[str, dict[str, Any]]:
+        return dict(getattr(self, "reference", {}))
+
     async def save_market_asks(self, rows: list[dict[str, Any]]) -> None:
         self.market_asks = [*getattr(self, "market_asks", []), *rows]
 

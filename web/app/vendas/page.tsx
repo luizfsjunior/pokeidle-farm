@@ -67,8 +67,14 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
   const soldGems = gemsOf(sold, (l) => l.soldQty);
 
   const notices = events.filter((e) => e.type === "unknown").slice(0, 30);
+  // último ciclo do seller com decisões, por conta
+  const plans = new Map<string, MarketEvent>();
+  for (const e of events) {
+    if (e.type === "seller.plan" && Array.isArray(e.data?.stones) && !plans.has(e.account_id)) plans.set(e.account_id, e);
+  }
   const activity: Activity[] = events
-    .filter((e) => e.type.startsWith("seller.") || e.type.startsWith("action."))
+    .filter((e) => (e.type.startsWith("seller.") && e.type !== "seller.plan") || e.type.startsWith("action."))
+    .filter((e) => !(e.type === "action.sent" && e.data?.action === "market.meus")) // a leitura de cada ciclo
     .slice(0, 60)
     .map((e) => ({ at: e.received_at, accountId: e.account_id, ...describe(e) }));
 
@@ -116,6 +122,17 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
             </p>
           ))}
         </section>
+
+        {[...plans.values()].map((p) => (
+          <section key={p.account_id} className="card">
+            <h2>Decisão do seller{!chosen && <> em {nicks.get(p.account_id)}</>}</h2>
+            <p className="muted small" style={{ marginTop: 0 }}>
+              Último ciclo, {ago(p.received_at)}. O piso é {num(Number(sellers.find((s) => s.account_id === p.account_id)?.config?.floor_ratio ?? 0.85) * 100)}%
+              da referência: a mediana das vendas reais, ou a média do jogo quando há poucas vendas.
+            </p>
+            <StoneTable stones={p.data?.stones as Stone[]} />
+          </section>
+        ))}
 
         <section className="card">
           <h2>Abertos</h2>
@@ -225,6 +242,57 @@ function ListingTable({ rows, label, icon, nicks, open = false }: {
                   </span>
                 )}
               </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+type Stone = {
+  item_id: number; name: string; stock: number; listed: number; avg: number | null; median?: number | null;
+  sales?: number; ref?: number | null; ref_source?: "median" | "avg"; min_ask: number | null;
+  target?: number; floor?: number; decision?: string;
+};
+
+const DECISION_LABEL: Record<string, string> = {
+  guarda_abaixo_do_piso: "Guarda: o mercado está abaixo do piso",
+  sem_media: "Guarda: sem preço de referência",
+  sem_leitura_de_anuncios: "Espera: sem leitura recente dos anúncios",
+  anunciado: "Anuncia",
+  reprecificado: "Reprecifica",
+  lote_novo: "Anuncia um lote novo",
+  limite_de_anuncios: "Guarda: limite de 20 anúncios",
+  ok: "Nada a fazer",
+};
+
+function StoneTable({ stones }: { stones: Stone[] }) {
+  if (stones.length === 0) return <p className="muted small">Nenhuma pedra acima da reserva.</p>;
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table>
+        <thead>
+          <tr>
+            <th>Pedra</th><th className="r">Estoque</th><th className="r">Anunciado</th><th className="r">Média do jogo</th>
+            <th className="r">Mediana das vendas</th><th className="r">Menor anúncio</th><th className="r">Alvo</th>
+            <th className="r">Piso</th><th>Decisão</th>
+          </tr>
+        </thead>
+        <tbody>
+          {stones.map((s) => (
+            <tr key={s.item_id}>
+              <td>{s.name}</td>
+              <td className="r">{num(s.stock)}</td>
+              <td className="r">{num(s.listed)}</td>
+              <td className={`r ${s.ref_source === "avg" ? "" : "muted"}`}>{num(s.avg)}</td>
+              <td className={`r ${s.ref_source === "median" ? "" : "muted"}`}>
+                {s.median != null ? <>{num(s.median)} <span className="muted small">({num(s.sales ?? 0)})</span></> : "—"}
+              </td>
+              <td className="r">{num(s.min_ask)}</td>
+              <td className="r">{num(s.target)}</td>
+              <td className="r">{num(s.floor)}</td>
+              <td className={s.decision?.startsWith("guarda") ? "muted" : undefined}>{DECISION_LABEL[s.decision ?? ""] ?? s.decision ?? "—"}</td>
             </tr>
           ))}
         </tbody>

@@ -276,3 +276,33 @@ def test_stone_price_uses_market_ask():
     assert StonePrice(gems=30, sold_week=1000, min_ask=2).sell == 2
     assert StonePrice(gems=30, sold_week=1000).sell == 30
     assert StonePrice(gems=30, sold_week=1000, min_ask=45).sell == 30
+
+
+# --- preço de referência: mediana das vendas (docs/design/preco-de-referencia.md) ----------
+
+
+async def test_cycle_uses_sales_median_as_reference():
+    # média do jogo inflada (142) por uma transferência; as vendas reais saem a ~40
+    r = await started({str(THUNDER): 8, str(SUN): 12})
+    market(r, {THUNDER: 50, SUN: None})
+    r.ctx.store.reference = {
+        "Thunder Stone": {"median": 40.0, "sales": 12, "units": 80.0, "raw_mean": 142.0},
+        "Sun Stone": {"median": 10.0, "sales": 2, "units": 4.0, "raw_mean": 10.0},  # poucas vendas
+    }
+    would = await run_cycle(r, [])
+    by = {s["name"]: s for s in [d for t, d in r.recorded if t == "seller.plan"][-1]["stones"]}
+    # Thunder: piso = 85% de 40 = 34; alvo 49 passa (com a média, o piso seria 121 e guardaria)
+    assert by["Thunder Stone"]["ref_source"] == "median" and by["Thunder Stone"]["floor"] == 34
+    # Sun: 2 vendas < min_sales (3): fica na média do jogo (60)
+    assert by["Sun Stone"]["ref_source"] == "avg" and by["Sun Stone"]["ref"] == 60
+    assert [(w["input"]["itemId"], w["input"]["preco"]) for w in would] == [
+        (THUNDER, 49),
+        (SUN, 60),
+    ]
+
+
+async def test_cycle_reference_avg_keeps_old_rule():
+    r = await started({str(THUNDER): 8}, reference="avg")
+    market(r, {THUNDER: 50})
+    r.ctx.store.reference = {"Thunder Stone": {"median": 40.0, "sales": 12}}
+    assert await run_cycle(r, []) == []  # piso 85% de 142 = 121 > alvo 49: guarda

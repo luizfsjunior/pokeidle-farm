@@ -7,10 +7,13 @@ import type { Account } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 const DAYS = 7;
+const MIN_SALES = 3; // o mesmo `min_sales` do seller
 const MAX_KILLS = 5000; // abates com drop lidos por vez (bem acima do que uma conta faz em 7 dias)
 
 type Price = { avg: number; units: number | null };
+type Ref = { median: number; sales: number; rawMean: number | null };
 type Row = {
+  ref: Ref | null;
   ask: { min: number | null; queue: number } | null;
   name: string;
   qty: number;
@@ -36,10 +39,18 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
   let kills = supabase.from("events").select("data->drops").eq("type", "kill")
     .gte("received_at", since).neq("data->drops", "[]").limit(MAX_KILLS);
   if (chosen) kills = kills.eq("account_id", chosen.id);
-  const [killsRes, lastSnap] = await Promise.all([
+  const [killsRes, lastSnap, refRes] = await Promise.all([
     kills,
     supabase.from("market_prices").select("taken_at").order("taken_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.rpc("market_reference"),
   ]);
+  // mediana das vendas reais (docs/design/preco-de-referencia.md); só vale com MIN_SALES vendas
+  const refs = new Map<string, Ref>();
+  for (const r of (refRes.data ?? []) as { item_name: string; currency: string; median_unit: number; sales: number; raw_mean_unit: number | null }[]) {
+    if (r.currency === "orb" && r.median_unit != null) {
+      refs.set(r.item_name, { median: Number(r.median_unit), sales: r.sales, rawMean: r.raw_mean_unit == null ? null : Number(r.raw_mean_unit) });
+    }
+  }
 
   // soma por nome
   const byName = new Map<string, number>();
@@ -82,6 +93,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
     const it = itemByName.get(name) ?? null;
     return {
       name,
+      ref: refs.get(name) ?? null,
       qty: byName.get(name) ?? 0,
       itemId: it?.item_id ?? null,
       ask: it ? asks.get(it.item_id) ?? null : null,
@@ -91,8 +103,14 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
     };
   });
   const goldOf = (r: Row) => (r.gold ? r.gold.avg : r.npc ?? 0);
-  // gemas: o menor entre a média de 7 dias e o menor anúncio aberto (o preço pelo qual vende hoje)
-  const orbOf = (r: Row) => (r.orb ? (r.ask?.min != null ? Math.min(r.orb.avg, r.ask.min) : r.orb.avg) : 0);
+  // gemas: a referência (mediana das vendas, ou a média de 7 dias com poucas vendas), limitada pelo
+  // menor anúncio aberto (o preço pelo qual vende hoje)
+  const refOf = (r: Row) => (r.ref && r.ref.sales >= MIN_SALES ? r.ref.median : r.orb?.avg ?? null);
+  const orbOf = (r: Row) => {
+    const ref = refOf(r);
+    if (ref == null) return 0;
+    return r.ask?.min != null ? Math.min(ref, r.ask.min) : ref;
+  };
   // mais valioso primeiro: gemas, depois ouro
   rows.sort((a, b) => orbOf(b) * b.qty - orbOf(a) * a.qty || goldOf(b) * b.qty - goldOf(a) * a.qty);
   const totalOrb = rows.reduce((s, r) => s + r.qty * orbOf(r), 0);
@@ -104,8 +122,9 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
       <h1>Mercado</h1>
       <p className="secondary small">
         Drops dos últimos {DAYS} dias{chosen ? ` de ${chosen.nick}` : " de todas as contas"}, valorados pelo preço de venda em
-        gemas (o menor entre a média de 7 dias e o menor anúncio aberto) e pela média em ouro do Mercado {takenAt ? `(snapshot de ${dateTime(takenAt)})` : "(ainda sem snapshot de preços)"}. Sem vendas em
-        ouro, vale o preço do NPC (marcado com *). As métricas usam o preço da hora de cada drop.
+        gemas (a mediana das vendas reais dos últimos 7 dias, sem outliers nem transferências, ou a média do jogo com menos
+        de {MIN_SALES} vendas; limitada pelo menor anúncio aberto) e pela média em ouro do Mercado {takenAt ? `(snapshot de ${dateTime(takenAt)})` : "(ainda sem snapshot de preços)"}. Sem vendas em
+        ouro, vale o preço do NPC (marcado com *). Média em destaque: mais que o dobro da mediana, sinal de vendas fora da curva. As métricas usam o preço da hora de cada drop.
       </p>
       <p className="small">
         {[null, ...accounts].map((a) => (
@@ -130,7 +149,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
           <table>
             <thead>
               <tr>
-                <th>Item</th><th>Unidades</th><th>Gemas (média)</th><th>Menor anúncio (fila)</th><th>Vendidas</th>
+                <th>Item</th><th>Unidades</th><th>Gemas (média)</th><th>Gemas (mediana das vendas)</th><th>Menor anúncio (fila)</th><th>Vendidas</th>
                 <th>Ouro (média)</th><th>Vendidas</th><th>Valor (gemas)</th><th>Valor (ouro)</th>
               </tr>
             </thead>
@@ -139,7 +158,8 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
                 <tr key={r.name}>
                   <td>{r.name}{r.itemId === null && <span className="error small"> · fora do catálogo</span>}</td>
                   <td>{num(r.qty)}</td>
-                  <td>{r.orb ? num(r.orb.avg) : "—"}</td>
+                  <td className={r.ref && r.orb && r.orb.avg > r.ref.median * 2 ? "warn" : undefined}>{r.orb ? num(r.orb.avg) : "—"}</td>
+                  <td>{r.ref ? <>{num(r.ref.median)} <span className="muted small">({num(r.ref.sales)} vendas)</span></> : "—"}</td>
                   <td>{r.ask?.min != null ? `${num(r.ask.min)} (${num(r.ask.queue)})` : "—"}</td>
                   <td className="muted">{r.orb ? num(r.orb.units) : "—"}</td>
                   <td>{r.gold ? num(r.gold.avg, { compact: true }) : r.npc != null ? `${num(r.npc, { compact: true })}*` : "—"}</td>
