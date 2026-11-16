@@ -169,6 +169,20 @@ def hit_damage(
     return base * (1.5 if stab else 1.0) * eff * RANDOM_MEAN
 
 
+SEASON_MULT = 2.0  # dia sazonal (dia-sazonal.mjs): quem é do tipo do dia bate ×2 e apanha ÷4
+
+
+def season_factor(
+    season: str | None, attacker: tuple[str, ...], defender: tuple[str, ...]
+) -> float:
+    """Multiplicador do dia sazonal no dano de `attacker` em `defender` (pelos tipos do pokémon)."""
+    if not season:
+        return 1.0
+    hits = SEASON_MULT if season in attacker else 1.0
+    takes = SEASON_MULT * SEASON_MULT if season in defender else 1.0
+    return hits / takes
+
+
 @dataclass(frozen=True)
 class WaveModel:
     """Ritmo da cena (o mesmo em todas as áreas): medido nos dados (ver o design)."""
@@ -185,6 +199,7 @@ class Rules:
     wild_hp_mult: float = 5.0
     wild_dmg_mult: float = 1.8
     potencies: tuple[tuple[float, float], ...] = ((0.0, 100.0),)  # (bônus, chance %)
+    season: str | None = None  # tipo do dia sazonal (estado.diaSazonal.tipo), enquanto valer
 
     @classmethod
     def from_welcome(cls, rules: dict[str, Any]) -> Rules:
@@ -261,7 +276,8 @@ class Attacker:
         d = wild_st["def"] if physical else wild_st["spDef"]
         eff = effectiveness(mtype, wild_types, self.rules.table, self.rules.amplification)
         stab = mtype in self.f.species.types if stab is None else stab
-        return hit_damage(self.f.level, power, a, d, stab, eff)
+        season = season_factor(self.rules.season, self.f.species.types, wild_types)
+        return hit_damage(self.f.level, power, a, d, stab, eff) * season
 
     def _basic_type(self, wild_types: tuple[str, ...]) -> str:
         for t in self.f.species.types:
@@ -315,10 +331,12 @@ def wild_damage(
         d = my_stats["def"] if physical else my_stats["spDef"]
         eff = effectiveness(m.type, me.species.types, rules.table, rules.amplification)
         dmg = hit_damage(wild.level, m.power, a, d, m.type in wild.species.types, eff)
+        dmg *= season_factor(rules.season, wild.species.types, me.species.types)
         moves.append((dmg, m.cooldown_ms / 1000))
     btype = wild.species.types[0]
     beff = effectiveness(btype, me.species.types, rules.table, rules.amplification)
     basic = hit_damage(wild.level, BASIC_POWER, wst["atk"], my_stats["def"], True, beff)
+    basic *= season_factor(rules.season, wild.species.types, me.species.types)
     ready = [0.0] * len(moves)
     basic_at = 0.0
     t = total = 0.0

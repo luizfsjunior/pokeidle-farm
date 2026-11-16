@@ -324,6 +324,7 @@ class GemsPlugin(Plugin):
                 getattr(species, "raw", {}) or {},
                 getattr(cat, "rules", {}) or {},
                 max_level=self._level or None,
+                season=self.ctx.state.season_type(),
             )
         except Exception:  # o modelo nunca derruba o plano: cai no ritmo por nível
             self.ctx.log.exception("simulador de combate falhou")

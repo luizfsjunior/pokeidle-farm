@@ -207,3 +207,18 @@ def test_model_rates_orders_by_type_and_caches():
     assert m.rates(hunts, up, RAW, WELCOME_RULES, max_level=24)["horsea"] > 1.0  # subiu: recalcula
     assert m.rates(hunts, None, RAW, WELCOME_RULES) == {}
     assert m.rates(hunts, PROFILE, RAW, {}) == {}  # sem tabela de tipos
+
+
+def test_season_day_multiplies_damage_both_ways():
+    from dataclasses import replace
+
+    from pokeidle_farm.model.combat import season_factor
+
+    assert season_factor(None, ("GRASS",), ("WATER",)) == 1.0
+    assert season_factor("GRASS", ("GRASS", "POISON"), ("WATER",)) == 2.0  # bate ×2
+    assert season_factor("WATER", ("GRASS",), ("WATER",)) == 0.25  # o selvagem do dia apanha ÷4
+    me = Fighter(BULBA, 23, {s: 27 for s in STATS}, 1.6, 1.05)
+    normal = kills_per_hour(me, FIRE_MON, 10, RULES)
+    grass_day = kills_per_hour(me, FIRE_MON, 10, replace(RULES, season="GRASS"))
+    fire_day = kills_per_hour(me, FIRE_MON, 10, replace(RULES, season="FIRE"))
+    assert grass_day > normal > fire_day

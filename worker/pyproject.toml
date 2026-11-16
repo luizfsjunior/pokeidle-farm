@@ -31,6 +31,7 @@ rank = "pokeidle_farm.plugins.rank:RankPlugin"
 market_prices = "pokeidle_farm.plugins.market_prices:MarketPricesPlugin"
 gems = "pokeidle_farm.plugins.gems:GemsPlugin"
 seller = "pokeidle_farm.plugins.seller:SellerPlugin"
+daily = "pokeidle_farm.plugins.daily:DailyPlugin"
 
 [build-system]
 requires = ["hatchling"]

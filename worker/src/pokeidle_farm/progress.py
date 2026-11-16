@@ -35,6 +35,11 @@ def bonuses_from_state(xp_bonus: dict[str, Any] | None) -> tuple[Bonus, ...]:
     return tuple(out)
 
 
+def _season_end(season: dict[str, Any] | None) -> datetime | None:
+    end = (season or {}).get("fim")
+    return datetime.fromtimestamp(end / 1000, UTC) if isinstance(end, int | float) else None
+
+
 def farm_pct_from_event(event: dict[str, Any] | None, now: datetime) -> float:
     if not isinstance(event, dict):
         return 0.0
@@ -182,6 +187,8 @@ class Progress:
             bonuses=bonuses_from_state(st.xp_bonus),
             farm_pct=farm_pct_from_event(st.xp_event, now),
             gold=float(st.gold) if st.gold is not None else None,
+            season=st.season_type(now),
+            season_end=_season_end(st.season),
         )
         hunts = [HuntRef(h.slug, h.level, h.species_id) for h in cat.hunts.values()]
         try:

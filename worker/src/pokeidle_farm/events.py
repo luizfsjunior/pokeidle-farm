@@ -261,6 +261,9 @@ class Translator:
         self.trainer_xp: float | None = None
         self.xp_bonus: dict[str, Any] | None = None
         self.xp_event: dict[str, Any] | None = None
+        # dia sazonal ({tipo, fim}) e passe de batalha ({degrau, ultimo...}) do estado (camada 4)
+        self.season: dict[str, Any] | None = None
+        self.battle_pass: dict[str, Any] | None = None
 
     def _ev(self, type_: str, data: BaseModel | dict[str, Any], raw: dict[str, Any]) -> Event:
         now = utcnow()
@@ -421,6 +424,10 @@ class Translator:
             self.xp_bonus = src["bonusXp"]
         if "evento" in src:
             self.xp_event = src["evento"] if isinstance(src["evento"], dict) else None
+        if isinstance(src.get("diaSazonal"), dict):
+            self.season = src["diaSazonal"]
+        if isinstance(src.get("passe"), dict):
+            self.battle_pass = src["passe"]
 
     def active_profile(self) -> dict[str, Any] | None:
         """O pokémon ativo (campos de combate), com o nível mais recente."""

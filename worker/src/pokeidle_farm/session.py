@@ -178,6 +178,7 @@ class AccountSession:
     def _copy_progress(self) -> None:
         tr, sv = self._translator, self.state_view
         sv.trainer_xp, sv.xp_bonus, sv.xp_event = tr.trainer_xp, tr.xp_bonus, tr.xp_event
+        sv.season, sv.battle_pass = tr.season, tr.battle_pass
         self._share_species()
 
     def _share_species(self) -> None:

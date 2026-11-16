@@ -55,6 +55,16 @@ class AccountStateView:
     trainer_xp: float | None = None
     xp_bonus: dict[str, Any] | None = None
     xp_event: dict[str, Any] | None = None
+    season: dict[str, Any] | None = None  # estado.diaSazonal ({tipo, fim, chave})
+    battle_pass: dict[str, Any] | None = None  # estado.passe ({degrau, ultimo, total...})
+
+    def season_type(self, now: datetime | None = None) -> str | None:
+        """O tipo do dia sazonal se ainda vale (no relógio do servidor)."""
+        s = self.season or {}
+        end = s.get("fim")
+        if not isinstance(s.get("tipo"), str) or not isinstance(end, int | float):
+            return None
+        return s["tipo"].upper() if self.server_now(now).timestamp() * 1000 < end else None
 
     def server_now(self, now: datetime | None = None) -> datetime:
         """Relógio do servidor (o local, se o offset ainda não é conhecido)."""

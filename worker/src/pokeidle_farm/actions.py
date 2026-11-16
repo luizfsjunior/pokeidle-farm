@@ -236,6 +236,16 @@ class MarketCancel(ActionSpec):
         return {"t": "market.cancelar", "id": self.id}
 
 
+class PassClaim(ActionSpec):
+    name: ClassVar[str] = "passe.resgatar"
+    description: ClassVar[str] = "Resgata o prêmio grátis do dia no passe de batalha"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 60.0
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "passe.resgatar"}
+
+
 class PokemonEvolve(ActionSpec):
     name: ClassVar[str] = "pokemon.evoluir"
     description: ClassVar[str] = (

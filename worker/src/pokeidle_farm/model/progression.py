@@ -11,7 +11,7 @@ Puro (sem rede); recebe a Pokedex crua, as regras do `welcome` e as hunts.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -62,6 +62,8 @@ class Account:
     farm_pct: float = 0.0
     gold: float | None = None  # saldo de ouro; None: não limita (só o ouro líquido ≥ 0)
     gold_reserve: float = 5_000  # o restock não gasta abaixo disso
+    season: str | None = None  # tipo do dia sazonal
+    season_end: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -131,10 +133,11 @@ class _Cache:
         self.n_kills = n_kills
         self.data: dict[Any, Any] = {}
 
-    def sim(self, f: Fighter, wild: SpeciesData, level: int) -> Any:
-        key = (f.species.id, f.level, wild.id, level)
+    def sim(self, f: Fighter, wild: SpeciesData, level: int, season: str | None = None) -> Any:
+        key = (f.species.id, f.level, wild.id, level, season)
         if key not in self.data:
-            self.data[key] = simulate_hunt(f, wild, level, self.rules, n_kills=self.n_kills)
+            rules = replace(self.rules, season=season) if season else self.rules
+            self.data[key] = simulate_hunt(f, wild, level, rules, n_kills=self.n_kills)
         return self.data[key]
 
 
@@ -188,6 +191,11 @@ def plan_to(
             break
         allowed = [lv for lv in tiers if lv <= level][-TOP_TIERS:]
         bonus = _bonus_at(account.bonuses, clock)
+        season = (
+            account.season
+            if account.season and (account.season_end is None or clock < account.season_end)
+            else None
+        )
         need_xp = total_xp(level + 1) - t_xp
         # a poção de menor custo por HP útil para o HP do ativo (como o restock compra)
         max_hp = combat_hp(fighter.stats()["hp"])
@@ -201,7 +209,7 @@ def plan_to(
                 continue
             if keep is not None and h.level not in allowed and h.slug not in keep:
                 continue
-            r = cache.sim(fighter, wild[h.species_id], h.level)
+            r = cache.sim(fighter, wild[h.species_id], h.level, season)
             if r.kills_per_hour <= 0:
                 continue
             potions = r.damage_per_hour / useful_hp

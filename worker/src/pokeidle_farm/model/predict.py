@@ -7,6 +7,7 @@ ativo (docs/design/simulador-1-combate.md). Pura: recebe o perfil do ativo, a Po
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 from .combat import STATS, Fighter, Rules, SpeciesData, kills_per_hour
@@ -54,6 +55,7 @@ class ModelRates:
         raw_species: dict[int, dict[str, Any]],
         rules: dict[str, Any],
         max_level: int | None = None,
+        season: str | None = None,
     ) -> dict[str, float]:
         if not profile or not rules.get("tabelaTipos"):
             return {}
@@ -66,10 +68,11 @@ class ModelRates:
             fighter.quality,
             fighter.multiplier,
             tuple(sorted(fighter.ivs.items())),
+            season,
         )
         if key != self._key:
             self._key, self._cache = key, {}
-        parsed = Rules.from_welcome(rules)
+        parsed = replace(Rules.from_welcome(rules), season=season)
         out = {}
         for slug, (level, sid) in hunts.items():
             if max_level is not None and level > max_level:
