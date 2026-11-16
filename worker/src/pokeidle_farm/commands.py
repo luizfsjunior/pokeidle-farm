@@ -16,10 +16,11 @@ import time
 from collections import deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Protocol
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .events import Event
 from .plugins.base import Plugin
@@ -192,6 +193,28 @@ class Supervisor:
             applied = await self.live[acc.id].session.restart_plugin(p.plugin)
         return {"enabled": enabled, "applied": "agora" if applied else "na próxima conexão"}
 
+    async def _hunt_select(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Hunt escolhida pelo painel, travada por `hours` (plugin hunt_hold; painel-fase-3.md)."""
+        try:
+            p = HuntSelectParams.model_validate(params)
+        except ValidationError as exc:
+            raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
+        until = datetime.now(UTC) + timedelta(hours=p.hours)
+        out = await self._plugin_set(
+            acc,
+            {
+                "plugin": "hunt_hold",
+                "enabled": True,
+                "config": {"slug": p.slug, "until": until.isoformat()},
+            },
+        )
+        return {**out, "slug": p.slug, "until": until.isoformat()}
+
+    async def _hunt_release(self, acc: AccountRecord, _p: dict[str, Any]) -> dict[str, Any]:
+        if "hunt_hold" not in await self.store.plugin_configs(acc.id):
+            return {"enabled": False, "applied": "nada a soltar"}
+        return await self._plugin_set(acc, {"plugin": "hunt_hold", "enabled": False})
+
     async def _focus_set(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Foco da conta (captura, ouro-xp-drop, rank ou gemas): restock, rank e gems juntos.
 
@@ -257,6 +280,13 @@ class Supervisor:
         return {"focus": p.focus, "applied": "agora" if applied else "na próxima conexão"}
 
 
+class HuntSelectParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str = Field(min_length=1, max_length=64)
+    hours: float = Field(2.0, ge=0.25, le=24)
+
+
 class FocusSetParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -283,6 +313,8 @@ _HANDLERS: dict[str, Handler] = {
     "session.reconnect": Supervisor._reconnect,
     "plugin.set": Supervisor._plugin_set,
     "focus.set": Supervisor._focus_set,
+    "hunt.select": Supervisor._hunt_select,
+    "hunt.release": Supervisor._hunt_release,
 }
 
 

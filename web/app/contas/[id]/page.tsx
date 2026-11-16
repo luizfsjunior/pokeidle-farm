@@ -16,6 +16,8 @@ import { PluginEditor } from "./PluginEditor";
 import { GemsCard, type GemsPlanData, type GemsPotentialData, type ProgressPlanData } from "./GemsCard";
 import { ProfileSections, type ItemInfo } from "./ProfileSections";
 import { TrendChart } from "@/components/TrendChart";
+import { HuntPicker, type HuntHold, type HuntOption } from "@/components/HuntPicker";
+import { activeMon } from "@/lib/profile";
 import { RankCard } from "./RankCard";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +64,12 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
       .map((r) => [String(r.item_id), { name: r.name, category: r.category, icon: r.icon }]),
   );
 
+  const huntsRes = await supabase.from("game_hunts").select("slug, name, level").order("level").limit(1000);
+  const huntOptions = (huntsRes.data ?? []) as HuntOption[];
+  const holdCfg = plugins.find((p) => p.plugin === "hunt_hold");
+  const hold: HuntHold = holdCfg?.enabled && typeof holdCfg.config.slug === "string" && typeof holdCfg.config.until === "string"
+    ? { slug: holdCfg.config.slug, until: holdCfg.config.until } : null;
+
   const dailyRes = await supabase.from("account_profile_daily")
     .select("day, level, xp, gold, gems, diamonds, pokemon_count, dex_caught")
     .eq("account_id", account.id).order("day", { ascending: true }).limit(90);
@@ -86,6 +94,17 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
         <TrainerCard account={account} profile={profile} atlas={atlas} looktypes={looktypes} wide>
           <CommandButtons account={account} />
         </TrainerCard>
+
+        {huntOptions.length > 0 && (
+          <section className="card">
+            <h2>Hunt</h2>
+            <HuntPicker accountId={account.id} hunts={huntOptions} current={profile?.hunt_slug ?? null} hold={hold}
+              level={activeMon(profile)?.level ?? null} enabled={account.enabled} />
+            <p className="muted small" style={{ margin: ".6rem 0 0" }}>
+              Enquanto a trava vale, os plugins gems e rank não trocam de hunt; no fim do prazo, eles voltam a escolher.
+            </p>
+          </section>
+        )}
 
         {profile && <ProfileSections profile={profile} atlas={atlas} looktypes={looktypes} items={items} />}
 

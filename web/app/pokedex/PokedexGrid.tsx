@@ -1,7 +1,9 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import { commandSummary } from "@/components/CommandButtons";
 import { Sprite } from "@/components/Sprite";
+import { useCommand } from "@/lib/useCommand";
 import { num } from "@/lib/format";
 import type { Atlas } from "@/lib/sprites";
 
@@ -36,7 +38,7 @@ function kills(e: Entry | undefined): number | null {
   return e != null && typeof e === "object" && typeof e.k === "number" ? e.k : null;
 }
 
-export function PokedexGrid({ species, hunts, dex, atlas, hasProfile }: {
+export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId }: {
   species: DexSpecies[];
   hunts: DexHunt[];
   dex: Record<string, Entry>;
@@ -171,7 +173,10 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile }: {
               ) : (
                 <ul className="small dex-hunts">
                   {huntsBySpecies.get(sel.species_id)!.map((h) => (
-                    <li key={h.slug}>{h.name ?? h.slug} <span className="muted">nv {h.level}</span></li>
+                    <li key={h.slug}>
+                      {h.name ?? h.slug} <span className="muted">nv {h.level}</span>
+                      {accountId && <GoHunt accountId={accountId} slug={h.slug} />}
+                    </li>
                   ))}
                 </ul>
               )}
@@ -182,5 +187,18 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile }: {
         </aside>
       </div>
     </div>
+  );
+}
+
+/** "Ir para esta hunt" por 2 h (comando hunt.select; docs/design/painel-fase-3.md). */
+function GoHunt({ accountId, slug }: { accountId: string; slug: string }) {
+  const { send, cmd, error, busy } = useCommand();
+  return (
+    <span className="go-hunt">
+      <button type="button" className="ghost small" disabled={busy} onClick={() => void send(accountId, "hunt.select", { slug, hours: 2 })}>
+        Ir por 2 h
+      </button>
+      {(cmd || error) && <span className={`small ${error || cmd?.status === "failed" ? "error" : "muted"}`}> {error ?? (cmd && commandSummary(cmd))}</span>}
+    </span>
   );
 }

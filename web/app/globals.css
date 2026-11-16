@@ -270,6 +270,11 @@ h3 { font-size: .9rem; font-weight: 600; color: var(--text-secondary); margin: 1
   .dex-controls input { min-width: 0; flex: 1; }
 }
 
+.hunt-picker { display: grid; gap: .6rem; }
+.hunt-picker select { font: inherit; padding: .4rem .6rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-1); color: var(--text-primary); max-width: 100%; }
+.go-hunt { display: inline-flex; gap: .4rem; align-items: center; margin-left: .5rem; }
+.dex-hunts li { margin-bottom: .35rem; }
+
 /* --- vendas (docs/design/pagina-vendas.md) -------------------------------------------- */
 
 .sales-totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .75rem 1rem; }
