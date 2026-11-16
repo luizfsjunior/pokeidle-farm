@@ -1,5 +1,6 @@
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { CommandTable } from "@/components/CommandTable";
+import { ErrorNote, PageHeader, Panel } from "@/components/Page";
 import { Shell } from "@/components/Shell";
 import { requireUser } from "@/lib/supabase/server";
 import type { Command } from "@/lib/types";
@@ -18,13 +19,10 @@ export default async function CommandsPage() {
 
   return (
     <Shell email={email}>
-      <h1>Comandos</h1>
-      <p className="secondary small">
-        Os últimos 100. O worker busca os pendentes a cada 5 s; um comando que não é pego em 5 min expira.
-      </p>
-      {cmds.error && <p className="error">{cmds.error.message}</p>}
+      <PageHeader title="Comandos" subtitle="Os últimos 100. O worker busca os pendentes a cada 5 s; um comando que não é pego em 5 min expira." />
+      <ErrorNote message={cmds.error?.message} />
       <AutoRefresh active={active} />
-      <div className="card"><CommandTable commands={commands} nicks={nicks} /></div>
+      <Panel title="Histórico" flush><CommandTable commands={commands} nicks={nicks} /></Panel>
     </Shell>
   );
 }

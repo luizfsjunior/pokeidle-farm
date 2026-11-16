@@ -1,20 +1,13 @@
-import Link from "next/link";
 import { MobileNav } from "./MobileNav";
-import { NavLinks } from "./NavLinks";
+import { Sidebar } from "./Sidebar";
 
+/** Casca do app: barra lateral no desktop, barras de cima e de baixo no celular. */
 export function Shell({ email, children }: { email: string; children: React.ReactNode }) {
   return (
-    <>
-      <header className="topbar">
-        <Link href="/" className="brand">pokeidle-farm</Link>
-        <NavLinks />
-        <span className="muted small topbar-email">{email}</span>
-        <form action="/auth/sair" method="post" className="topbar-exit">
-          <button className="ghost" type="submit">Sair</button>
-        </form>
-      </header>
-      <main>{children}</main>
+    <div className="app">
+      <Sidebar email={email} />
       <MobileNav email={email} />
-    </>
+      <main className="content">{children}</main>
+    </div>
   );
 }

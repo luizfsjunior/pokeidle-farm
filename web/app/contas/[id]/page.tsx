@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { CommandButtons } from "@/components/CommandButtons";
 import { CommandTable } from "@/components/CommandTable";
+import { PageHeader, Panel } from "@/components/Page";
+import { SectionTabs } from "@/components/SectionTabs";
 import { Shell } from "@/components/Shell";
 import { TrainerCard } from "@/components/TrainerCard";
 import { loadProfiles, speciesOf } from "@/lib/profile";
@@ -89,71 +91,83 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
 
   return (
     <Shell email={email}>
-      <p className="small"><Link href="/">← Visão geral</Link></p>
-      <div className="stack">
-        <TrainerCard account={account} profile={profile} atlas={atlas} looktypes={looktypes} wide>
-          <CommandButtons account={account} />
-        </TrainerCard>
-
-        {huntOptions.length > 0 && (
-          <section className="card">
-            <h2>Hunt</h2>
-            <HuntPicker accountId={account.id} hunts={huntOptions} current={profile?.hunt_slug ?? null} hold={hold}
-              level={activeMon(profile)?.level ?? null} enabled={account.enabled} />
-            <p className="muted small" style={{ margin: ".6rem 0 0" }}>
-              Enquanto a trava vale, os plugins gems e rank não trocam de hunt; no fim do prazo, eles voltam a escolher.
-            </p>
-          </section>
-        )}
-
-        {profile && <ProfileSections profile={profile} atlas={atlas} looktypes={looktypes} items={items} />}
-
-        {profile && (
-          <section className="card">
-            <h2>Evolução</h2>
-            <div className="trends">
-              <TrendChart title="Nível" points={series("level")} tone="accent" />
-              <TrendChart title="XP" points={series("xp")} tone="diamond" compact />
-              <TrendChart title="Ouro" points={series("gold")} tone="gold" compact />
-              <TrendChart title="Gemas" points={series("gems")} tone="gem" />
-              <TrendChart title="Espécies capturadas" points={series("dex_caught")} tone="good" />
-              <TrendChart title="Pokémons" points={series("pokemon_count")} tone="accent" />
-            </div>
-          </section>
-        )}
-
-        <FocusCard accountId={account.id} plugins={plugins} />
-        {rank && (
-          <>
-            <AutoRefresh active ms={30_000} />
-            <RankCard rank={rank} />
-          </>
-        )}
-
-        <GemsCard plan={gemsPlan} potential={potential} progress={progress} />
-
-        <details className="card">
-          <summary><strong>Avançado: plugins em JSON</strong></summary>
-          <div className="stack" style={{ marginTop: ".75rem" }}>
-        <h2 style={{ margin: ".5rem 0 0" }}>Plugins</h2>
-        <p className="muted small" style={{ margin: 0 }}>
-          A telemetria é sempre ligada e não aparece aqui. Os campos do <code>restock</code> estão em
-          docs/design/fase-3-reposicao.md, seção 7; os do <code>rank</code>, em docs/design/fase-3b-plugin-rank.md, seção 1, e
-          docs/design/fase-3b-rank-ligado.md, seção 8.
-        </p>
-        {plugins.map((p) => (
-          <PluginEditor key={p.plugin} accountId={account.id} plugin={p.plugin} enabled={p.enabled} config={p.config ?? {}} />
-        ))}
-        <NewPlugin accountId={account.id} existing={plugins.map((p) => p.plugin)} />
+      <PageHeader
+        title={account.nick}
+        subtitle={<Link href="/">← Todas as contas</Link>}
+        actions={<CommandButtons account={account} compact />}
+      />
+      <SectionTabs tabs={[
+        { id: "resumo", label: "Resumo" },
+        { id: "colecao", label: "Equipe e coleção" },
+        { id: "estrategia", label: "Estratégia" },
+        { id: "ajustes", label: "Ajustes" },
+      ]}>
+        {/* Resumo */}
+        <>
+          <div className="account-top">
+            <TrainerCard account={account} profile={profile} atlas={atlas} looktypes={looktypes} wide />
+            {profile && <div className="stack"><ProfileSections part="status" profile={profile} atlas={atlas} looktypes={looktypes} items={items} /></div>}
           </div>
-        </details>
+          {profile && (
+            <Panel title="Evolução" meta="por dia, até 90 dias">
+              <div className="trends">
+                <TrendChart title="Nível" points={series("level")} tone="accent" />
+                <TrendChart title="XP" points={series("xp")} tone="diamond" compact />
+                <TrendChart title="Ouro" points={series("gold")} tone="gold" compact />
+                <TrendChart title="Gemas" points={series("gems")} tone="gem" />
+                <TrendChart title="Espécies capturadas" points={series("dex_caught")} tone="good" />
+                <TrendChart title="Pokémons" points={series("pokemon_count")} tone="accent" />
+              </div>
+            </Panel>
+          )}
+        </>
 
-        <section className="card">
-          <h2>Últimos comandos</h2>
-          <AutoRefresh active={commands.some((c) => c.status === "pending" || c.status === "running")} />
-          <CommandTable commands={commands} nicks={new Map([[account.id, account.nick]])} />
-        </section>
-      </div>
+        {/* Equipe e coleção */}
+        <>
+          {profile
+            ? <ProfileSections part="collection" profile={profile} atlas={atlas} looktypes={looktypes} items={items} />
+            : <p className="muted">Sem perfil ainda: ele aparece uns segundos depois de o worker conectar a conta.</p>}
+        </>
+
+        {/* Estratégia */}
+        <>
+          {huntOptions.length > 0 && (
+            <Panel title="Hunt" meta="os plugins gems e rank respeitam a trava até o fim do prazo">
+              <HuntPicker accountId={account.id} hunts={huntOptions} current={profile?.hunt_slug ?? null} hold={hold}
+                level={activeMon(profile)?.level ?? null} enabled={account.enabled} />
+            </Panel>
+          )}
+          <FocusCard accountId={account.id} plugins={plugins} />
+          {rank && (
+            <>
+              <AutoRefresh active ms={30_000} />
+              <RankCard rank={rank} />
+            </>
+          )}
+          <GemsCard plan={gemsPlan} potential={potential} progress={progress} />
+        </>
+
+        {/* Ajustes */}
+        <>
+          <Panel title="Últimos comandos" flush>
+            <AutoRefresh active={commands.some((c) => c.status === "pending" || c.status === "running")} />
+            <CommandTable commands={commands} nicks={new Map([[account.id, account.nick]])} />
+          </Panel>
+          <Panel title="Plugins" meta="config em JSON, para ajuste fino">
+            <div className="stack">
+              <p className="muted small" style={{ margin: 0 }}>
+                A telemetria e o perfil são sempre ligados e não aparecem aqui. Os campos do <code>restock</code> estão em
+                docs/design/fase-3-reposicao.md, seção 7; os do <code>rank</code>, em docs/design/fase-3b-plugin-rank.md, seção 1,
+                e docs/design/fase-3b-rank-ligado.md, seção 8.
+              </p>
+              {plugins.map((p) => (
+                <PluginEditor key={p.plugin} accountId={account.id} plugin={p.plugin} enabled={p.enabled} config={p.config ?? {}} />
+              ))}
+              <NewPlugin accountId={account.id} existing={plugins.map((p) => p.plugin)} />
+            </div>
+          </Panel>
+        </>
+      </SectionTabs>
     </Shell>
   );
 }

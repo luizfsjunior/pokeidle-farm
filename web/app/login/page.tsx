@@ -6,10 +6,13 @@ import { login } from "./actions";
 export default function LoginPage() {
   const [error, action, pending] = useActionState(login, null);
   return (
-    <main style={{ maxWidth: 380, paddingTop: "12vh" }}>
-      <div className="card stack">
-        <h1 style={{ margin: 0 }}>pokeidle-farm</h1>
-        <p className="secondary small" style={{ margin: 0 }}>Entre com o usuário do Supabase Auth.</p>
+    <main className="login">
+      <div className="login-card stack">
+        <div className="login-brand"><span className="rail-logo" aria-hidden /> <span>pokeidle-farm</span></div>
+        <div>
+          <h1>Entrar</h1>
+          <p className="secondary small" style={{ margin: ".3rem 0 0" }}>Use o usuário do Supabase Auth.</p>
+        </div>
         <form action={action} className="stack">
           <label>E-mail<input name="email" type="email" autoComplete="username" required /></label>
           <label>Senha<input name="password" type="password" autoComplete="current-password" required /></label>

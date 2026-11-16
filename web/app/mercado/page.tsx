@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ItemIcon } from "@/components/ItemIcon";
+import { AccountTabs, ErrorNote, Explain, Kpi, PageHeader, Panel } from "@/components/Page";
 import { Shell } from "@/components/Shell";
 import { itemIconUrl } from "@/lib/sprites";
 import { dateTime, num } from "@/lib/format";
@@ -121,33 +121,31 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
 
   return (
     <Shell email={email}>
-      <h1>Mercado</h1>
-      <p className="secondary small">
-        Drops dos últimos {DAYS} dias{chosen ? ` de ${chosen.nick}` : " de todas as contas"}, valorados pelo preço de venda em
-        gemas (a mediana das vendas reais dos últimos 7 dias, sem outliers nem transferências, ou a média do jogo com menos
-        de {MIN_SALES} vendas; limitada pelo menor anúncio aberto) e pela média em ouro do Mercado {takenAt ? `(snapshot de ${dateTime(takenAt)})` : "(ainda sem snapshot de preços)"}. Sem vendas em
-        ouro, vale o preço do NPC (marcado com *). Média em destaque: mais que o dobro da mediana, sinal de vendas fora da curva. As métricas usam o preço da hora de cada drop.
-      </p>
-      <p className="small">
-        {[null, ...accounts].map((a) => (
-          <span key={a?.id ?? "todas"} style={{ marginRight: ".75rem" }}>
-            {(a?.id ?? null) === (chosen?.id ?? null)
-              ? <strong>{a?.nick ?? "Todas"}</strong>
-              : <Link href={a ? `/mercado?conta=${a.id}` : "/mercado"}>{a?.nick ?? "Todas"}</Link>}
-          </span>
-        ))}
-      </p>
-      {err && <p className="error">Erro ao ler o Supabase: {err}</p>}
-      <section className="card">
-        <div className="stats">
-          <div className="stat"><div className="label">Valor em gemas</div><div className="value">{num(totalOrb)}</div></div>
-          <div className="stat"><div className="label">Valor em ouro</div><div className="value">{num(totalGold, { compact: true })}</div></div>
-        </div>
-      </section>
+      <PageHeader
+        title="Mercado"
+        subtitle={<>Quanto valem os drops dos últimos {DAYS} dias{chosen ? ` de ${chosen.nick}` : ""}, em gemas e em ouro.{" "}
+          {takenAt ? `Preços de ${dateTime(takenAt)}.` : "Ainda sem preços do Mercado."}</>}
+      >
+        <AccountTabs accounts={accounts} chosen={chosen?.id ?? null} href={(id) => (id ? `/mercado?conta=${id}` : "/mercado")} />
+      </PageHeader>
+      <ErrorNote message={err} />
+      <div className="stack">
+      <div className="kpis">
+        <Kpi label="Valor em gemas" value={num(totalOrb)} tone="gem" />
+        <Kpi label="Valor em ouro" value={num(totalGold, { compact: true })} tone="gold" />
+        <Kpi label="Itens diferentes" value={num(rows.length)} />
+      </div>
+      <Explain>
+        <p>Gemas: a mediana das vendas reais dos últimos 7 dias, sem outliers nem transferências, ou a média do jogo
+          com menos de {MIN_SALES} vendas; limitada pelo menor anúncio aberto, que é o preço pelo qual vende hoje.</p>
+        <p>Ouro: a média do Mercado. Sem vendas em ouro, vale o preço do NPC (marcado com *).</p>
+        <p>Média em destaque: mais que o dobro da mediana, sinal de vendas fora da curva. As métricas usam o preço da hora
+          de cada drop.</p>
+      </Explain>
       {rows.length === 0 ? (
-        <p className="muted">Nenhum drop nos últimos {DAYS} dias.</p>
+        <div className="panel"><p className="panel-empty">Nenhum drop nos últimos {DAYS} dias.</p></div>
       ) : (
-        <div className="card" style={{ overflowX: "auto", marginTop: "1rem" }}>
+        <Panel title="Drops por item" flush>
           <table>
             <thead>
               <tr>
@@ -172,8 +170,9 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
               ))}
             </tbody>
           </table>
-        </div>
+        </Panel>
       )}
+      </div>
     </Shell>
   );
 }

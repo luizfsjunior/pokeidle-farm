@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GoalSummary } from "@/components/GoalCard";
 import { LineChart } from "@/components/LineChart";
+import { PageHeader } from "@/components/Page";
 import { Shell } from "@/components/Shell";
 import { chance, dateTime, num } from "@/lib/format";
 import { fetchProgress } from "@/lib/goals";
@@ -31,7 +32,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
 
   return (
     <Shell email={email}>
-      <p className="small"><Link href="/objetivos">← Objetivos</Link></p>
+      <PageHeader title="Objetivo" subtitle={<Link href="/objetivos">← Todos os objetivos</Link>} />
       <div className="stack">
         <GoalSummary goal={goal} progress={progress} metric={def.data ?? undefined} link={false} />
 

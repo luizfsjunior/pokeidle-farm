@@ -1,3 +1,4 @@
+import { ErrorNote, PageHeader } from "@/components/Page";
 import { Shell } from "@/components/Shell";
 import { requireUser } from "@/lib/supabase/server";
 import type { Account, MetricDef } from "@/lib/types";
@@ -18,8 +19,8 @@ export default async function MetricsPage() {
 
   return (
     <Shell email={email}>
-      <h1>Métricas</h1>
-      {defs.error && <p className="error">Erro ao ler as métricas: {defs.error.message}</p>}
+      <PageHeader title="Métricas" subtitle="Escolha uma métrica, as contas e o período para ver a série." />
+      <ErrorNote message={defs.error?.message} />
       <Explorer defs={(defs.data ?? []) as MetricDef[]} accounts={(accounts.data ?? []) as Account[]} hunts={huntList} />
     </Shell>
   );

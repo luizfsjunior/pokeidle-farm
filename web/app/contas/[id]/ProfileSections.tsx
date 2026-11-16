@@ -7,7 +7,8 @@ import { BALL_ICONS, BALL_NAMES, GAME_SITE, itemIconUrl, type Atlas } from "@/li
 export type ItemInfo = { name: string; category: string | null; icon: string | null };
 
 /** Equipe, coleção e mochila da conta, do `account_profile`. */
-export function ProfileSections({ profile, atlas, looktypes, items }: {
+export function ProfileSections({ profile, atlas, looktypes, items, part = "all" }: {
+  part?: "all" | "status" | "collection";
   profile: Profile;
   atlas: Atlas | null;
   looktypes: Map<number, number>;
@@ -23,7 +24,7 @@ export function ProfileSections({ profile, atlas, looktypes, items }: {
   const ex = profile.extra ?? {};
   return (
     <>
-      {pass?.degrau != null && (
+      {part !== "collection" && pass?.degrau != null && (
         <section className="card">
           <div className="spread">
             <h2 style={{ margin: 0 }}>Passe de batalha</h2>
@@ -43,7 +44,8 @@ export function ProfileSections({ profile, atlas, looktypes, items }: {
         </section>
       )}
 
-      <ExtrasCard ex={ex} />
+      {part !== "collection" && <ExtrasCard ex={ex} />}
+      {part !== "status" && (<>
 
       <section className="card">
         <h2>Equipe</h2>
@@ -111,6 +113,7 @@ export function ProfileSections({ profile, atlas, looktypes, items }: {
           </ul>
         )}
       </section>
+      </>)}
     </>
   );
 }

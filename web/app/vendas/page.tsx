@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ItemIcon } from "@/components/ItemIcon";
+import { AccountTabs, ErrorNote, Explain, Kpi, PageHeader, Panel } from "@/components/Page";
 import { Shell } from "@/components/Shell";
 import { ago, dateTime, num } from "@/lib/format";
 import { buildListings, MARKET_FEE, noticeSummary, STATUS_LABEL, type Listing, type MarketEvent } from "@/lib/sales";
@@ -90,73 +90,62 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
 
   return (
     <Shell email={email}>
-      <h1>Vendas</h1>
-      <p className="secondary small">
-        Anúncios no Mercado nos últimos {DAYS} dias{chosen ? ` de ${chosen.nick}` : ", todas as contas"}. A lista vem do
-        próprio jogo: o seller pede os anúncios a cada ciclo{lastMine ? `; a última chegou ${ago(lastMine.received_at)}` : ""}.
-      </p>
-      <p className="small">
-        {[null, ...accounts].map((a) => (
-          <span key={a?.id ?? "todas"} style={{ marginRight: ".75rem" }}>
-            {(a?.id ?? null) === (chosen?.id ?? null)
-              ? <strong>{a?.nick ?? "Todas"}</strong>
-              : <Link href={a ? `/vendas?conta=${a.id}` : "/vendas"}>{a?.nick ?? "Todas"}</Link>}
-          </span>
-        ))}
-      </p>
-      {err && <p className="error">Erro ao ler o Supabase: {err}</p>}
+      <PageHeader
+        title="Vendas"
+        subtitle={<>Anúncios no Mercado nos últimos {DAYS} dias{lastMine ? `; a lista do jogo chegou ${ago(lastMine.received_at)}` : ""}.</>}
+      >
+        <AccountTabs accounts={accounts} chosen={chosen?.id ?? null} href={(id) => (id ? `/vendas?conta=${id}` : "/vendas")} />
+      </PageHeader>
+      <ErrorNote message={err} />
 
       <div className="stack">
-        <section className="card">
-          <div className="sales-totals">
-            <Total value={num(open.length)} label="anúncios abertos" />
-            <Total value={num(open.reduce((s, l) => s + l.qty, 0))} label="unidades à venda" />
-            <Total value={num(openGems)} label="gemas anunciadas" tone="gem" />
-            <Total value={num(sold.reduce((s, l) => s + l.soldQty, 0))} label="unidades vendidas" />
-            <Total value={num(soldGems * (1 - MARKET_FEE))} label={`gemas recebidas (− ${MARKET_FEE * 100}% de taxa)`} tone="gem" />
-          </div>
-          {sellers.map((s) => (
-            <p key={s.account_id} className="small secondary" style={{ margin: ".75rem 0 0" }}>
-              {nicks.get(s.account_id)}: seller {s.enabled ? "ligado" : "desligado"}
-              {s.enabled && s.config?.dry_run !== false && ", em simulação (dry_run): ele só registra o que faria, sem anunciar"}
-            </p>
-          ))}
-        </section>
+        <div className="kpis">
+          <Kpi label="Anúncios abertos" value={num(open.length)} note={`${num(open.reduce((s, l) => s + l.qty, 0))} unidades`} />
+          <Kpi label="Gemas anunciadas" value={num(openGems)} tone="gem" />
+          <Kpi label="Unidades vendidas" value={num(sold.reduce((s, l) => s + l.soldQty, 0))} />
+          <Kpi label="Gemas recebidas" value={num(soldGems * (1 - MARKET_FEE))} tone="gem" note={`já sem os ${MARKET_FEE * 100}% de taxa`} />
+        </div>
+        {sellers.map((s) => (
+          <p key={s.account_id} className={`status-line ${s.enabled && s.config?.dry_run === false ? "is-on" : ""}`}>
+            <span className="status-dot" aria-hidden />
+            <span><strong>{nicks.get(s.account_id)}</strong>: seller {s.enabled ? "ligado" : "desligado"}
+            {s.enabled && s.config?.dry_run !== false && ", em simulação: só registra o que faria, sem anunciar"}</span>
+          </p>
+        ))}
 
         {[...plans.values()].map((p) => (
-          <section key={p.account_id} className="card">
-            <h2>Decisão do seller{!chosen && <> em {nicks.get(p.account_id)}</>}</h2>
-            <p className="muted small" style={{ marginTop: 0 }}>
-              Último ciclo, {ago(p.received_at)}. Só anuncia se a fila à frente mais o lote vende em até{" "}
+          <Panel key={p.account_id} title={<>Decisão do seller{!chosen && <> em {nicks.get(p.account_id)}</>}</>}
+            meta={`último ciclo ${ago(p.received_at)}`} flush>
+            <StoneTable stones={p.data?.stones as Stone[]} />
+            <p className="panel-note">
+              Só anuncia se a fila à frente mais o lote vende em até{" "}
               {num(Number(sellers.find((s) => s.account_id === p.account_id)?.config?.max_days ?? 3))} dias, pelo volume
               vendido na semana. O piso ({num(Number(sellers.find((s) => s.account_id === p.account_id)?.config?.floor_ratio ?? 0.85) * 100)}%)
               é da menor entre a média do jogo e a mediana das vendas.
             </p>
-            <StoneTable stones={p.data?.stones as Stone[]} />
-          </section>
+          </Panel>
         ))}
 
-        <section className="card">
-          <h2>Abertos</h2>
-          {open.length === 0
-            ? <p className="muted small">Nenhum anúncio aberto na última lista do jogo.</p>
-            : <ListingTable rows={open} label={label} icon={icon} nicks={chosen ? null : nicks} open />}
-        </section>
+        <div className="cols-2">
+          <Panel title="Abertos" meta={num(open.length)} flush>
+            {open.length === 0
+              ? <p className="panel-empty">Nenhum anúncio aberto na última lista do jogo.</p>
+              : <ListingTable rows={open} label={label} icon={icon} nicks={chosen ? null : nicks} open />}
+          </Panel>
 
-        <section className="card">
-          <h2>Vendidos e cancelados</h2>
-          <p className="muted small" style={{ marginTop: 0 }}>
-            &quot;Saiu da lista&quot; é um anúncio que sumiu sem o worker ter cancelado: quase sempre venda, mas pode ter
-            sido cancelado no navegador.
-          </p>
-          {closed.length === 0
-            ? <p className="muted small">Nada vendido ou cancelado no período.</p>
-            : <ListingTable rows={closed} label={label} icon={icon} nicks={chosen ? null : nicks} />}
-        </section>
+          <Panel title="Vendidos e cancelados" meta={num(closed.length)} flush>
+            {closed.length === 0
+              ? <p className="panel-empty">Nada vendido ou cancelado no período.</p>
+              : <ListingTable rows={closed} label={label} icon={icon} nicks={chosen ? null : nicks} />}
+            <p className="panel-note">
+              &quot;Saiu da lista&quot; é um anúncio que sumiu sem o worker ter cancelado: quase sempre venda, mas pode ter
+              sido cancelado no navegador.
+            </p>
+          </Panel>
+        </div>
 
         {notices.length > 0 && (
-          <section className="card">
-            <h2>Avisos do jogo</h2>
+          <Panel title="Avisos do jogo">
             <ul className="activity">
               {notices.map((e, i) => (
                 <li key={i}>
@@ -165,13 +154,12 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
                 </li>
               ))}
             </ul>
-          </section>
+          </Panel>
         )}
 
-        <section className="card">
-          <h2>O que o worker fez</h2>
+        <Panel title="O que o worker fez" meta="últimas 60 ações">
           {activity.length === 0 ? (
-            <p className="muted small">Nenhuma ação de Mercado no período.</p>
+            <p className="muted small" style={{ margin: 0 }}>Nenhuma ação de Mercado no período.</p>
           ) : (
             <ul className="activity">
               {activity.map((a, i) => (
@@ -182,17 +170,16 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
               ))}
             </ul>
           )}
-        </section>
+        </Panel>
 
-        <details className="card">
-          <summary><strong>Diagnóstico: respostas do Mercado recebidas</strong></summary>
-          <p className="small secondary">Respostas <code>market</code> por aba, nos últimos {DAYS} dias (até as 500 mais recentes).
+        <Explain title="Diagnóstico: respostas do Mercado recebidas">
+          <p>Respostas <code>market</code> por aba, nos últimos {DAYS} dias (até as 500 mais recentes).
             A página usa as abas <code>meus</code> e <code>criado</code>.</p>
           <ul className="small">
             {[...abaCount].map(([k, n]) => <li key={k}><code>{k}</code>: {num(n)}</li>)}
             {abaCount.size === 0 && <li className="muted">nenhuma</li>}
           </ul>
-        </details>
+        </Explain>
       </div>
     </Shell>
   );
@@ -206,7 +193,7 @@ function ListingTable({ rows, label, icon, nicks, open = false }: {
   open?: boolean;
 }) {
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div className="table-scroll">
       <table>
         <thead>
           <tr>
@@ -274,7 +261,7 @@ const DECISION_LABEL: Record<string, string> = {
 function StoneTable({ stones }: { stones: Stone[] }) {
   if (stones.length === 0) return <p className="muted small">Nenhuma pedra acima da reserva.</p>;
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div className="table-scroll">
       <table>
         <thead>
           <tr>

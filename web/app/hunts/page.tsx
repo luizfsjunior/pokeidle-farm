@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AccountTabs, ErrorNote, LinkTabs, PageHeader, Panel } from "@/components/Page";
 import { Shell } from "@/components/Shell";
 import { Sprite } from "@/components/Sprite";
 import { loadAtlas, speciesLooktypes } from "@/lib/sprites";
@@ -128,26 +129,16 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
 
   return (
     <Shell email={email}>
-      <h1>Hunts</h1>
-      <p className="small">
-        {[null, ...accounts].map((a) => (
-          <span key={a?.id ?? "todas"} style={{ marginRight: ".75rem" }}>
-            {(a?.id ?? null) === (chosen?.id ?? null) ? <strong>{a?.nick ?? "Todas"}</strong> : <Link href={link({ conta: a?.id ?? null })}>{a?.nick ?? "Todas"}</Link>}
-          </span>
-        ))}
-        <span className="muted"> · </span>
-        {(Object.keys(PERIODS) as Period[]).map((p) => (
-          <span key={p} style={{ marginRight: ".75rem" }}>
-            {p === period ? <strong>{PERIODS[p]}</strong> : <Link href={link({ dias: p })}>{PERIODS[p]}</Link>}
-          </span>
-        ))}
-      </p>
-      {err && <p className="error">Erro ao ler o Supabase: {err}</p>}
+      <PageHeader title="Hunts" subtitle="Onde cada conta rendeu e o que cada hunt promete em gemas.">
+        <AccountTabs accounts={accounts} chosen={chosen?.id ?? null} href={(id) => link({ conta: id })} />
+        <LinkTabs label="Período" items={(Object.keys(PERIODS) as Period[]).map((p) => ({ key: p, href: link({ dias: p }), label: PERIODS[p], active: p === period }))} />
+      </PageHeader>
+      <ErrorNote message={err} />
+      <div className="stack">
 
-      <section className="card" style={{ overflowX: "auto" }}>
-        <h2 style={{ marginTop: 0 }}>Visitadas ({PERIODS[period]})</h2>
+      <Panel title="Visitadas" meta={PERIODS[period]} flush>
         {visited.length === 0 ? (
-          <p className="muted">Nenhuma hunt com abates no período.</p>
+          <p className="panel-empty">Nenhuma hunt com abates no período.</p>
         ) : (
           <table>
             <thead>
@@ -183,22 +174,20 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
             </tbody>
           </table>
         )}
-        <p className="muted small" style={{ marginBottom: 0 }}>
+        <p className="panel-note">
           Gemas/h: o valor dos drops reais pela média do Mercado na hora de cada drop. Poucos minutos numa hunt dão números instáveis.
         </p>
-      </section>
+      </Panel>
 
-      <section className="card" style={{ overflowX: "auto", marginTop: "1rem" }}>
-        <div className="spread">
-          <h2 style={{ margin: 0 }}>Catálogo {level ? `até o nível ${level}` : ""}</h2>
+      <Panel title={`Catálogo${level ? ` até o nível ${level}` : ""}`} flush meta={
           <form action="/hunts" className="row">
             {chosen && <input type="hidden" name="conta" value={chosen.id} />}
             {period !== "7" && <input type="hidden" name="dias" value={period} />}
             <input name="q" defaultValue={q} placeholder="buscar hunt ou espécie" />
-            <button type="submit">Buscar</button>
+            <button type="submit" className="ghost small">Buscar</button>
           </form>
-        </div>
-        <table style={{ marginTop: ".75rem" }}>
+        }>
+        <table>
           <thead>
             <tr><th>Hunt</th><th>Nível</th><th>Área</th><th>Pedras (preço de venda, vendidas/semana, fila)</th><th>Gemas / 1.000 abates</th><th>Abates/h medidos</th><th>Gemas/h</th></tr>
           </thead>
@@ -220,13 +209,14 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
             ))}
           </tbody>
         </table>
-        <p className="muted small" style={{ marginBottom: 0 }}>
+        <p className="panel-note">
           Gemas / 1.000 abates = Σ chance da pedra × preço de venda em gemas: o menor entre a média de 7 dias e o menor
           anúncio aberto, que é o preço de hoje (último snapshot{priceInfo.takenAt ? ` de ${ago(priceInfo.takenAt)}` : ""}).
           Não depende do ritmo: multiplique pelos abates/h da hunt. Pedra que vende pouco por semana (ex.: Thunder) não
           aguenta muito volume: o foco gemas só conta até 10% do vendido por semana, com o ritmo medido.
         </p>
-      </section>
+      </Panel>
+      </div>
     </Shell>
   );
 }

@@ -1,4 +1,5 @@
 import { CommandButtons } from "@/components/CommandButtons";
+import { ErrorNote, Kpi, PageHeader } from "@/components/Page";
 import { Shell } from "@/components/Shell";
 import { TrainerCard } from "@/components/TrainerCard";
 import { loadProfiles, speciesOf } from "@/lib/profile";
@@ -51,14 +52,28 @@ export default async function Overview() {
   const perHour = (v: number, mins: number) => (mins > 0 ? (v * 60) / mins : null);
 
   const err = accountsRes.error?.message ?? dailyRes.error?.message;
+  const farm = accounts.filter((a) => a.role === "farm");
+  const online = farm.filter((a) => a.status === "ready").length;
+  const sumProfile = (k: "gold" | "gems" | "diamonds") => [...profiles.values()].reduce((s, p) => s + (p[k] ?? 0), 0);
+  const sumToday = (k: keyof Totals) => [...totals.values()].reduce((s, t) => s + t[k], 0);
 
   return (
     <Shell email={email}>
-      <h1>Visão geral</h1>
-      <p className="secondary small">Números de hoje ({today.split("-").reverse().join("/")}) recalculados a cada 10 min; moedas e equipe, a cada 2 min.</p>
-      {err && <p className="error">Erro ao ler o Supabase: {err}</p>}
+      <PageHeader
+        title="Contas"
+        subtitle={<>Hoje, {today.split("-").reverse().join("/")}. Os números do dia são recalculados a cada 10 min; moedas e equipe, a cada 2 min.</>}
+      />
+      <ErrorNote message={err} />
       {accounts.length === 0 && !err && (
         <div className="card">Nenhuma conta cadastrada para este usuário. Veja <code>docs/deploy.md</code>.</div>
+      )}
+      {accounts.length > 0 && (
+        <div className="kpis" style={{ marginBottom: "1.25rem" }}>
+          <Kpi label="Contas conectadas" value={`${online} de ${farm.length}`} tone={online === farm.length && farm.length > 0 ? "good" : undefined} />
+          <Kpi label="Ouro nas contas" value={num(sumProfile("gold"), { compact: true })} tone="gold" />
+          <Kpi label="Gemas nas contas" value={num(sumProfile("gems"))} tone="gem" />
+          <Kpi label="Drops de hoje, em gemas" value={num(sumToday("drops_value_orb"))} note={`${num(sumToday("kills"))} abates`} />
+        </div>
       )}
       <div className="trainers">
         {accounts.map((a) => {

@@ -1,4 +1,5 @@
 import { GoalSummary } from "@/components/GoalCard";
+import { ErrorNote, Explain, PageHeader } from "@/components/Page";
 import { Shell } from "@/components/Shell";
 import { fetchProgress } from "@/lib/goals";
 import { requireUser } from "@/lib/supabase/server";
@@ -24,19 +25,19 @@ export default async function GoalsPage() {
 
   return (
     <Shell email={email}>
-      <h1>Objetivos</h1>
-      {goalsRes.error && <p className="error">{goalsRes.error.message}</p>}
+      <PageHeader title="Objetivos" subtitle="Metas por conta, com ritmo e previsão de quando chegam." />
+      <ErrorNote message={goalsRes.error?.message} />
       <div className="stack">
-        {goals.length === 0 && <p className="muted">Nenhum objetivo ainda.</p>}
+        {goals.length === 0 && <div className="panel"><p className="panel-empty">Nenhum objetivo ainda. Crie o primeiro abaixo.</p></div>}
         {goals.map((g, i) => (
           <GoalSummary key={g.id} goal={g} progress={progress[i]} metric={metricDefs.find((m) => m.key === g.metric)} />
         ))}
         <GoalForm accounts={(accounts.data ?? []) as Account[]} metrics={metricDefs.filter((m) => m.kind === "base")} hunts={huntList} />
-        <p className="muted small">
-          Ritmo e previsão usam as últimas 24 h de relógio, contando o tempo parado. Para captura, a chance de cada
+        <Explain>
+          <p>Ritmo e previsão usam as últimas 24 h de relógio, contando o tempo parado. Para captura, a chance de cada
           pokémon bater o filtro vem das capturas dos últimos 7 dias (shiny usa 1 em 24.000). As fotos do progresso
-          são tiradas de hora em hora.
-        </p>
+          são tiradas de hora em hora.</p>
+        </Explain>
       </div>
     </Shell>
   );
