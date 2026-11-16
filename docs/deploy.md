@@ -80,6 +80,27 @@ Caminho testado em 12/11/2026: conectou, gravou abates reais e o painel passou a
    docker compose logs -f
    ```
 
+## 3b. VPS com proxy ou VPN de IP fixo (24/7, ADR 0013)
+
+O VPS sozinho não serve: o jogo recusa IP de datacenter. O tráfego do jogo sai por um proxy ou VPN de **IP fixo**
+(residencial ou ISP estático, dedicado), liberado pelo suporte em 16/11.
+
+1. **O proxy**: contrate um IP **estático dedicado** (procure por "static residential" ou "ISP proxy"), nunca um
+   pool rotativo. Anote host, porta, usuário e senha e o protocolo (HTTP ou SOCKS5).
+2. **O VPS**: qualquer Linux com 1 GB de RAM (Ubuntu 24.04). Siga os passos 2 a 5 do Droplet abaixo, com
+   `WORKER_HOLDER=vps-1` e, no `.env`:
+   ```bash
+   GAME_PROXY_URL=http://usuario:senha@host:porta   # ou socks5://...
+   ```
+3. **Pare o worker de casa** (`docker compose down` no PC) antes de subir o do VPS.
+4. Suba (`docker compose up -d --build`) e confira no log a primeira linha útil:
+   - `IP de saída pelo proxy do jogo: 189.10.x.x (Provedor, tipo isp)`: ok, as sessões sobem em seguida.
+   - `IP de saída ... é de datacenter ... Não conectei.`: o proxy entrega IP de servidor. Troque de plano ou de
+     provedor; não force (`EXIT_IP_CHECK=false` só para diagnóstico, nunca para conectar mesmo assim).
+5. No painel: **Ping** no card deve voltar `sessão ready em vps-1`.
+6. O `/compensa` ainda só conhece custo de energia: até ganhar um campo de custo fixo mensal (pendência), o
+   lucro mostrado não desconta o VPS e o proxy.
+
 ## 4. O que conferir
 
 - Nos logs: `estado=READY`. Se aparecer, o handshake do mapeamento está certo.

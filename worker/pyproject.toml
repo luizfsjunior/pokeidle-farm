@@ -11,6 +11,8 @@ dependencies = [
     "pydantic-settings>=2.6,<3",
     "supabase>=2.10,<3",
     "httpx>=0.27,<1",  # já vem com o supabase; usado para baixar a Pokedex do jogo
+    "python-socks[asyncio]>=2.5,<3",  # proxy SOCKS no WebSocket do jogo (ADR 0013)
+    "socksio>=1.0,<2",  # proxy SOCKS no httpx (downloads do jogo e conferência do IP)
 ]
 
 [project.optional-dependencies]

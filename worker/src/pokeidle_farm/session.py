@@ -206,6 +206,8 @@ class AccountSession:
                 ping_interval=self.settings.ping_interval_s,
                 ping_timeout=self.settings.ping_timeout_s,
                 open_timeout=self.settings.welcome_timeout_s,
+                # Só o proxy do jogo (ADR 0013); None ignora HTTPS_PROXY do ambiente.
+                proxy=self.settings.game_proxy,
             )
         except InvalidStatus as exc:
             status = exc.response.status_code

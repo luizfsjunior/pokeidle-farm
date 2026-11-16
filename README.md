@@ -80,6 +80,7 @@ pokeidle-farm/
 | [0010](docs/decisions/0010-supabase-desde-o-inicio.md) | Supabase desde o início do desenvolvimento | Aceita |
 | [0011](docs/decisions/0011-worker-em-ip-residencial.md) | Worker em IP residencial (o jogo bloqueia a DigitalOcean) | Aceita |
 | [0012](docs/decisions/0012-metricas-em-camadas.md) | Métricas em camadas no Postgres, com objetivos e previsão | Aceita |
+| [0013](docs/decisions/0013-vps-com-proxy-autorizado.md) | Worker em VPS com a saída do jogo por proxy ou VPN de IP fixo (liberado pelo suporte) | Aceita |
 
 ## Referências e créditos
 

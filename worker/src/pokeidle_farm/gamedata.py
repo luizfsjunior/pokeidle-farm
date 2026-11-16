@@ -322,6 +322,15 @@ async def save_hunt_catalog(store: Store, catalog: HuntCatalog) -> bool:
 HttpGet = Callable[[str, str | None], Awaitable[tuple[int, str | None, bytes]]]
 
 
+_GAME_PROXY: str | None = None
+
+
+def set_game_proxy(url: str | None) -> None:
+    """Os downloads do jogo saem pelo mesmo proxy do WebSocket (ADR 0013)."""
+    global _GAME_PROXY
+    _GAME_PROXY = url
+
+
 async def http_get(url: str, if_none_match: str | None) -> tuple[int, str | None, bytes]:
     """GET com `If-None-Match` opcional. Retorna (status, etag, corpo)."""
     import httpx
@@ -329,7 +338,9 @@ async def http_get(url: str, if_none_match: str | None) -> tuple[int, str | None
     headers = {"User-Agent": "pokeidle-farm-worker"}
     if if_none_match:
         headers["If-None-Match"] = if_none_match
-    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+    async with httpx.AsyncClient(
+        timeout=30, follow_redirects=True, proxy=_GAME_PROXY, trust_env=False
+    ) as client:
         res = await client.get(url, headers=headers)
     return res.status_code, res.headers.get("etag"), res.content
 

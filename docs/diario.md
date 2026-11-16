@@ -3,6 +3,24 @@
 Registro curto do que foi feito em cada dia, o que deu errado e o que ficou pendente.
 As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
+## 2026-11-16
+
+### Feito
+
+- **Worker 24/7 sem máquina em casa** ([ADR 0013](decisions/0013-vps-com-proxy-autorizado.md), revisa a 0011): o
+  suporte, pelo Discord, não libera IP de servidor mas liberou proxy ou VPN. O worker ganhou `GAME_PROXY_URL` (só o
+  tráfego do jogo: WebSocket e downloads da Pokedex/itens; o Supabase vai direto; HTTP ou SOCKS5) e a conferência do
+  IP de saída no ipapi.is antes de conectar (`EXIT_IP_CHECK`): IP de datacenter não conecta. Guia em
+  [deploy.md](deploy.md), seção 3b. 293 testes passando.
+
+### Pendente
+
+- Guardar o print da conversa com o suporte (fora do repo).
+- Contratar o VPS e um proxy **estático dedicado** (residencial ou ISP), subir pelo guia e conferir o log do IP de
+  saída e o Ping (`vps-1`).
+- `/compensa`: campo de custo fixo mensal (VPS + proxy), hoje só há energia.
+- Lint: dois B008 em `model/combat.py` (de 15/11).
+
 ## 2026-11-15
 
 ### Feito

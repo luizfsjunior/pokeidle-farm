@@ -1,6 +1,6 @@
 # 0011 — Worker em IP residencial
 
-- **Status:** Aceita
+- **Status:** Aceita, revista pela [0013](0013-vps-com-proxy-autorizado.md) em 2026-11-16 (proxy/VPN liberado pelo suporte)
 - **Data:** 2026-11-12
 - **Substitui:** [0004](0004-hospedagem-digitalocean.md)
 

@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     # Jogo
     ws_url: str = "wss://pokeidle.io"
 
+    # Saída do tráfego do jogo (ADR 0013). Vazio: conexão direta. Com valor, o WebSocket e os
+    # downloads do jogo (Pokedex, itens) saem por este proxy; o Supabase continua direto.
+    # Formatos: http://usuario:senha@host:porta ou socks5://usuario:senha@host:porta.
+    game_proxy_url: SecretStr | None = None
+    # Antes de conectar, confere o tipo do IP de saída (ipapi.is). IP de datacenter não conecta:
+    # o jogo recusa com provedorBanido e insistir só piora a situação da conta.
+    exit_ip_check: bool = True
+
     # Identificação desta instância no lease das contas (ex.: "notebook", "droplet-1").
     worker_holder: str = Field(default_factory=socket.gethostname)
 
@@ -55,6 +63,10 @@ class Settings(BaseSettings):
     account_1_nick: str | None = None
     account_1_token: SecretStr | None = None
     account_1_device_id: str | None = None
+
+    @property
+    def game_proxy(self) -> str | None:
+        return self.game_proxy_url.get_secret_value() if self.game_proxy_url else None
 
     @property
     def uses_supabase(self) -> bool:

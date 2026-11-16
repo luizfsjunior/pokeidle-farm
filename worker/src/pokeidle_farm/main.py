@@ -21,7 +21,8 @@ from uuid import NAMESPACE_URL, uuid5
 
 from .commands import CommandError, CommandLoop, FakeSession, SessionLike, Supervisor
 from .config import Settings
-from .gamedata import GameFilesSync, ItemsSync, SpeciesSync, http_get
+from .gamedata import GameFilesSync, ItemsSync, SpeciesSync, http_get, set_game_proxy
+from .netcheck import blocks_connection, fetch_exit_ip
 from .plugins.registry import PluginHost, discover
 from .session import AccountSession
 from .store.base import AccountRecord, Store
@@ -53,12 +54,41 @@ async def _make_store(settings: Settings) -> Store:
     return store
 
 
+async def _exit_ip_ok(settings: Settings) -> bool:
+    """Confere o IP de saída do tráfego do jogo antes de abrir sessões (ADR 0013)."""
+    via = "pelo proxy do jogo" if settings.game_proxy else "direto"
+    if not settings.exit_ip_check:
+        log.info("conferência do IP de saída desligada (EXIT_IP_CHECK=false); saída %s", via)
+        return True
+    try:
+        exit_ip = await fetch_exit_ip(settings.game_proxy)
+    except Exception as exc:  # o serviço fora do ar não impede o worker; só avisa
+        log.warning(
+            "não consegui conferir o IP de saída (%s): %s; sigo assim mesmo",
+            via,
+            type(exc).__name__,
+        )
+        return True
+    if blocks_connection(exit_ip):
+        log.error(
+            "IP de saída %s é de datacenter: o jogo recusa com provedorBanido (ADR 0011). "
+            "Configure GAME_PROXY_URL com um IP residencial/ISP fixo (ADR 0013). Não conectei.",
+            exit_ip.summary(),
+        )
+        return False
+    log.info("IP de saída %s: %s", via, exit_ip.summary())
+    return True
+
+
 async def run(settings: Settings, *, fake: bool = False) -> int:
     """Sobe as sessões das contas habilitadas e atende os comandos do painel.
 
     Com `fake=True` (`listen --fake`) as sessões não conectam no jogo: serve para
     testar os comandos de ponta a ponta.
     """
+    if not fake and not await _exit_ip_ok(settings):
+        return 1
+    set_game_proxy(settings.game_proxy)
     store = await _make_store(settings)
     available = discover()
     log.info("plugins disponíveis: %s", ", ".join(sorted(available)) or "nenhum")
