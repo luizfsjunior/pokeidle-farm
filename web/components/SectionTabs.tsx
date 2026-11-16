@@ -1,26 +1,25 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Children, useState } from "react";
 
 /**
  * Abas dentro da página (ex.: Resumo, Equipe, Estratégia, Ajustes da conta). Todas as abas vêm
  * renderizadas do servidor; trocar de aba só mostra outra, sem nova consulta. A aba fica na URL
- * (`?aba=`) para o link e o voltar funcionarem.
+ * (`?aba=`, pelo history nativo) para o link funcionar.
  */
 export function SectionTabs({ tabs, children }: { tabs: { id: string; label: string }[]; children: React.ReactNode }) {
   const params = useSearchParams();
-  const router = useRouter();
-  const path = usePathname();
   const initial = tabs.find((t) => t.id === params.get("aba"))?.id ?? tabs[0]?.id;
   const [current, setCurrent] = useState(initial);
   const panels = Children.toArray(children);
 
   const pick = (id: string) => {
     setCurrent(id);
-    const q = new URLSearchParams(params.toString());
-    if (id === tabs[0]?.id) q.delete("aba"); else q.set("aba", id);
-    router.replace(`${path}${q.size ? `?${q}` : ""}`, { scroll: false });
+    // só a URL muda (history nativo, sem ir ao servidor): a troca é instantânea
+    const url = new URL(window.location.href);
+    if (id === tabs[0]?.id) url.searchParams.delete("aba"); else url.searchParams.set("aba", id);
+    window.history.replaceState(null, "", url);
   };
 
   return (

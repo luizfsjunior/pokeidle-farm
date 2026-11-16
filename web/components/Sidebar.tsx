@@ -6,15 +6,11 @@ import { Icon } from "./icons";
 import { InstallApp } from "./InstallApp";
 import { isActive, NAV_GROUPS } from "./nav";
 
-/** Barra lateral do desktop: marca, páginas em grupos, instalar e sair (docs/design/painel-redesign.md). */
+/** Barra lateral do desktop: páginas em grupos, instalar e sair (docs/design/painel-ajustes.md). */
 export function Sidebar({ email }: { email: string }) {
   const path = usePathname() ?? "/";
   return (
     <aside className="rail" aria-label="Navegação">
-      <Link href="/" className="rail-brand" aria-label="pokeidle-farm, início">
-        <span className="rail-logo" aria-hidden />
-        <span className="rail-label">pokeidle-farm</span>
-      </Link>
       <nav className="rail-nav">
         {NAV_GROUPS.map((g, i) => (
           <div key={i} className="rail-group">
