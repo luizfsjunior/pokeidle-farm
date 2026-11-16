@@ -242,3 +242,16 @@ async def test_evolution_is_confirmed_or_reported_failed():
 def test_plan_switch_overhead_and_potion_in_phases():
     plan = plan_to(20, _account(stones={"Leaf Stone": 1}), HUNTS, RAW, RULES, NOW, n_kills=30)
     assert all(p.potion_id == 200 for p in plan.phases)  # HP baixo: Small Potion
+
+
+def test_xp_first_spends_gold_while_it_lasts():
+    # só a hunt de fogo (desvantagem, gasta mais em poção do que rende): o foco é XP,
+    # então vale enquanto o saldo aguenta; sem saldo informado, só hunts que se pagam
+    fire = [HuntRef("fire10", 10, 4)]
+    acc = _account(level=10)
+    acc.gold = 10_000_000
+    rich = plan_to(12, acc, fire, RAW, RULES, NOW, n_kills=30)
+    assert rich.stuck_at is None and rich.phases[0].net_gold_per_hour < 0
+    assert rich.phases[-1].gold_end < 10_000_000
+    acc.gold = 5_000  # na reserva: não dá para gastar
+    assert plan_to(12, acc, fire, RAW, RULES, NOW, n_kills=30).stuck_at == 10

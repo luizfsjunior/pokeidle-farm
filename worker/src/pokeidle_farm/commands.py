@@ -210,6 +210,11 @@ class Supervisor:
         # gemas e XP: o restock só cuida de poções (bolas desligadas); o gems escolhe a hunt
         restock_focus = "gold_xp_drop" if p.focus in ("gems", "xp") else p.focus
         restock_cfg = {**configs.get("restock", (True, {}))[1], "focus": restock_focus}
+        # foco XP: poção sem teto por hora (o ouro é só para sobreviver; decisão de 16/11)
+        if p.focus == "xp":
+            restock_cfg["potions_uncapped"] = True
+        else:
+            restock_cfg.pop("potions_uncapped", None)
         if p.focus == "rank" and fallback_focus is not None:
             restock_cfg["fallback_focus"] = fallback_focus
         writes: list[tuple[str, bool, dict[str, Any]]] = [("restock", True, restock_cfg)]

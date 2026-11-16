@@ -453,3 +453,33 @@ def test_best_potion_by_max_hp():
     assert best_potion(468)[0] == 200
     assert best_potion(2_000)[0] == 203  # Hyper: 1.000 HP por 800
     assert best_potion(4_500)[0] == 204  # Ultimate cabe inteira (70% de 4.500 > 3.000)
+
+
+async def test_potions_uncapped_ignores_hourly_cap_but_not_reserve():
+    h = Harness(
+        focus="gold_xp_drop",
+        potions_uncapped=True,
+        max_gold_per_hour=1_000,
+        items=[{"id": 200, "min": 50, "target": 100}],
+    )
+    h.state.items = {"200": 0}
+    await h.start()
+    await h.kills(1)
+    assert h.wires("shop.buy")[0]["qty"] == 100  # 5.000 de ouro, acima do teto de 1.000/h
+    capped = Harness(
+        focus="gold_xp_drop", max_gold_per_hour=1_000, items=[{"id": 200, "min": 50, "target": 100}]
+    )
+    capped.state.items = {"200": 0}
+    await capped.start()
+    await capped.kills(1)
+    assert capped.wires("shop.buy")[0]["qty"] == 20  # 1.000 / 50
+    poor = Harness(
+        focus="gold_xp_drop",
+        potions_uncapped=True,
+        gold_reserve=99_000,
+        items=[{"id": 200, "min": 50, "target": 100}],
+    )
+    poor.state.items = {"200": 0}
+    await poor.start()
+    await poor.kills(1)
+    assert poor.wires("shop.buy")[0]["qty"] == 20  # só os 1.000 acima da reserva

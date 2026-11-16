@@ -1,7 +1,8 @@
 """Simulador, camada 2: progressão nível a nível até um marco (docs/design/simulador-2-progressao.md).
 
-Para cada nível do treinador, escolhe a hunt de maior XP/h para o ativo (camada 1) entre as que se
-pagam em ouro (ouro dos abates − poções ≥ 0), aplica a XP ao treinador e ao ativo (a mesma por abate),
+Para cada nível do treinador, escolhe a hunt de maior XP/h para o ativo (camada 1) que o saldo de ouro
+aguenta (o foco é XP: uma hunt que gasta mais em poção do que rende vale enquanto o ouro acumulado
+cobrir o nível; 16/11, decisão do usuário), aplica a XP ao treinador e ao ativo (a mesma por abate),
 evolui o ativo quando o nível chega e há pedra do tipo, e soma o tempo. Os bônus de XP (VIP, evento...)
 valem até a hora em que expiram, no relógio simulado.
 
@@ -59,6 +60,8 @@ class Account:
     stones: dict[str, int] = field(default_factory=dict)  # nome da pedra -> quantidade
     bonuses: tuple[Bonus, ...] = ()
     farm_pct: float = 0.0
+    gold: float | None = None  # saldo de ouro; None: não limita (só o ouro líquido ≥ 0)
+    gold_reserve: float = 5_000  # o restock não gasta abaixo disso
 
 
 @dataclass(frozen=True)
@@ -73,6 +76,7 @@ class Phase:
     potions_per_hour: float
     net_gold_per_hour: float
     potion_id: int = 200
+    gold_end: float | None = None  # saldo de ouro ao fim da fase
 
 
 @dataclass
@@ -97,6 +101,13 @@ class Plan:
         if now is not None and self.stuck_at is None:
             d["eta"] = (now + timedelta(hours=self.hours)).isoformat()
         return d
+
+
+def _affordable(gold: float | None, reserve: float, net: float, need_xp: float, xph: float) -> bool:
+    """Sem saldo conhecido: só hunts que se pagam. Com saldo: o nível cabe no ouro acima da reserva."""
+    if gold is None:
+        return net >= 0
+    return gold + net * need_xp / xph >= reserve
 
 
 def _level_of(xp: float, floor: int) -> int:
@@ -156,6 +167,7 @@ def plan_to(
     evolutions: list[dict[str, Any]] = []
     stuck: int | None = None
     keep: set[str] | None = None  # None: avalia todas as hunts liberadas
+    gold = account.gold
     while level < goal:
         p_level = _level_of(p_xp, int(profile.get("level") or 1))
         profile["level"] = p_level
@@ -176,6 +188,7 @@ def plan_to(
             break
         allowed = [lv for lv in tiers if lv <= level][-TOP_TIERS:]
         bonus = _bonus_at(account.bonuses, clock)
+        need_xp = total_xp(level + 1) - t_xp
         # a poção de menor custo por HP útil para o HP do ativo (como o restock compra)
         max_hp = combat_hp(fighter.stats()["hp"])
         potion_id, gold_per_hp = best_potion(max_hp)
@@ -195,9 +208,9 @@ def plan_to(
             net = r.kills_per_hour * gold_per_kill(h.level, account.farm_pct) - (
                 r.damage_per_hour * gold_per_hp
             )
-            if net < 0:
-                continue
             xph = r.kills_per_hour * base_xp(h.level) * bonus
+            if not _affordable(gold, account.gold_reserve, net, need_xp, xph):
+                continue
             ranked.append((xph, h.slug))
             candidates.append((xph, h, r, potions, net))
             if best is None or xph > best[0]:
@@ -210,6 +223,8 @@ def plan_to(
             if cur is not None and best[0] <= cur[0] * (1 + HYSTERESIS):
                 best = cur
         xph, h, r, potions, net = best
+        if gold is not None:
+            gold += net * (total_xp(level + 1) - t_xp) / xph
         keep = {slug for _, slug in sorted(ranked, reverse=True)[:KEEP_BEST]}
         need = total_xp(level + 1) - t_xp
         dt = need / xph
@@ -235,6 +250,7 @@ def plan_to(
                 (last.potions_per_hour * last.hours + potions * dt) / tot,
                 (last.net_gold_per_hour * last.hours + net * dt) / tot,
                 potion_id,
+                gold,
             )
         else:
             phases.append(
@@ -249,6 +265,7 @@ def plan_to(
                     potions,
                     net,
                     potion_id,
+                    gold,
                 )
             )
         level += 1

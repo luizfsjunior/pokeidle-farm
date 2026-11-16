@@ -181,6 +181,7 @@ class Progress:
             stones=await self.stones(),
             bonuses=bonuses_from_state(st.xp_bonus),
             farm_pct=farm_pct_from_event(st.xp_event, now),
+            gold=float(st.gold) if st.gold is not None else None,
         )
         hunts = [HuntRef(h.slug, h.level, h.species_id) for h in cat.hunts.values()]
         try:

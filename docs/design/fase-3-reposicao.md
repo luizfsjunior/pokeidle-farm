@@ -196,6 +196,8 @@ O ouro bruto já existe (`gold` em `metric_hourly`). Para o líquido, o custo do
 | `ball_min` / `ball_target` | 100 / 1.000 | estoque da bola escolhida |
 | `gold_reserve` | 5.000 | ouro que nunca é gasto |
 | `max_gold_per_hour` | 50.000 | teto de gasto em compras por hora |
+| `potions_uncapped` | false | poções e revives fora do teto por hora (o `focus.set` "xp" liga; 16/11) |
+| `potion_auto` | true | troca a poção pela de menor ouro por HP útil para o HP máximo do ativo (16/11) |
 | `window_kills` / `min_kills` | 200 / 50 | janela da média de ouro e mínimo para agir sobre a bola |
 | `confirm_timeout_s` | 15 | espera pela confirmação da compra |
 | `late_confirm_s` | 300 | quanto tempo uma compra que passou do prazo ainda pode confirmar (e bloqueia recompra do item) |

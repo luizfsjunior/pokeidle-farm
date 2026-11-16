@@ -38,7 +38,10 @@ tempo(L → L+1) = (total_xp(L+1) − total_xp(L)) ÷ XP/h da melhor hunt
 
 Somando os tempos, sai o tempo até o 150. O plano marca as trocas de hunt e as evoluções. Detalhes:
 
-- só entram hunts que se pagam em ouro (ouro dos abates − poções ≥ 0); sem nenhuma, o plano para (`stuck_at`);
+- **o foco é XP** (decisão de 16/11: "nesse começo o foco não é dinheiro"): o plano acompanha o saldo de ouro
+  (`Account.gold`, do `estado`) e aceita uma hunt que gasta mais em poção do que rende enquanto o saldo acima da
+  reserva (5 mil) cobrir o nível; cada fase traz o saldo ao fim (`gold_end`). Sem saldo conhecido, só hunts que se
+  pagam. Sem nenhuma hunt possível, o plano para (`stuck_at`);
 - folga de 15% como o foco XP: fica na hunt da fase anterior se a melhor não render 15% a mais;
 - desempenho: a cada nível só são simulados os 3 níveis de hunt mais altos liberados e as 8 melhores do nível anterior
   (no primeiro, todas); ~30 s por plano até o 150, numa thread.
@@ -95,12 +98,14 @@ Small) passam a compensar quando o HP máximo cresce. Fica para depois (restock)
 - **Verificação da evolução**: depois de `progress.evolve`, o worker grava `progress.evolved` quando a espécie do
   ativo muda ou `progress.evolve_failed` se 2 min passam sem mudar. **Pendente**: conferir na conta de teste no nível
   40 (primeira evolução de verdade).
-- **Atenção, teto do restock**: o `max_gold_per_hour` (50 mil) fica abaixo do gasto em poção previsto do nível ~60 em
-  diante; com o teto, as poções acabam e o pokémon desmaia.
+- **Teto do restock**: o `max_gold_per_hour` (50 mil) ficava abaixo do gasto em poção previsto do nível ~41 em
+  diante (90 a 190 mil/h). No foco XP as poções e revives não contam mais no teto (`potions_uncapped`, ligado pelo
+  `focus.set` "xp"); a reserva de ouro continua valendo.
 
 ## Decisões (16/11)
 
-- **P-A.** Modelar o dano do selvagem, as poções e o ouro; descartar as hunts que não se pagam.
+- **P-A.** Modelar o dano do selvagem, as poções e o ouro. Revisto no mesmo dia: o foco é XP, o ouro só precisa
+  durar (ver "O modelo").
 - **P-B.** Evolução automática no foco XP.
 - **P-C.** Os bônus são lidos do `estado.bonusXp` (VIP, evento...), cada um até expirar.
 - **P-D.** Só o inicial e as evoluções dele; o segundo pokémon fica para as camadas 3 e 4.

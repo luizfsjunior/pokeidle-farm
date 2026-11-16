@@ -56,6 +56,9 @@ class RestockConfig(BaseModel):
     # troca a poção das regras pela de menor ouro por HP útil para o HP máximo do ativo
     # (a automação bebe abaixo de 30%); mínimo e alvo são convertidos em HP equivalente
     potion_auto: bool = True
+    # foco XP (16/11): poções e revives não contam no teto por hora (`max_gold_per_hour` vale
+    # só para bolas); a reserva de ouro continua valendo. O `focus.set` "xp" liga.
+    potions_uncapped: bool = False
 
 
 @dataclass
@@ -292,10 +295,9 @@ class RestockPlugin(Plugin):
             stock = self._stock(kind, id_)
             if stock >= min_:
                 continue
-            budget = min(
-                gold - self.cfg.gold_reserve,
-                self.cfg.max_gold_per_hour - self._spent_last_hour(now),
-            )
+            budget = gold - self.cfg.gold_reserve
+            if not (self.cfg.potions_uncapped and kind == "item"):
+                budget = min(budget, self.cfg.max_gold_per_hour - self._spent_last_hour(now))
             qty = min(target - stock, budget // price) if budget > 0 else 0
             if qty < 1:
                 await self._fail(kind, id_, "sem_ouro")

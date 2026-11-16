@@ -298,5 +298,7 @@ async def test_focus_set_gems(rig):
     assert c["status"] == "done", c["error"]
     assert rig.store.configs[acc.id]["gems"][1]["objective"] == "xp"
     assert rig.store.configs[acc.id]["restock"][1]["focus"] == "gold_xp_drop"
+    assert rig.store.configs[acc.id]["restock"][1]["potions_uncapped"] is True  # foco XP
     c = await rig.cmd(acc, "focus.set", focus="capture")
     assert rig.store.configs[acc.id]["gems"][0] is False
+    assert "potions_uncapped" not in rig.store.configs[acc.id]["restock"][1]
