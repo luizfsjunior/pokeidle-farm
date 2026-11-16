@@ -202,3 +202,13 @@ async def test_does_not_evolve_without_stone_or_level():
     await Progress(_ctx(12, {}, sent), source="gems", now=lambda: NOW).maybe_evolve()
     await Progress(_ctx(11, {"76": 1}, sent), source="gems", now=lambda: NOW).maybe_evolve()
     assert sent == []
+
+
+async def test_plan_waits_for_data_without_burning_the_interval():
+    sent: list[dict[str, Any]] = []
+    ctx = _ctx(12, {}, sent)
+    ctx.state.active_pokemon = None
+    p = Progress(ctx, source="gems", now=lambda: NOW)
+    p.maybe_plan("start")
+    await p.task
+    assert p.last_plan_at is None  # sem o ativo: não conta como plano feito

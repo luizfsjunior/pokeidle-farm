@@ -127,15 +127,27 @@ class Progress:
             and now - self.last_plan_at < self.plan_every
         ):
             return
-        self.last_plan_at = now
         self.task = asyncio.get_running_loop().create_task(self._run(reason))
 
     async def _run(self, reason: str) -> None:
         st, cat, species = self.ctx.state, self.ctx.catalog, self.ctx.species
         prof = st.active_pokemon
-        if cat is None or species is None or not prof or st.level is None or not cat.rules:
+        missing = [
+            name
+            for name, ok in (
+                ("catalog", cat is not None),
+                ("species", species is not None),
+                ("active", bool(prof)),
+                ("level", st.level is not None),
+                ("rules", bool(getattr(cat, "rules", None))),
+            )
+            if not ok
+        ]
+        if missing:  # tenta de novo no próximo abate (o intervalo só conta planos gravados)
+            self.ctx.log.info("progress: sem plano ainda, falta %s", ", ".join(missing))
             return
         now = self.now()
+        self.last_plan_at = now
         account = Account(
             trainer_level=st.level,
             trainer_xp=float(st.trainer_xp or 0),
