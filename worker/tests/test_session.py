@@ -323,3 +323,27 @@ def test_state_view_tracks_active_level_from_kills():
         Event(account_id=uuid4(), session_id=uuid4(), type="kill", data={"active_level": None})
     )
     assert view.active_level == 23
+
+
+async def test_species_ready_after_welcome_reaches_plugins(fake_game, make_session, store):
+    """A Pokedex que termina de carregar depois do welcome chega aos plugins no evento seguinte."""
+    go = asyncio.Event()
+
+    async def script(ws, hello, n):
+        await ws.send(welcome())
+        await go.wait()
+        await ws.send(battle({"k": "morte"}))
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    session = make_session(game.url)
+    task = asyncio.create_task(session.run())
+    await wait_until(lambda: "market_prices" in session.plugins.running)
+    await wait_until(lambda: session.state == State.READY)
+    assert session.plugins.running["market_prices"].ctx.species is None
+    pokedex = object()
+    session._species = lambda: pokedex
+    go.set()
+    await wait_until(lambda: session.plugins.running["market_prices"].ctx.species is pokedex)
+    session.stop()
+    await task

@@ -178,6 +178,17 @@ class AccountSession:
     def _copy_progress(self) -> None:
         tr, sv = self._translator, self.state_view
         sv.trainer_xp, sv.xp_bonus, sv.xp_event = tr.trainer_xp, tr.xp_bonus, tr.xp_event
+        self._share_species()
+
+    def _share_species(self) -> None:
+        """A Pokedex carrega em segundo plano e pode ficar pronta depois do welcome: entrega aos
+        plugins que ainda estão sem ela (senão o gems ficaria em `sem_catalogo` até reconectar)."""
+        species = self._species()
+        if species is None:
+            return
+        for plugin in self.plugins.running.values():
+            if plugin.ctx.species is None:
+                plugin.ctx.species = species
 
     async def _connect_once(self) -> None:
         token = await self.store.get_token(self.account.id)
