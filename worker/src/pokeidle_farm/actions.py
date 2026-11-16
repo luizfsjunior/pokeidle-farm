@@ -13,6 +13,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, ClassVar, Literal
 
@@ -304,11 +305,34 @@ class ActionGateway:
     record: Recorder | None = None  # publica action.* no barramento
     limiter: RateLimiter | None = None
 
+    # trava de hunt escolhida pelo painel (plugin hunt_hold): (slug, até, dono). Enquanto vale,
+    # só o dono troca de hunt; o hunt.select dos outros (gems, rank) é bloqueado com wait_s até o
+    # fim, e eles tentam de novo depois (docs/design/painel-fase-3.md)
+    hunt_hold: tuple[str, datetime, str] | None = None
+
     def __post_init__(self) -> None:
         self.limiter = self.limiter or RateLimiter()
 
+    def hold_hunt(self, slug: str, until: datetime, owner: str) -> None:
+        self.hunt_hold = (slug, until, owner)
+
+    def release_hunt(self, owner: str) -> None:
+        if self.hunt_hold is not None and self.hunt_hold[2] == owner:
+            self.hunt_hold = None
+
     async def submit(self, action: ActionSpec, *, source: str) -> None:
         info = {"action": action.name, "source": source, "input": action.model_dump(mode="json")}
+
+        if action.name == "hunt.select" and self.hunt_hold is not None:
+            slug, until, owner = self.hunt_hold
+            left = (until - datetime.now(UTC)).total_seconds()
+            if left <= 0:
+                self.hunt_hold = None
+            elif source != owner:
+                await self._record(
+                    "action.blocked", {**info, "reason": "hunt_hold", "wait_s": left, "hold": slug}
+                )
+                raise ActionBlocked(action.name, f"hunt_hold ({slug})", wait_s=left)
 
         if self.mode is ActionMode.OBSERVE_ONLY:
             await self._record("action.blocked", {**info, "reason": "observe_only"})

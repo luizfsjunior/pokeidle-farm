@@ -10,7 +10,8 @@ export function commandSummary(c: Command): string {
   if (c.status !== "done" || !c.result) return base;
   const r = c.result as Record<string, unknown>;
   if (c.type === "ping") return `${base} — sessão ${String(r.state)}${r.holder ? ` em ${String(r.holder)}` : ""}`;
-  if (c.type === "plugin.set" || c.type === "focus.set") return `${base} — vale ${String(r.applied)}`;
+  if (c.type === "plugin.set" || c.type === "focus.set" || c.type === "hunt.release") return `${base} — vale ${String(r.applied)}`;
+  if (c.type === "hunt.select") return `${base} — ${String(r.slug)} até ${new Date(String(r.until)).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}, vale ${String(r.applied)}`;
   return base;
 }
 
