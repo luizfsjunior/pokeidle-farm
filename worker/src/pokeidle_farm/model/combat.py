@@ -34,6 +34,7 @@ BASE_KEYS = {
 QUALITY_EXP = {"hp": 0.95, "speed": 0.95, "atk": 0.8, "def": 0.8, "spAtk": 0.8, "spDef": 0.8}
 RANDOM_MEAN = 0.925  # aleatório(0,85–1,00)
 MIN_HIT_INTERVAL_S = 0.9
+WILD_MIN_HIT_INTERVAL_S = 1.4  # o selvagem bate no máximo a cada 1,4 s (wiki, Combate)
 BASIC_POWER = 30
 BASIC_INTERVAL_S = 2.0
 SPEED_CAP_PCT = 7.0
@@ -182,6 +183,7 @@ class Rules:
     table: dict[str, dict[str, float]]
     amplification: float = 1.5
     wild_hp_mult: float = 5.0
+    wild_dmg_mult: float = 1.8
     potencies: tuple[tuple[float, float], ...] = ((0.0, 100.0),)  # (bônus, chance %)
 
     @classmethod
@@ -198,6 +200,7 @@ class Rules:
             },
             amplification=float(rules.get("ampliacaoHunt") or 1.5),
             wild_hp_mult=float(rules.get("multHpSelvagem") or 5),
+            wild_dmg_mult=float(rules.get("multDanoSelvagem") or 1.8),
             potencies=pots or ((0.0, 100.0),),
         )
 
@@ -295,6 +298,82 @@ class Attacker:
         return t
 
 
+def wild_damage(
+    wild: Fighter, me: Fighter, my_stats: dict[str, int], duration_s: float, rules: Rules
+) -> float:
+    """Dano que o selvagem causa no ativo durante uma luta de `duration_s` (sem o ×5 de HP; com o
+    ×`multDanoSelvagem`). Ele começa com os golpes prontos e usa o mesmo critério do ativo."""
+    if duration_s <= 0:
+        return 0.0
+    wst = wild.stats()
+    moves = []
+    for m in wild.species.moves:
+        if m.learn_level > wild.level:
+            continue
+        physical = m.category == "PHYSICAL"
+        a = wst["atk"] if physical else wst["spAtk"]
+        d = my_stats["def"] if physical else my_stats["spDef"]
+        eff = effectiveness(m.type, me.species.types, rules.table, rules.amplification)
+        dmg = hit_damage(wild.level, m.power, a, d, m.type in wild.species.types, eff)
+        moves.append((dmg, m.cooldown_ms / 1000))
+    btype = wild.species.types[0]
+    beff = effectiveness(btype, me.species.types, rules.table, rules.amplification)
+    basic = hit_damage(wild.level, BASIC_POWER, wst["atk"], my_stats["def"], True, beff)
+    ready = [0.0] * len(moves)
+    basic_at = 0.0
+    t = total = 0.0
+    while t < duration_s:
+        idx = [i for i in range(len(moves)) if ready[i] <= t]
+        if idx:
+            i = max(idx, key=lambda k: moves[k][0])
+            total += moves[i][0]
+            ready[i] = t + moves[i][1]
+        elif basic_at <= t:
+            total += basic
+            basic_at = t + BASIC_INTERVAL_S
+        else:
+            t = min([basic_at, *ready])
+            continue
+        t += WILD_MIN_HIT_INTERVAL_S
+    return total * rules.wild_dmg_mult
+
+
+@dataclass(frozen=True)
+class HuntSim:
+    kills_per_hour: float
+    damage_per_hour: float  # HP que o ativo perde por hora (vira poção)
+
+
+def simulate_hunt(
+    attacker: Fighter,
+    wild_species: SpeciesData,
+    hunt_level: int,
+    rules: Rules,
+    waves: WaveModel = WaveModel(),
+    n_kills: int = 400,
+    seed: int = 7,
+) -> HuntSim:
+    """Abates/h e dano sofrido/h simulando `n_kills` selvagens sorteados, em ondas."""
+    rng = random.Random(seed)
+    att = Attacker(attacker, rules)
+    t = 0.0
+    taken = 0.0
+    in_wave = 0
+    for _ in range(n_kills):
+        t += waves.walk_s
+        wild = random_wild(wild_species, hunt_level, rules, rng)
+        start = t
+        t = att.kill(wild, t)
+        if t == float("inf"):
+            return HuntSim(0.0, 0.0)
+        taken += wild_damage(wild, attacker, att.st, t - start, rules)
+        in_wave += 1
+        if in_wave >= waves.size:
+            t += waves.gap_s
+            in_wave = 0
+    return HuntSim(n_kills * 3600 / t, taken * 3600 / t)
+
+
 def kills_per_hour(
     attacker: Fighter,
     wild_species: SpeciesData,
@@ -305,17 +384,6 @@ def kills_per_hour(
     seed: int = 7,
 ) -> float:
     """Abates/h simulando `n_kills` selvagens sorteados, em ondas, com recargas contínuas."""
-    rng = random.Random(seed)
-    att = Attacker(attacker, rules)
-    t = 0.0
-    in_wave = 0
-    for _ in range(n_kills):
-        t += waves.walk_s
-        t = att.kill(random_wild(wild_species, hunt_level, rules, rng), t)
-        if t == float("inf"):
-            return 0.0
-        in_wave += 1
-        if in_wave >= waves.size:
-            t += waves.gap_s
-            in_wave = 0
-    return n_kills * 3600 / t
+    return simulate_hunt(
+        attacker, wild_species, hunt_level, rules, waves, n_kills, seed
+    ).kills_per_hour

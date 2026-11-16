@@ -10,7 +10,7 @@ import { STATUS_LABEL, type Account, type Command } from "@/lib/types";
 import { FocusCard } from "./FocusCard";
 import { NewPlugin } from "./NewPlugin";
 import { PluginEditor } from "./PluginEditor";
-import { GemsCard, type GemsPlanData, type GemsPotentialData } from "./GemsCard";
+import { GemsCard, type GemsPlanData, type GemsPotentialData, type ProgressPlanData } from "./GemsCard";
 import { RankCard } from "./RankCard";
 
 export const dynamic = "force-dynamic";
@@ -31,14 +31,21 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
   const rankOn = plugins.some((p) => p.plugin === "rank" && p.enabled);
   const rank = rankOn ? await rankSummary(supabase, account.id) : null;
   const gemsOn = plugins.some((p) => p.plugin === "gems" && p.enabled);
-  const [gemsPlanRes, potentialRes] = await Promise.all([
+  const [gemsPlanRes, potentialRes, progressRes] = await Promise.all([
     gemsOn
       ? supabase.from("events").select("received_at, data").eq("account_id", id).eq("type", "gems.plan")
           .order("received_at", { ascending: false }).limit(1).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.from("events").select("received_at, data").eq("account_id", id).eq("type", "gems.potential")
       .order("received_at", { ascending: false }).limit(1).maybeSingle(),
+    gemsOn
+      ? supabase.from("events").select("received_at, data").eq("account_id", id).eq("type", "progress.plan")
+          .order("received_at", { ascending: false }).limit(1).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
+  const progress = progressRes.data
+    ? { at: progressRes.data.received_at as string, ...(progressRes.data.data as Omit<ProgressPlanData, "at">) }
+    : null;
   const gemsPlan = gemsPlanRes.data
     ? { at: gemsPlanRes.data.received_at as string, ...(gemsPlanRes.data.data as Omit<GemsPlanData, "at">) }
     : null;
@@ -68,7 +75,7 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
           </>
         )}
 
-        <GemsCard plan={gemsPlan} potential={potential} />
+        <GemsCard plan={gemsPlan} potential={potential} progress={progress} />
 
         <details className="card">
           <summary><strong>Avançado: plugins em JSON</strong></summary>

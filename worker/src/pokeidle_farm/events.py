@@ -235,7 +235,7 @@ NOT_PERSISTED = frozenset({"attack", "wild.spawned", "rank.board", *NOISE_TYPES.
 
 
 # campos do pokémon no `estado` que o simulador de combate usa
-PROFILE_FIELDS = ("speciesId", "level", "ivs", "quality", "potencia", "shiny")
+PROFILE_FIELDS = ("speciesId", "level", "xp", "ivs", "quality", "potencia", "shiny")
 
 
 class Translator:
@@ -257,6 +257,10 @@ class Translator:
         self.pokemon_species: dict[Any, int] = {}
         self.wave_seq: int | None = None
         self.pokemon_profiles: dict[Any, dict[str, Any]] = {}
+        # para o plano até o marco (progress.py): XP do treinador, bônus de XP e evento
+        self.trainer_xp: float | None = None
+        self.xp_bonus: dict[str, Any] | None = None
+        self.xp_event: dict[str, Any] | None = None
 
     def _ev(self, type_: str, data: BaseModel | dict[str, Any], raw: dict[str, Any]) -> Event:
         now = utcnow()
@@ -288,6 +292,7 @@ class Translator:
             estado = raw.get("estado") or {}
             self.active_id = st.active_id
             self._track_pokemon(estado.get("pokemons"))
+            self._track_progress(estado)
             return [
                 self._ev(
                     "state.snapshot",
@@ -384,6 +389,7 @@ class Translator:
             if isinstance(src.get(key), int):
                 self.wave_seq = src[key]
                 break
+        self._track_progress(src)
         changed = self._track_pokemon(src.get("pkMud"))
         if self.active_id is None and len(changed) == 1:
             self.active_id = changed[0]  # quem ganha XP a cada abate é o ativo
@@ -408,12 +414,20 @@ class Translator:
             prof.update({k: p[k] for k in PROFILE_FIELDS if p.get(k) is not None})
         return ids
 
+    def _track_progress(self, src: dict[str, Any]) -> None:
+        if isinstance(src.get("xp"), int | float):
+            self.trainer_xp = float(src["xp"])
+        if isinstance(src.get("bonusXp"), dict):
+            self.xp_bonus = src["bonusXp"]
+        if "evento" in src:
+            self.xp_event = src["evento"] if isinstance(src["evento"], dict) else None
+
     def active_profile(self) -> dict[str, Any] | None:
         """O pokémon ativo (campos de combate), com o nível mais recente."""
         prof = self.pokemon_profiles.get(self.active_id)
         if not prof:
             return None
-        out = dict(prof)
+        out = {**prof, "id": self.active_id}
         if self.active_id in self.pokemon_levels:
             out["level"] = self.pokemon_levels[self.active_id]
         return out

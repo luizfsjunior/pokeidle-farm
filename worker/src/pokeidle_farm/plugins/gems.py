@@ -31,6 +31,7 @@ from ..gems_model import (
 from ..hunt_switch import HuntSwitcher
 from ..model.predict import ModelRates
 from ..pace import PaceBook, rates_for
+from ..progress import Progress
 from ..xp_model import xp_option_dict, xp_options
 from .base import Plugin, PluginContext
 
@@ -43,6 +44,10 @@ class GemsConfig(BaseModel):
     objective: Literal["gems", "xp"] = "gems"
     # ritmo das hunts não medidas pelo simulador de combate (docs/design/simulador-1-combate.md)
     use_model: bool = True
+    # foco XP: plano até o marco (progress.plan) e evolução automática (docs/design/simulador-2-progressao.md)
+    plan_goal: int = Field(150, ge=2)
+    plan_every_min: float = Field(60.0, ge=5)
+    auto_evolve: bool = True
     interval_min: float = Field(15.0, ge=1)
     max_market_share: float = Field(0.10, gt=0, le=1)
     hysteresis: float = Field(0.15, ge=0)
@@ -103,13 +108,23 @@ class GemsPlugin(Plugin):
             retry_s=self.cfg.switch_retry_s,
             max_per_hour=self.cfg.max_switches_per_hour,
         )
+        self.progress = Progress(
+            ctx,
+            source=self.name,
+            now=lambda: self.now(),
+            goal=self.cfg.plan_goal,
+            plan_every_min=self.cfg.plan_every_min,
+        )
         if self._acting:
             await self._check_rank()
         await self._load()
         await self._plan("start")
+        if self.cfg.objective == "xp":
+            self.progress.maybe_plan("start")
 
     async def stop(self) -> None:
         await self.switch.stop()
+        await self.progress.stop()
         type(self)._claims.pop(self.ctx.account_id, None)
 
     async def _locked(self, fn: Callable[[], Awaitable[None]]) -> None:
@@ -193,6 +208,10 @@ class GemsPlugin(Plugin):
             due = self._last_plan_at is None or self.now() - self._last_plan_at >= timedelta(
                 minutes=self.cfg.interval_min
             )
+            if self.cfg.objective == "xp":
+                if self._acting and self.cfg.auto_evolve:
+                    await self.progress.maybe_evolve()
+                self.progress.maybe_plan("interval")
             if due:
                 await self._plan("interval")
             else:
@@ -208,9 +227,20 @@ class GemsPlugin(Plugin):
             if t == "state.snapshot" and self.ctx.state.hunt_slug:
                 self.switch.current = self.ctx.state.hunt_slug
             level = self.ctx.state.level or 0
+            prof = self.ctx.state.active_pokemon or {}
+            species_now = prof.get("speciesId")
+            evolved = (
+                getattr(self, "_species_now", None) is not None and species_now != self._species_now
+            )
+            self._species_now = species_now
             if level > self._level:
                 self._level = level
                 await self._plan("level_up")
+                if self.cfg.objective == "xp":
+                    self.progress.maybe_plan("level_up")
+            elif evolved and self.cfg.objective == "xp":
+                await self._plan("evolved")
+                self.progress.maybe_plan("evolved")
 
     # --- plano --------------------------------------------------------------
 

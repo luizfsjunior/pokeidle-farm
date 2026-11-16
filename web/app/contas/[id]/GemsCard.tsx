@@ -6,7 +6,7 @@ export type GemOption = {
   name: string | null;
   level: number;
   kills_per_hour: number;
-  kph_source: "measured" | "level" | "near_level" | "default";
+  kph_source: "measured" | "model" | "level" | "near_level" | "default";
   gems_per_hour: number;
   capped_gems_per_hour: number;
   stones: Stone[];
@@ -29,10 +29,20 @@ export type GemsPlanData = {
   month_gems_24h: number;
   degraded: string[];
 };
+export type ProgressPhase = {
+  from_level: number; to_level: number; hunt: string; species_id: number; species: string | null; hours: number;
+  kills_per_hour: number; xp_per_hour: number; potions_per_hour: number; net_gold_per_hour: number;
+};
+/** Evento `progress.plan` (docs/design/simulador-2-progressao.md): plano até o marco no foco XP. */
+export type ProgressPlanData = {
+  at: string; goal: number; hours: number; eta?: string; stuck_at: number | null; trainer_level: number;
+  phases: ProgressPhase[]; evolutions: { level: number; to: number; to_name?: string | null; stone: string }[];
+};
 export type GemsPotentialData = { at: string; trainer_level: number; prices: number; options: GemOption[] };
 
 const KPH_SOURCE: Record<GemOption["kph_source"], string> = {
   measured: "medido",
+  model: "previsto (simulador)",
   level: "estimado pelo nível",
   near_level: "estimado (nível próximo)",
   default: "estimado (padrão)",
@@ -44,8 +54,16 @@ const usdMonth = (gemsPerHour: number) => gemsPerHour * 24 * 30 * 0.85 * 0.009;
  * Card "Gemas" (docs/design/foco-gemas-e-ritmo.md): o que o foco gemas decidiu e, para qualquer foco,
  * o potencial das melhores hunts em pedras de evolução (calculado a cada snapshot de preços).
  */
-export function GemsCard({ plan, potential }: { plan: GemsPlanData | null; potential: GemsPotentialData | null }) {
-  if (plan?.objective === "xp") return <XpCard plan={plan} />;
+export function GemsCard({
+  plan,
+  potential,
+  progress = null,
+}: {
+  plan: GemsPlanData | null;
+  potential: GemsPotentialData | null;
+  progress?: ProgressPlanData | null;
+}) {
+  if (plan?.objective === "xp") return <XpCard plan={plan} progress={progress} />;
   if (!plan && !potential) return null;
   const list = plan?.options ?? potential?.options ?? [];
   return (
@@ -92,7 +110,7 @@ export function GemsCard({ plan, potential }: { plan: GemsPlanData | null; poten
 }
 
 /** Foco XP (docs/design/foco-xp.md): a hunt de mais XP/h e as melhores opções. */
-function XpCard({ plan }: { plan: GemsPlanData }) {
+function XpCard({ plan, progress }: { plan: GemsPlanData; progress: ProgressPlanData | null }) {
   const target = plan.target as unknown as XpOption | null;
   const options = (plan.options as unknown as XpOption[]) ?? [];
   return (
@@ -123,9 +141,62 @@ function XpCard({ plan }: { plan: GemsPlanData }) {
         </table>
       </div>
       <p className="muted small" style={{ margin: 0 }}>
-        O ritmo é projetado para o nível atual do pokémon ativo (o dano cresce com o nível); a XP por abate é a medida na
-        hunt, ou 0,6 × nível² + 8 com o bônus da conta.
+        O ritmo é o medido na hunt, projetado para o nível atual do pokémon ativo; hunt nunca medida usa a previsão do
+        simulador de combate. A XP por abate é a medida na hunt, ou 0,6 × nível² + 8 com o bônus da conta.
       </p>
+      {progress && <ProgressPlan progress={progress} />}
     </section>
+  );
+}
+
+const hours1 = (h: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(h);
+const fmtEta = (iso: string) =>
+  new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
+
+/** Plano até o marco (camada 2 do simulador): fases, evoluções e previsão de chegada. */
+function ProgressPlan({ progress }: { progress: ProgressPlanData }) {
+  return (
+    <div className="stack">
+      <div className="spread">
+        <h3 style={{ margin: 0 }}>Até o nível {progress.goal}</h3>
+        <span className="muted small">plano {ago(progress.at)}</span>
+      </div>
+      <p className="small" style={{ margin: 0 }}>
+        {progress.stuck_at != null ? (
+          <span className="error">Travado no nível {progress.stuck_at}: nenhuma hunt se paga em ouro com o time atual.</span>
+        ) : (
+          <>
+            <strong>~{hours1(progress.hours)} h</strong> de farm
+            {progress.eta ? ` · previsão ${fmtEta(progress.eta)}` : ""}
+            {progress.evolutions.length > 0 &&
+              ` · evolui ${progress.evolutions.map((e) => `${e.to_name ?? e.to} no ${e.level}`).join(", ")}`}
+          </>
+        )}
+      </p>
+      <div style={{ overflowX: "auto" }}>
+        <table>
+          <thead>
+            <tr><th>Níveis</th><th>Hunt</th><th>Ativo</th><th>Horas</th><th>XP/h</th><th>Poções/h</th><th>Ouro/h</th></tr>
+          </thead>
+          <tbody>
+            {progress.phases.map((p) => (
+              <tr key={`${p.from_level}-${p.hunt}`}>
+                <td>{p.from_level}–{p.to_level}</td>
+                <td>{p.hunt}</td>
+                <td>{p.species ?? p.species_id}</td>
+                <td>{hours1(p.hours)}</td>
+                <td>{num(p.xp_per_hour, { compact: true })}</td>
+                <td>{num(p.potions_per_hour)}</td>
+                <td>{num(p.net_gold_per_hour, { compact: true })}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted small" style={{ margin: 0 }}>
+        Simulação nível a nível: a melhor hunt que se paga em ouro (abates − poções), com os bônus de XP até expirarem e
+        as evoluções quando há pedra. Não conta idas ao Centro nem o tempo das trocas de hunt.
+      </p>
+    </div>
   );
 }

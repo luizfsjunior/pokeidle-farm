@@ -51,6 +51,10 @@ class AccountStateView:
     # o pokémon ativo como vem no `estado` (speciesId, level, ivs, quality, potencia, shiny);
     # a sessão copia do tradutor. Usado pelo simulador de combate.
     active_pokemon: dict[str, Any] | None = None
+    # para o plano até o marco: XP total do treinador, estado.bonusXp e estado.evento
+    trainer_xp: float | None = None
+    xp_bonus: dict[str, Any] | None = None
+    xp_event: dict[str, Any] | None = None
 
     def server_now(self, now: datetime | None = None) -> datetime:
         """Relógio do servidor (o local, se o offset ainda não é conhecido)."""

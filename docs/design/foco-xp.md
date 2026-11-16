@@ -29,6 +29,11 @@ opções; o `rank_hunt_stats` devolve a XP por hunt (migration `20261115090000_h
 **No painel:** "XP (subir de nível)" no card Foco manda `focus.set` com `focus: "xp"`: `restock` em `gold_xp_drop`
 (bolas desligadas; o ouro fica para poções), `rank` desligado, `gems` ligado com `objective: "xp"`.
 
+## Plano até o 150 e evolução
+
+No foco XP o plugin também grava o plano até o nível 150 (`progress.plan`) e evolui o ativo quando chega o nível e há
+pedra: ver [simulador-2-progressao.md](simulador-2-progressao.md).
+
 ## Testes
 
 `test_gems.py` (fórmulas de XP e da curva, XP medida contra fórmula com o bônus da conta, plugin com objetivo XP),

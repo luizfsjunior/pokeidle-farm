@@ -175,6 +175,10 @@ class AccountSession:
         await self.plugins.start_all(self.bus, configs, self._make_ctx)
         return True
 
+    def _copy_progress(self) -> None:
+        tr, sv = self._translator, self.state_view
+        sv.trainer_xp, sv.xp_bonus, sv.xp_event = tr.trainer_xp, tr.xp_bonus, tr.xp_event
+
     async def _connect_once(self) -> None:
         token = await self.store.get_token(self.account.id)
         if token is None:
@@ -247,6 +251,7 @@ class AccountSession:
                     self.state_view.apply(ev)
                     self.state_view.server_offset = self._translator.server_offset
                     self.state_view.active_pokemon = self._translator.active_profile()
+                    self._copy_progress()
                     await self.bus.publish(ev)
                 return
             # frames antes do welcome são ignorados (comportamento da referência)
@@ -298,6 +303,7 @@ class AccountSession:
                 self.state_view.apply(ev)
             self.state_view.server_offset = self._translator.server_offset
             self.state_view.active_pokemon = self._translator.active_profile()
+            self._copy_progress()
             # o tradutor sabe a hunt atual (hunt, patch, campo.init); os plugins leem daqui
             self.state_view.hunt_slug = self._translator.hunt_slug
             for ev in events:

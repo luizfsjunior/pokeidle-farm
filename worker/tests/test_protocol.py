@@ -633,8 +633,23 @@ def test_active_profile_follows_active_pokemon():
     tr.translate(
         *codec.decode(json.dumps({"t": "estado", "estado": {"activeId": 7, "pkMud": [pk]}}))
     )
-    assert tr.active_profile() == {k: v for k, v in pk.items() if k != "id"}
+    assert tr.active_profile() == pk  # com o id do pokémon (para evoluir)
     tr.translate(
         *codec.decode(json.dumps({"t": "estado", "estado": {"pkMud": [{"id": 7, "level": 24}]}}))
     )
     assert tr.active_profile()["level"] == 24 and tr.active_profile()["quality"] == 1.6
+
+
+def test_translator_tracks_trainer_xp_bonus_and_event():
+    tr = Translator(uuid4(), uuid4())
+    bonus = {"tr": 2.1, "partes": [{"id": "vip", "tr": 1.5, "ate": 1}]}
+    tr.translate(
+        *codec.decode(
+            json.dumps(
+                {"t": "estado", "estado": {"xp": 1000, "bonusXp": bonus, "evento": {"farmPct": 5}}}
+            )
+        )
+    )
+    assert tr.trainer_xp == 1000 and tr.xp_bonus == bonus and tr.xp_event == {"farmPct": 5}
+    tr.translate(*codec.decode(json.dumps({"t": "estado", "estado": {"evento": None}})))
+    assert tr.xp_event is None

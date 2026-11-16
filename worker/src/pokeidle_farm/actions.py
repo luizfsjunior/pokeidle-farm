@@ -236,6 +236,21 @@ class MarketCancel(ActionSpec):
         return {"t": "market.cancelar", "id": self.id}
 
 
+class PokemonEvolve(ActionSpec):
+    name: ClassVar[str] = "pokemon.evoluir"
+    description: ClassVar[str] = (
+        "Evolui o pokémon (nível exigido + 1 pedra do tipo, gasta pelo jogo)"
+    )
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 30.0
+
+    pokemon_id: int
+    target_id: int
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "pokemon.evoluir", "pokemonId": self.pokemon_id, "alvoId": self.target_id}
+
+
 class HuntSelect(ActionSpec):
     name: ClassVar[str] = "hunt.select"
     description: ClassVar[str] = "Troca de hunt (só fora da trava de combate e do trocaLivreEm)"
