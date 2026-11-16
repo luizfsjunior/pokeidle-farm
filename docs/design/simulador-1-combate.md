@@ -96,6 +96,20 @@ subestima: provável Investida mais frequente, golpes de outro tipo ou o ajuste 
 refazer a tabela com os abates por nível do `rank_hunt_stats` quando houver mais ondas carimbadas e calibrar o
 `WaveModel` com dezenas de ondas.
 
+## Primeiro uso em produção (16/11)
+
+Com o simulador ligado ao foco XP, o plano saiu do Horsea (medido, ~720 abates/h, ~100 mil XP/h) para a **Kabuto**
+(prevista: 424 abates/h). Medido nos primeiros 9 minutos (Bulbasaur 25–27): **504 abates/h** (previsão 16% abaixo),
+**~263 mil XP/h** (2,6× o Horsea; 521 XP por abate com os bônus da conta). Custo: ~740 poções/h (60/h no Horsea), mas
+o ouro segue subindo (~88 mil/h líquidos contra ~140 mil/h): compensa.
+
+Achados no caminho:
+- as ondas têm de 7 a 10 selvagens (o `total_spawns` do catálogo é 15) e a marcação de onda às vezes chega com atraso;
+  o `WaveModel` padrão (8, 2 s, 11 s) segue bom o bastante;
+- a troca de hunt perdia a corrida para a trava de combate no meio da onda; o `HuntSwitcher` agora detecta o pedido
+  engolido (a trava se renovou depois do envio sem `hunt.changed`) e reenvia na próxima janela;
+- o offset do relógio do servidor medido no `welcome` variou de 2,1 s a 0,1 s entre conexões.
+
 ## Decisões (15/11)
 
 - **S-A.** No worker, em Python.
