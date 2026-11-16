@@ -41,7 +41,21 @@ export type Profile = {
   items: Record<string, number>;
   balls: Record<string, number>;
   estado_keys: string[];
+  extra: ProfileExtra;
+  pokedex: Record<string, { c?: number; k?: number } | number>;
 };
+
+/** Campos do estado guardados como vieram (worker: profile.EXTRA_KEYS). Formatos a mapear. */
+export type ProfileExtra = {
+  passe?: { degrau?: number; total?: number; ciclos?: number; ultimo?: number; vipAte?: number };
+  loja?: { vip?: boolean; vipAte?: number; looktype?: number; gender?: string };
+  [key: string]: unknown;
+};
+
+/** Dia do jogo (dias desde 1970 no fuso de Brasília), como o `passe.ultimo`. */
+export function gameDay(now = Date.now()): number {
+  return Math.floor((now - 3 * 3600_000) / 86400_000);
+}
 
 export async function loadProfiles(supabase: SupabaseClient, ids: string[]): Promise<Map<string, Profile>> {
   if (ids.length === 0) return new Map();
