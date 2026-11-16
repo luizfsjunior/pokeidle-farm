@@ -6,6 +6,12 @@ trava): o `hunt.select` só sai quando o relógio do servidor passa de `centroLi
 o `hunt.changed` e, sem ele em `confirm_s`, tenta de novo depois de `retry_s`. Um timer acorda
 quando a trava acaba, porque o golpe que fecha a janela livre chega no mesmo frame que a renova.
 
+Pedido engolido (16/11): no meio da onda o pokémon já engata o próximo selvagem logo que a trava
+acaba, e o pedido perde a corrida. Se a trava se renova depois do envio e o `hunt.changed` não veio
+em `swallow_s`, o pedido foi ignorado: tenta de novo na próxima janela livre (muitas vezes só no
+intervalo entre ondas), sem esperar `retry_s`. `max_per_hour` conta trocas confirmadas;
+`max_attempts_per_hour` limita os envios.
+
 Usado pelo foco gemas; o rank tem a sua própria versão (anterior a este módulo).
 """
 
@@ -33,6 +39,8 @@ class HuntSwitcher:
         confirm_s: float = 15.0,
         retry_s: float = 60.0,
         max_per_hour: int = 6,
+        swallow_s: float = 1.5,
+        max_attempts_per_hour: int = 60,
     ) -> None:
         self.ctx = ctx
         self.source = source
@@ -43,6 +51,11 @@ class HuntSwitcher:
         self.confirm_s = confirm_s
         self.retry_s = retry_s
         self.max_per_hour = max_per_hour
+        self.swallow_s = swallow_s
+        self.max_attempts_per_hour = max_attempts_per_hour
+        self.attempts: list[datetime] = []
+        self.swallowed = 0
+        self._lock_at_send: datetime | None = None
         self.want: str | None = None
         self.current: str | None = ctx.state.hunt_slug
         self.pending: tuple[str, datetime] | None = None
@@ -63,6 +76,7 @@ class HuntSwitcher:
             self.current = slug
         if self.pending is not None and self.current == self.pending[0]:
             self.pending = None
+            self.sent.append(self.now())  # troca confirmada (teto por hora)
         await self.pump()
 
     async def on_error(self, key: str) -> None:
@@ -73,8 +87,16 @@ class HuntSwitcher:
         now = self.now()
         if self.pending is not None:
             slug, at = self.pending
+            lock = self.ctx.state.combat_free_at
             if self.current == slug:
                 self.pending = None
+            elif (
+                lock is not None
+                and (self._lock_at_send is None or lock > self._lock_at_send)
+                and now - at >= timedelta(seconds=self.swallow_s)
+            ):
+                self.pending = None  # a trava se renovou depois do envio: pedido engolido
+                self.swallowed += 1
             elif now - at > timedelta(seconds=self.confirm_s):
                 await self._failed("timeout")
                 return
@@ -88,8 +110,12 @@ class HuntSwitcher:
             return
         hour_ago = now - timedelta(hours=1)
         self.sent = [t for t in self.sent if t > hour_ago]
+        self.attempts = [t for t in self.attempts if t > hour_ago]
         if len(self.sent) >= self.max_per_hour:
             self._schedule(self.sent[0] + timedelta(hours=1, seconds=1))
+            return
+        if len(self.attempts) >= self.max_attempts_per_hour:
+            self._schedule(self.attempts[0] + timedelta(hours=1, seconds=1))
             return
         st = self.ctx.state
         locks = [t for t in (st.combat_free_at, st.switch_free_at) if t is not None]
@@ -107,7 +133,8 @@ class HuntSwitcher:
             self._schedule(self.retry_at)
             return
         self.pending = (slug, now)
-        self.sent.append(now)
+        self.attempts.append(now)
+        self._lock_at_send = st.combat_free_at
         self._schedule(now + timedelta(seconds=self.confirm_s + 0.5))
 
     async def _failed(self, reason: str) -> None:

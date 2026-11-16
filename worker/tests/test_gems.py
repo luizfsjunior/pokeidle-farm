@@ -384,3 +384,27 @@ async def test_gems_plugin_with_xp_objective():
     # mesmo ritmo medido em todas (1000/h): ganha a de maior nível (mais XP por abate)
     assert plan["target"]["level"] == 10
     assert h.selects() == [plan["target"]["slug"]]
+
+
+async def test_swallowed_select_is_retried_at_next_free_window():
+    """A trava se renova depois do envio e o hunt.changed não vem: pedido engolido, tenta de novo."""
+    h = await Harness(dry_run=False).start()
+    sw = h.plugin.switch
+    assert h.selects() == ["butterfree"] and sw.pending is not None
+    # um golpe renova a trava logo depois do envio
+    h.ctx.state.combat_free_at = h.now + timedelta(seconds=3)
+    h.now += timedelta(seconds=2)
+    await sw.pump()
+    assert sw.pending is None and sw.swallowed == 1
+    assert h.events("gems.failed") == []  # não é falha: só perdeu a corrida
+    # a trava acaba e o limitador (20 s) libera: reenvia
+    h.now += timedelta(seconds=20)
+    await sw.pump()
+    assert h.selects() == ["butterfree", "butterfree"]
+    assert len(sw.attempts) == 2 and sw.sent == []  # o teto por hora conta trocas confirmadas
+    await h.plugin.on_event(
+        Event(
+            account_id=uuid4(), session_id=uuid4(), type="hunt.changed", data={"slug": "butterfree"}
+        )
+    )
+    assert sw.current == "butterfree" and len(sw.sent) == 1
