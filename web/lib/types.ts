@@ -73,7 +73,7 @@ export const STATUS_LABEL: Record<Account["status"], string> = {
 export const IV_STATS = ["hp", "atk", "def", "spa", "spd", "spe"] as const;
 
 export type CommandType = "ping" | "account.enable" | "account.disable" | "session.reconnect" | "plugin.set" | "focus.set"
-  | "hunt.select" | "hunt.release";
+  | "hunt.select" | "hunt.release" | "capture.start" | "capture.stop";
 export type CommandStatus = "pending" | "running" | "done" | "failed" | "cancelled" | "expired";
 
 export type Command = {
@@ -99,6 +99,8 @@ export const COMMAND_LABEL: Record<CommandType, string> = {
   "focus.set": "Mudar foco",
   "hunt.select": "Trocar de hunt",
   "hunt.release": "Soltar a hunt",
+  "capture.start": "Capturar espécie",
+  "capture.stop": "Parar a captura",
 };
 
 export const COMMAND_STATUS_LABEL: Record<CommandStatus, string> = {

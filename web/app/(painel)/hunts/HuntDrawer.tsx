@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { createContext, useContext, useEffect, useState } from "react";
+import { CaptureForm } from "@/components/Capture";
 import { commandSummary } from "@/components/CommandButtons";
 import { Sprite } from "@/components/Sprite";
 import { useCommand } from "@/lib/useCommand";
@@ -92,6 +93,11 @@ export function HuntDrawerProvider({ hunts, accounts, defaultAccount, atlas, loo
                   Durante o prazo, os plugins gems e rank não trocam de hunt. Para soltar antes, use o card Hunt na página da conta.
                 </p>
               </div>
+
+              {account && (
+                <CaptureForm key={`${hunt.slug}-${account}`} accountId={account} speciesId={hunt.speciesId} speciesName={hunt.title}
+                  hunts={[{ slug: hunt.slug, name: hunt.title, level: hunt.level }]} />
+              )}
 
               <div className="facts">
                 <div><span>Gemas por 1.000 abates</span><span>{hunt.gemsPer1000 == null ? "—" : hunt.gemsPer1000.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</span></div>

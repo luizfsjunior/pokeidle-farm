@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, ClassVar, Literal
@@ -305,34 +305,51 @@ class ActionGateway:
     record: Recorder | None = None  # publica action.* no barramento
     limiter: RateLimiter | None = None
 
-    # trava de hunt escolhida pelo painel (plugin hunt_hold): (slug, até, dono). Enquanto vale,
-    # só o dono troca de hunt; o hunt.select dos outros (gems, rank) é bloqueado com wait_s até o
-    # fim, e eles tentam de novo depois (docs/design/painel-fase-3.md)
-    hunt_hold: tuple[str, datetime, str] | None = None
+    # travas pedidas pelo painel: ação -> (até, dono, rótulo). Enquanto vale, só o dono manda aquela
+    # ação; a dos outros é bloqueada com wait_s até o fim, e eles tentam de novo depois. Usada pela
+    # hunt escolhida (hunt_hold: hunt.select) e pelo alvo de captura (capture_target: hunt.select e
+    # auto.set). Ver docs/design/painel-fase-3.md e docs/design/captura-alvo.md.
+    holds: dict[str, tuple[datetime, str, str | None]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.limiter = self.limiter or RateLimiter()
 
+    def hold(self, action: str, until: datetime, owner: str, label: str | None = None) -> None:
+        self.holds[action] = (until, owner, label)
+
+    def release(self, owner: str, action: str | None = None) -> None:
+        for name in [
+            a for a, h in self.holds.items() if h[1] == owner and (action is None or a == action)
+        ]:
+            del self.holds[name]
+
+    def held_by_other(self, action: str, owner: str) -> bool:
+        h = self.holds.get(action)
+        if h is None:
+            return False
+        if h[0] <= datetime.now(UTC):
+            del self.holds[action]
+            return False
+        return h[1] != owner
+
+    # compatibilidade com o hunt_hold
     def hold_hunt(self, slug: str, until: datetime, owner: str) -> None:
-        self.hunt_hold = (slug, until, owner)
+        self.hold("hunt.select", until, owner, slug)
 
     def release_hunt(self, owner: str) -> None:
-        if self.hunt_hold is not None and self.hunt_hold[2] == owner:
-            self.hunt_hold = None
+        self.release(owner, "hunt.select")
 
     async def submit(self, action: ActionSpec, *, source: str) -> None:
         info = {"action": action.name, "source": source, "input": action.model_dump(mode="json")}
 
-        if action.name == "hunt.select" and self.hunt_hold is not None:
-            slug, until, owner = self.hunt_hold
+        if self.held_by_other(action.name, source):
+            until, owner, label = self.holds[action.name]
             left = (until - datetime.now(UTC)).total_seconds()
-            if left <= 0:
-                self.hunt_hold = None
-            elif source != owner:
-                await self._record(
-                    "action.blocked", {**info, "reason": "hunt_hold", "wait_s": left, "hold": slug}
-                )
-                raise ActionBlocked(action.name, f"hunt_hold ({slug})", wait_s=left)
+            await self._record(
+                "action.blocked",
+                {**info, "reason": "hold", "owner": owner, "wait_s": left, "hold": label},
+            )
+            raise ActionBlocked(action.name, f"hold ({owner})", wait_s=left)
 
         if self.mode is ActionMode.OBSERVE_ONLY:
             await self._record("action.blocked", {**info, "reason": "observe_only"})

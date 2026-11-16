@@ -215,6 +215,37 @@ class Supervisor:
             return {"enabled": False, "applied": "nada a soltar"}
         return await self._plugin_set(acc, {"plugin": "hunt_hold", "enabled": False})
 
+    async def _capture_start(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Capturar uma espécie (plugin capture_target; docs/design/captura-alvo.md)."""
+        try:
+            p = CaptureStartParams.model_validate(params)
+        except ValidationError as exc:
+            raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
+        now = datetime.now(UTC)
+        until = now + timedelta(hours=p.hours) if p.hours else None
+        config = {
+            "species_id": p.species_id,
+            "species_name": p.species_name,
+            "hunt_slug": p.hunt_slug,
+            "ball_id": p.ball_id,
+            "count": p.count,
+            "until": until.isoformat() if until else None,
+            "started_at": now.isoformat(),
+        }
+        # a hunt escolhida antes (hunt_hold) sai: a captura cuida da hunt agora
+        configs = await self.store.plugin_configs(acc.id)
+        if configs.get("hunt_hold", (False, {}))[0]:
+            await self._plugin_set(acc, {"plugin": "hunt_hold", "enabled": False})
+        out = await self._plugin_set(
+            acc, {"plugin": "capture_target", "enabled": True, "config": config}
+        )
+        return {**out, "species_id": p.species_id, "until": config["until"], "count": p.count}
+
+    async def _capture_stop(self, acc: AccountRecord, _p: dict[str, Any]) -> dict[str, Any]:
+        if "capture_target" not in await self.store.plugin_configs(acc.id):
+            return {"enabled": False, "applied": "nada a parar"}
+        return await self._plugin_set(acc, {"plugin": "capture_target", "enabled": False})
+
     async def _focus_set(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Foco da conta (captura, ouro-xp-drop, rank ou gemas): restock, rank e gems juntos.
 
@@ -287,6 +318,17 @@ class HuntSelectParams(BaseModel):
     hours: float = Field(2.0, ge=0.25, le=24)
 
 
+class CaptureStartParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    species_id: int
+    species_name: str | None = Field(None, max_length=64)
+    hunt_slug: str = Field(min_length=1, max_length=64)
+    ball_id: int = Field(4, ge=1, le=4)
+    count: int | None = Field(None, ge=1, le=10_000)
+    hours: float | None = Field(None, ge=0.25, le=72)
+
+
 class FocusSetParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -315,6 +357,8 @@ _HANDLERS: dict[str, Handler] = {
     "focus.set": Supervisor._focus_set,
     "hunt.select": Supervisor._hunt_select,
     "hunt.release": Supervisor._hunt_release,
+    "capture.start": Supervisor._capture_start,
+    "capture.stop": Supervisor._capture_stop,
 }
 
 
