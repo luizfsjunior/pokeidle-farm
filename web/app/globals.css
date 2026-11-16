@@ -66,8 +66,8 @@ code { font-size: .85em; background: var(--surface-2); border-radius: 5px; paddi
 
 /* --- casca ------------------------------------------------------------------------------- */
 
-.app { height: 100vh; height: 100dvh; display: grid; grid-template-rows: var(--top-h) minmax(0, 1fr) auto; }
-.topbar { display: flex; align-items: center; gap: .65rem; padding: 0 1.1rem; background: var(--rail); border-bottom: 1px solid var(--border); }
+.app { height: 100vh; height: 100dvh; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+.topbar { display: flex; align-items: center; gap: .65rem; height: var(--top-h); padding: 0 2rem; background: var(--rail); border-bottom: 1px solid var(--border); }
 .topbar-brand { display: flex; align-items: center; gap: .6rem; color: #fff; font-family: "Silkscreen", monospace; font-size: .92rem; }
 .topbar-brand:hover { text-decoration: none; color: var(--accent); }
 .app-logo { width: 28px; height: 28px; flex-shrink: 0; display: inline-block; border-radius: 7px; background: url("/icon-192.png") center / cover no-repeat; }
@@ -452,6 +452,7 @@ body:has(.login) { overflow: auto; }
   .rail { display: none; }
   .app-body { grid-template-columns: minmax(0, 1fr); }
   .topbar { padding: env(safe-area-inset-top) .9rem 0; }
+  .app-scroll { scrollbar-gutter: auto; }
   body { font-size: 15px; }
   .content { padding: 1.1rem .9rem 1.5rem; }
   .page-head { margin-bottom: 1.1rem; gap: .8rem; }

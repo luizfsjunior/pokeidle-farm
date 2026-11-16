@@ -11,6 +11,9 @@ const config: NextConfig = {
   poweredByHeader: false,
   experimental: {
     serverActions: { allowedOrigins: codespaceOrigin },
+    // stale-while-revalidate na navegação (docs/design/painel-swr.md): a página já visitada volta na
+    // hora, do cache do navegador, e o <Revalidate> busca a versão nova por baixo e troca quando chega
+    staleTimes: { dynamic: 600, static: 600 },
   },
 };
 
