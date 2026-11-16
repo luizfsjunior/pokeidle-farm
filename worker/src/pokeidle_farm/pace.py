@@ -123,6 +123,8 @@ def rates_for(
     - "near_level": a do nível medido mais próximo **abaixo** (hunts mais altas são mais lentas,
       então é a estimativa conservadora); sem nenhum abaixo, a do mais próximo acima;
     - "default": nada medido ainda (o padrão da conta).
+    (O plugin gems ainda pode trocar "measured" por "measured_season" no dia sazonal:
+    `model/predict.season_adjust`.)
 
     Com `model` (previsão do simulador de combate para o ativo), toda hunt não medida usa a
     previsão ("model") no lugar de "level"/"near_level"/"default": ela enxerga a vantagem de tipo.

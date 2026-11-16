@@ -29,7 +29,7 @@ from ..gems_model import (
     rank_options,
 )
 from ..hunt_switch import HuntSwitcher
-from ..model.predict import ModelRates
+from ..model.predict import ModelRates, season_adjust
 from ..pace import PaceBook, rates_for
 from ..progress import Progress
 from ..xp_model import xp_option_dict, xp_options
@@ -259,13 +259,18 @@ class GemsPlugin(Plugin):
         if cat is None or species is None or not cat.hunts:
             await self.ctx.actions.note("gems.plan", {"reason": "sem_catalogo", "target": None})
             return
+        season = self.ctx.state.season_type()
+        seasonal = await asyncio.to_thread(self._model_rates, cat, species, season)
         rate = rates_for(
             {s: h.level for s, h in cat.hunts.items()},
             self._pace,
             self._default_kph,
             self.ctx.state.active_level,
-            await asyncio.to_thread(self._model_rates, cat, species),
+            seasonal,
         )
+        if season and seasonal:  # o ritmo medido é de dias normais: corrige pelo simulador
+            normal = await asyncio.to_thread(self._model_rates, cat, species, None)
+            rate = season_adjust(rate, normal, seasonal)
         if self.cfg.objective == "xp":
             await self._plan_xp(reason, cat, rate)
             return
@@ -311,7 +316,7 @@ class GemsPlugin(Plugin):
         await self.ctx.actions.note("gems.plan", data)
         await self._go(target.slug if target else None, current, reason)
 
-    def _model_rates(self, cat: Any, species: Any) -> dict[str, float]:
+    def _model_rates(self, cat: Any, species: Any, season: str | None = None) -> dict[str, float]:
         """Previsão do simulador de combate para o ativo (vazia se faltar dado)."""
         if not self.cfg.use_model:
             return {}
@@ -324,7 +329,7 @@ class GemsPlugin(Plugin):
                 getattr(species, "raw", {}) or {},
                 getattr(cat, "rules", {}) or {},
                 max_level=self._level or None,
-                season=self.ctx.state.season_type(),
+                season=season,
             )
         except Exception:  # o modelo nunca derruba o plano: cai no ritmo por nível
             self.ctx.log.exception("simulador de combate falhou")

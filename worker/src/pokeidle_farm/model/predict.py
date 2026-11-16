@@ -41,11 +41,14 @@ def fighter_from_profile(
 
 
 class ModelRates:
-    """Cache das previsões por (perfil do ativo, hunt): só recalcula quando o ativo muda."""
+    """Cache das previsões por (perfil do ativo, dia sazonal, hunt): só recalcula quando o ativo
+    muda. Guarda os últimos `keep` perfis, porque no dia sazonal o foco XP pede as duas previsões
+    (com e sem o tipo do dia) a cada plano."""
 
-    def __init__(self, n_kills: int = 150) -> None:
+    def __init__(self, n_kills: int = 150, keep: int = 4) -> None:
         self.n_kills = n_kills
-        self._key: Any = None
+        self.keep = keep
+        self._caches: dict[Any, dict[str, float]] = {}
         self._cache: dict[str, float] = {}
 
     def rates(
@@ -70,8 +73,11 @@ class ModelRates:
             tuple(sorted(fighter.ivs.items())),
             season,
         )
-        if key != self._key:
-            self._key, self._cache = key, {}
+        if key not in self._caches:
+            self._caches[key] = {}
+            while len(self._caches) > self.keep:
+                self._caches.pop(next(iter(self._caches)))
+        self._cache = self._caches[key]
         parsed = replace(Rules.from_welcome(rules), season=season)
         out = {}
         for slug, (level, sid) in hunts.items():
@@ -86,3 +92,22 @@ class ModelRates:
                 )
             out[slug] = self._cache[slug]
         return out
+
+
+def season_adjust(
+    rate: dict[str, tuple[float, str]],
+    normal: dict[str, float],
+    seasonal: dict[str, float],
+) -> dict[str, tuple[float, str]]:
+    """Ritmo medido corrigido para o dia sazonal: medido × (previsão com o tipo do dia ÷ previsão sem).
+
+    O ritmo medido vem de dias normais; o simulador sabe quanto o tipo do dia muda aquela hunt para
+    o ativo (o pokémon do tipo do dia bate ×2 e apanha ÷4). As outras origens não mudam (a previsão
+    das hunts não medidas já vem com o tipo do dia).
+    """
+    out = dict(rate)
+    for slug, (kph, source) in rate.items():
+        base, now = normal.get(slug), seasonal.get(slug)
+        if source == "measured" and base and now and base > 0 and abs(now / base - 1) > 1e-9:
+            out[slug] = (kph * now / base, "measured_season")
+    return out

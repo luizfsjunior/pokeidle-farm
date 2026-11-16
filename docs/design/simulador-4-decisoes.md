@@ -37,13 +37,17 @@ mais acelera a ida ao treinador 150, além da hunt e do ativo que as camadas 1 e
 - **Dia sazonal** (`dia-sazonal.mjs`): o tradutor guarda `estado.diaSazonal` ({tipo, fim}); `AccountStateView.season_type()`
   devolve o tipo enquanto vale. No simulador, `season_factor` multiplica o dano pelos tipos do pokémon (quem é do tipo
   bate ×2; quem é do tipo apanha ÷4), nos dois sentidos; o foco XP prevê as hunts não medidas com o tipo do dia e o
-  plano o aplica até o fim do dia no relógio simulado. Limitação: o ritmo **medido** de uma hunt não é corrigido no dia
-  sazonal (a hunt medida continua com o ritmo de dias normais).
+  plano o aplica até o fim do dia no relógio simulado.
+- **Ritmo medido no dia sazonal** (corrigido em 16/11): o ritmo medido vem de dias normais, então o foco XP o multiplica
+  pela razão entre a previsão com o tipo do dia e a previsão sem ele (`model/predict.season_adjust`; origem
+  `measured_season`, "medido, ajustado ao dia sazonal" no painel). O `ModelRates` guarda as duas previsões em cache.
+  Resíduo: os abates feitos num dia sazonal entram no ritmo medido da hunt como se fossem de um dia normal; só pesa
+  quando o tipo do dia é o do ativo ou o da hunt (1 dia em 18 para cada tipo) e se dilui nos 14 dias de histórico.
 
 ## Testes
 
 `tests/test_daily.py` (virada do dia às 03:00 UTC, resgate único, confirmação, falha e nova tentativa) e
-`tests/test_combat_model.py` (fator sazonal e efeito no ritmo).
+`tests/test_combat_model.py` (fator sazonal, efeito no ritmo, correção do ritmo medido e os dois caches).
 
 ## Próximo
 

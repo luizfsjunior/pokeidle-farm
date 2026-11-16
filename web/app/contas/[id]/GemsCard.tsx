@@ -6,7 +6,7 @@ export type GemOption = {
   name: string | null;
   level: number;
   kills_per_hour: number;
-  kph_source: "measured" | "model" | "level" | "near_level" | "default";
+  kph_source: "measured" | "measured_season" | "model" | "level" | "near_level" | "default";
   gems_per_hour: number;
   capped_gems_per_hour: number;
   stones: Stone[];
@@ -42,6 +42,7 @@ export type GemsPotentialData = { at: string; trainer_level: number; prices: num
 
 const KPH_SOURCE: Record<GemOption["kph_source"], string> = {
   measured: "medido",
+  measured_season: "medido, ajustado ao dia sazonal",
   model: "previsto (simulador)",
   level: "estimado pelo nível",
   near_level: "estimado (nível próximo)",

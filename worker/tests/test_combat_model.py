@@ -222,3 +222,67 @@ def test_season_day_multiplies_damage_both_ways():
     grass_day = kills_per_hour(me, FIRE_MON, 10, replace(RULES, season="GRASS"))
     fire_day = kills_per_hour(me, FIRE_MON, 10, replace(RULES, season="FIRE"))
     assert grass_day > normal > fire_day
+
+
+def test_season_adjusts_measured_pace_only():
+    from pokeidle_farm.model.predict import season_adjust
+
+    rate = {"kabuto": (500.0, "measured"), "onix": (300.0, "model"), "geodude": (900.0, "measured")}
+    normal = {"kabuto": 400.0, "onix": 300.0, "geodude": 1000.0}
+    seasonal = {"kabuto": 100.0, "onix": 75.0, "geodude": 1000.0}  # dia de Pedra: Kabuto apanha ÷4
+    out = season_adjust(rate, normal, seasonal)
+    assert out["kabuto"] == (125.0, "measured_season")  # 500 × 100/400
+    assert out["onix"] == (300.0, "model")  # a previsão já vem com o tipo do dia
+    assert out["geodude"] == (900.0, "measured")  # o dia não muda essa hunt
+
+
+def test_model_rates_keeps_both_season_caches():
+    from pokeidle_farm.model.predict import ModelRates
+
+    raw = {
+        1: {
+            "pokeId": 1,
+            "type1": "GRASS",
+            "baseHp": 45,
+            "baseAtk": 49,
+            "baseDef": 49,
+            "baseSpAtk": 65,
+            "baseSpDef": 65,
+            "baseSpeed": 45,
+            "attacks": [
+                {
+                    "name": "Razor Leaf",
+                    "power": 56,
+                    "type": "GRASS",
+                    "category": "SPECIAL",
+                    "cooldownMs": 19600,
+                    "learnLevel": 1,
+                }
+            ],
+        },
+        116: {
+            "pokeId": 116,
+            "type1": "WATER",
+            "baseHp": 30,
+            "baseAtk": 40,
+            "baseDef": 70,
+            "baseSpAtk": 70,
+            "baseSpDef": 25,
+            "baseSpeed": 60,
+        },
+    }
+    rules = {"tabelaTipos": TABLE, "potencias": [{"n": 1, "bonus": 0, "chance": 100}]}
+    prof = {
+        "speciesId": 1,
+        "level": 20,
+        "ivs": {s: 27 for s in STATS},
+        "quality": 1.6,
+        "potencia": 1,
+    }
+    m = ModelRates(n_kills=30)
+    hunts = {"horsea": (10, 116)}
+    normal = m.rates(hunts, prof, raw, rules)["horsea"]
+    water = m.rates(hunts, prof, raw, rules, season="WATER")["horsea"]
+    assert water < normal  # o Horsea do dia apanha ÷4
+    assert len(m._caches) == 2
+    assert m.rates(hunts, prof, raw, rules)["horsea"] == normal  # o cache normal continua lá
