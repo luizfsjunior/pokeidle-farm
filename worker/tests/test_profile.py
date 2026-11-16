@@ -159,3 +159,21 @@ async def test_plugin_retries_after_store_failure():
     plugin.cfg = ProfileConfig()
     await plugin.on_event(_ev(ctx, "state.snapshot", ESTADO))
     assert calls == 1 and plugin.dirty
+
+
+def test_extra_keeps_known_fields_and_skips_huge_ones():
+    p = ProfileState()
+    p.apply_snapshot(
+        {
+            **ESTADO,
+            "passe": {"degrau": 2, "total": 2, "ciclos": 0, "ultimo": 20773},
+            "guild": {"nome": "Equipe"},
+            "campConquistas": {"x": "y" * 30_000},  # grande demais
+            "token": "nunca",  # não está na lista
+        }
+    )
+    s = p.summary()
+    assert s["extra"]["passe"]["degrau"] == 2 and s["extra"]["guild"] == {"nome": "Equipe"}
+    assert "campConquistas" not in s["extra"] and "token" not in s["extra"]
+    assert s["extra"]["loja"] == {"vipAte": 1_800_000_000_000}
+    assert s["pokedex"]["129"] == {"c": 1, "k": 502}

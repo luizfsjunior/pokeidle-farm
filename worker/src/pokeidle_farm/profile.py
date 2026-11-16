@@ -10,6 +10,7 @@ coleção e o inventário. Nada de token ou dado de login passa por aqui: só o 
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -30,6 +31,36 @@ POKEMON_FIELDS = {
     "caughtAt": "caught_at",
 }
 MERGED_MAPS = ("items", "balls")
+# campos do estado guardados como vieram, para o painel (passe, ginásios, guild...). Um campo maior
+# que EXTRA_MAX_BYTES em JSON fica de fora (não deixa a linha crescer sem controle).
+EXTRA_KEYS = (
+    "passe",
+    "ginasios",
+    "ginasiosPodio",
+    "guild",
+    "guildBonusPct",
+    "guildBonusRank",
+    "caixas",
+    "chocadeira",
+    "boss",
+    "outlandTier",
+    "bicicleta",
+    "casa",
+    "campConquistas",
+    "pkCoroa",
+    "pkMedalha",
+    "bonusXp",
+    "xpShare",
+    "topMes",
+    "evento",
+    "safari",
+    "mistico",
+    "pvp",
+    "automation",
+    "servidorAgora",
+)
+LOJA_KEYS = ("vip", "vipAte", "looktype", "gender", "visual")
+EXTRA_MAX_BYTES = 20_000
 TOP_POKEMON = 24  # destaques da coleção: os mais fortes
 MAX_SHINIES = 60
 
@@ -111,7 +142,20 @@ class ProfileState:
             "balls": _positive(est.get("balls")),
             # só os nomes dos campos, para descobrir o que mais dá para mostrar
             "estado_keys": sorted(est),
+            "extra": self._extra(),
+            # Pokédex completa: {speciesId: entrada do jogo} (c = capturas)
+            "pokedex": self.pokedex,
         }
+
+    def _extra(self) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for key in EXTRA_KEYS:
+            value = self.estado.get(key)
+            if value is not None and len(json.dumps(value, default=str)) <= EXTRA_MAX_BYTES:
+                out[key] = value
+        loja = _dict(self.estado.get("loja"))
+        out["loja"] = {k: loja[k] for k in LOJA_KEYS if k in loja}
+        return out
 
 
 def compact_pokemon(p: dict[str, Any]) -> dict[str, Any]:

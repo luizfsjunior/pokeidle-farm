@@ -15,6 +15,21 @@ insert into public.account_profile (account_id, level, gold) values
   ('00000000-0000-0000-0000-00000000af01', 39, 42000)
   on conflict (account_id) do update set level = excluded.level, gold = excluded.gold;
 
+-- histórico diário: a trigger guarda a última gravação de cada dia
+do $$
+begin
+  if (select gold from public.account_profile_daily
+       where account_id = '00000000-0000-0000-0000-00000000af01') <> 42000 then
+    raise exception 'account_profile_daily não acompanhou o upsert';
+  end if;
+  update public.account_profile set updated_at = now() - interval '2 days', gold = 1
+   where account_id = '00000000-0000-0000-0000-00000000af01';
+  if (select count(*) from public.account_profile_daily
+       where account_id = '00000000-0000-0000-0000-00000000af01') <> 2 then
+    raise exception 'dia anterior não virou outra linha';
+  end if;
+end $$;
+
 -- ícone: o items.json traz, o welcome sem ícone não apaga
 select public.replace_game_items('json', 'v1',
   '[{"item_id": 990001, "name": "Teste Stone", "icon": "items/teste.png"}]', '{}');
@@ -38,6 +53,9 @@ begin
   end if;
   if (select level from public.account_profile) <> 39 then
     raise exception 'upsert não atualizou o perfil';
+  end if;
+  if (select count(distinct account_id) from public.account_profile_daily) <> 1 then
+    raise exception 'RLS: o dono enxerga histórico alheio';
   end if;
   begin
     update public.account_profile set gold = 0;

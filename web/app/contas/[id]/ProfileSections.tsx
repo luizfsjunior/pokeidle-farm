@@ -1,7 +1,7 @@
 import { ItemIcon } from "@/components/ItemIcon";
 import { Sprite } from "@/components/Sprite";
 import { num } from "@/lib/format";
-import type { Mon, Profile } from "@/lib/profile";
+import { gameDay, type Mon, type Profile } from "@/lib/profile";
 import { BALL_ICONS, BALL_NAMES, GAME_SITE, itemIconUrl, type Atlas } from "@/lib/sprites";
 
 export type ItemInfo = { name: string; category: string | null; icon: string | null };
@@ -19,8 +19,29 @@ export function ProfileSections({ profile, atlas, looktypes, items }: {
   const balls = Object.entries(profile.balls).sort(([a], [b]) => Number(a) - Number(b));
   const highlights = profile.top_pokemon.filter((m) => !profile.team.some((t) => t.id === m.id)).slice(0, 12);
 
+  const pass = profile.extra?.passe;
   return (
     <>
+      {pass?.degrau != null && (
+        <section className="card">
+          <div className="spread">
+            <h2 style={{ margin: 0 }}>Passe de batalha</h2>
+            <span className={`small ${pass.ultimo === gameDay() ? "secondary" : "warn-text"}`}>
+              {pass.ultimo === gameDay() ? "Prêmio de hoje resgatado" : "Prêmio de hoje ainda não resgatado"}
+            </span>
+          </div>
+          <ol className="pass-track" aria-label={`Dia ${pass.degrau} de 30`}>
+            {Array.from({ length: 30 }, (_, i) => (
+              <li key={i} className={i < (pass.degrau ?? 0) ? "done" : undefined} title={`Dia ${i + 1}`} />
+            ))}
+          </ol>
+          <p className="muted small" style={{ margin: ".5rem 0 0" }}>
+            Dia {pass.degrau} de 30 · {num(pass.total ?? 0)} resgates · {num(pass.ciclos ?? 0)} trilhas completas
+            {pass.vipAte && pass.vipAte > Date.now() ? " · trilha premium ativa" : ""}
+          </p>
+        </section>
+      )}
+
       <section className="card">
         <h2>Equipe</h2>
         {profile.team.length === 0 ? (

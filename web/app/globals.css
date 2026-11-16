@@ -193,6 +193,11 @@ h3 { font-size: .9rem; font-weight: 600; color: var(--text-secondary); margin: 1
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+.pass-track { list-style: none; margin: .75rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(30, 1fr); gap: 3px; }
+.pass-track li { height: 10px; border-radius: 2px; background: var(--grid); }
+.pass-track li.done { background: var(--gold); }
+.warn-text { color: var(--warning); font-weight: 600; }
+
 /* --- vendas (docs/design/pagina-vendas.md) -------------------------------------------- */
 
 .sales-totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .75rem 1rem; }
