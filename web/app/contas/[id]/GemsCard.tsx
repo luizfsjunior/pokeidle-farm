@@ -27,7 +27,7 @@ export type GemsPlanData = {
   here: GemOption | null;
   options: GemOption[];
   month_gems_24h: number;
-  degraded: string[];
+  degraded?: string[]; // o plano "sem_catalogo" vem sem
 };
 export type ProgressPhase = {
   from_level: number; to_level: number; hunt: string; species_id: number; species: string | null; hours: number;
@@ -77,7 +77,7 @@ export function GemsCard({
         <p className="small" style={{ margin: 0 }}>
           <strong>{plan.dry_run || !plan.acting ? "Ensaio" : "Ativo"}:</strong> {plan.current_hunt ?? "—"} → alvo{" "}
           {plan.target ? `${plan.target.name ?? plan.target.slug} (~${num(plan.target.capped_gems_per_hour)} gemas/h, ~US$ ${num(usdMonth(plan.target.capped_gems_per_hour))}/mês a 24 h)` : "nenhum"}
-          {plan.degraded.length > 0 && <span className="error"> · {plan.degraded.join(", ")}</span>}
+          {(plan.degraded?.length ?? 0) > 0 && <span className="error"> · {plan.degraded?.join(", ")}</span>}
         </p>
       )}
       {list.length > 0 && (
@@ -123,7 +123,7 @@ function XpCard({ plan, progress }: { plan: GemsPlanData; progress: ProgressPlan
       <p className="small" style={{ margin: 0 }}>
         <strong>{plan.dry_run || !plan.acting ? "Ensaio" : "Ativo"}:</strong> {plan.current_hunt ?? "—"} → alvo{" "}
         {target ? `${target.name ?? target.slug} (~${num(target.xp_per_hour, { compact: true })} XP/h)` : "nenhum"}
-        {plan.degraded.length > 0 && <span className="error"> · {plan.degraded.join(", ")}</span>}
+        {(plan.degraded?.length ?? 0) > 0 && <span className="error"> · {plan.degraded?.join(", ")}</span>}
       </p>
       <div style={{ overflowX: "auto" }}>
         <table>

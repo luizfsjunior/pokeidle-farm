@@ -452,6 +452,7 @@ def item_rows_from_json(data: Any) -> list[dict[str, Any]]:
             "category": it.get("category"),
             "rare": bool(it.get("rare")),
             "npc_price": price if isinstance(price, int | float) else None,
+            "icon": _icon(it.get("icon")),
         }
     return [out[k] for k in sorted(out)]
 
@@ -472,8 +473,14 @@ def item_rows_from_welcome(raw: dict[str, Any]) -> list[dict[str, Any]]:
             "category": it.get("categoria") or it.get("category"),
             "rare": bool(it.get("raro") or it.get("rare")),
             "npc_price": None,
+            "icon": _icon(it.get("icone") or it.get("icon")),
         }
     return [out[k] for k in sorted(out)]
+
+
+def _icon(value: Any) -> str | None:
+    """Caminho do ícone como o jogo manda (ex.: `items/bike_frag.png`, relativo a /assets)."""
+    return value.strip() if isinstance(value, str) and value.strip() else None
 
 
 async def save_items(

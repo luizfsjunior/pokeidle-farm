@@ -4,6 +4,9 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { CommandButtons } from "@/components/CommandButtons";
 import { CommandTable } from "@/components/CommandTable";
 import { Shell } from "@/components/Shell";
+import { TrainerCard } from "@/components/TrainerCard";
+import { loadProfiles, speciesOf } from "@/lib/profile";
+import { loadAtlas, speciesLooktypes } from "@/lib/sprites";
 import { rankSummary } from "@/lib/rank";
 import { requireUser } from "@/lib/supabase/server";
 import { STATUS_LABEL, type Account, type Command } from "@/lib/types";
@@ -11,6 +14,7 @@ import { FocusCard } from "./FocusCard";
 import { NewPlugin } from "./NewPlugin";
 import { PluginEditor } from "./PluginEditor";
 import { GemsCard, type GemsPlanData, type GemsPotentialData, type ProgressPlanData } from "./GemsCard";
+import { ProfileSections, type ItemInfo } from "./ProfileSections";
 import { RankCard } from "./RankCard";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +47,20 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
           .order("received_at", { ascending: false }).limit(1).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+  const [profiles, atlas] = await Promise.all([loadProfiles(supabase, [account.id]), loadAtlas()]);
+  const profile = profiles.get(account.id);
+  const looktypes = profile
+    ? await speciesLooktypes(supabase, speciesOf(profile.team, profile.top_pokemon, profile.shinies))
+    : new Map<number, number>();
+  const itemIds = profile ? Object.keys(profile.items).map(Number).filter(Number.isFinite) : [];
+  const itemsRes = itemIds.length
+    ? await supabase.from("game_items").select("item_id, name, category, icon").in("item_id", itemIds)
+    : { data: [] };
+  const items = new Map<string, ItemInfo>(
+    ((itemsRes.data ?? []) as { item_id: number; name: string; category: string | null; icon: string | null }[])
+      .map((r) => [String(r.item_id), { name: r.name, category: r.category, icon: r.icon }]),
+  );
+
   const progress = progressRes.data
     ? { at: progressRes.data.received_at as string, ...(progressRes.data.data as Omit<ProgressPlanData, "at">) }
     : null;
@@ -56,16 +74,12 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
   return (
     <Shell email={email}>
       <p className="small"><Link href="/">← Visão geral</Link></p>
-      <div className="spread">
-        <h1>{account.nick}</h1>
-        <span className={`badge ${account.status}`}>{STATUS_LABEL[account.status] ?? account.status}</span>
-      </div>
       <div className="stack">
-        <section className="card">
-          <h2>Sessão</h2>
-          <p className="muted small" style={{ margin: 0 }}>{account.enabled ? "Ligada" : "Desligada"} · {account.role === "farm" ? "farm" : "pessoal"}</p>
+        <TrainerCard account={account} profile={profile} atlas={atlas} looktypes={looktypes} wide>
           <CommandButtons account={account} />
-        </section>
+        </TrainerCard>
+
+        {profile && <ProfileSections profile={profile} atlas={atlas} looktypes={looktypes} items={items} />}
 
         <FocusCard accountId={account.id} plugins={plugins} />
         {rank && (

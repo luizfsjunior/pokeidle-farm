@@ -3,13 +3,15 @@
 Next.js 16 (App Router) + Supabase Auth. Lê as contas, as métricas da fase 4a
 ([ADR 0012](../docs/decisions/0012-metricas-em-camadas.md)) e os objetivos.
 
-- **Visão geral** (`/`): status de cada conta, último evento e os números de hoje por hora ativa.
+- **Visão geral** (`/`): um cartão de treinador por conta (pokémon ativo, nível e XP, ouro, gemas, diamantes,
+  equipe e coleção, de `account_profile`), status, último evento e os números de hoje por hora ativa.
+  As imagens são os arquivos públicos do jogo (atlas por `looktype`; ver docs/design/painel-perfil.md).
 - **Métricas** (`/metricas`): qualquer métrica por hora ou por dia, filtrando por conta e hunt (`metric_series`).
 - **Comandos**: botões **Ping**, **Reconectar** e **Ligar/Desligar** em cada card; histórico em `/comandos`
   (com cancelar para os pendentes); foco (captura, ouro-xp-drop ou rank, comando `focus.set`), card "Rank
   semanal" (espécies, posição, alvo, fila e falhas, lidos de `events` por `lib/rank.ts`) e plugins de cada conta
   em `/contas/<id>`. Na visão geral, contas com o `rank` ligado mostram as espécies da semana e o alvo.
-- **Página da conta**: card Foco (captura, ouro-xp-drop, rank ou gemas), cards Rank e Gemas (alvo e potencial em
+- **Página da conta**: cartão de treinador, Equipe, Coleção e Mochila (com os ícones dos itens), card Foco (captura, ouro-xp-drop, rank ou gemas), cards Rank e Gemas (alvo e potencial em
   gemas das melhores hunts) e os plugins em JSON recolhidos em "Avançado".
 - **Hunts** (`/hunts`): as hunts visitadas no período (24 h, 7 ou 30 dias; por conta ou todas), com tempo, abates/h,
   gemas/h dos drops reais, ouro, drops, capturas e espécies novas (função `hunt_summary` no banco), e o catálogo das

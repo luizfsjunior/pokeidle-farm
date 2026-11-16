@@ -1,5 +1,8 @@
 import { CommandButtons } from "@/components/CommandButtons";
 import { Shell } from "@/components/Shell";
+import { TrainerCard } from "@/components/TrainerCard";
+import { loadProfiles, speciesOf } from "@/lib/profile";
+import { loadAtlas, speciesLooktypes } from "@/lib/sprites";
 import { rankLine } from "@/lib/rank";
 import { requireUser } from "@/lib/supabase/server";
 import { ago, num, todaySP } from "@/lib/format";
@@ -23,6 +26,8 @@ export default async function Overview() {
     supabase.from("strategy_configs").select("account_id").eq("plugin", "rank").eq("enabled", true),
   ]);
   const accounts = (accountsRes.data ?? []) as Account[];
+  const [profiles, atlas] = await Promise.all([loadProfiles(supabase, accounts.map((a) => a.id)), loadAtlas()]);
+  const looktypes = await speciesLooktypes(supabase, speciesOf(...[...profiles.values()].map((p) => p.team)));
 
   const lastSeen = new Map<string, string>();
   const rankOn = new Set((rankRes.data ?? []).map((r) => r.account_id as string));
@@ -50,44 +55,41 @@ export default async function Overview() {
   return (
     <Shell email={email}>
       <h1>Visão geral</h1>
-      <p className="secondary small">Hoje ({today.split("-").reverse().join("/")}), por hora ativa. A métrica é recalculada a cada 10 min.</p>
+      <p className="secondary small">Números de hoje ({today.split("-").reverse().join("/")}) recalculados a cada 10 min; moedas e equipe, a cada 2 min.</p>
       {err && <p className="error">Erro ao ler o Supabase: {err}</p>}
       {accounts.length === 0 && !err && (
         <div className="card">Nenhuma conta cadastrada para este usuário. Veja <code>docs/deploy.md</code>.</div>
       )}
-      <div className="grid">
+      <div className="trainers">
         {accounts.map((a) => {
           const t = totals.get(a.id);
           const mins = t?.active_minutes ?? 0;
+          const rank = ranks.get(a.id);
           return (
-            <section key={a.id} className="card">
-              <div className="spread">
-                <h2 style={{ margin: 0 }}>{a.nick}</h2>
-                <span className={`badge ${a.status}`}>{STATUS_LABEL[a.status] ?? a.status}</span>
-              </div>
-              <div className="muted small">
-                {a.role === "farm" ? "farm" : "pessoal"}
-                {!a.enabled && " · desativada"} · último evento {ago(lastSeen.get(a.id))}
-              </div>
-              {ranks.has(a.id) && (
-                <div className="small" style={{ marginTop: ".35rem" }}>
-                  Rank: {num(ranks.get(a.id)?.species ?? 0)} espécies na semana
-                  {ranks.get(a.id)?.target && <> · alvo {ranks.get(a.id)?.target}</>}
+            <TrainerCard key={a.id} account={a} profile={profiles.get(a.id)} atlas={atlas} looktypes={looktypes}
+              href={`/contas/${a.id}`}>
+              <div className="today">
+                <div className="today-title small secondary">
+                  Hoje, por hora ativa{mins ? ` (${num(mins / 60)} h)` : ""} · último evento {ago(lastSeen.get(a.id))}
                 </div>
-              )}
-              <div className="stats">
-                <Stat label="Drops (gemas)/h" value={num(perHour(t?.drops_value_orb ?? 0, mins))} />
-                <Stat label="Abates/h" value={num(perHour(t?.kills ?? 0, mins))} />
-                <Stat label="XP/h" value={num(perHour(t?.xp ?? 0, mins), { compact: true })} />
-                <Stat label="Gold/h" value={num(perHour(t?.gold ?? 0, mins), { compact: true })} />
-                <Stat label="Gold líquido/h" value={num(perHour(t?.gold_net ?? 0, mins), { compact: true })} />
-                <Stat label="Capturas/h" value={num(perHour(t?.captures ?? 0, mins))} />
-                <Stat label="Taxa de captura" value={t?.capture_attempts ? `${num((t.captures * 100) / t.capture_attempts)}%` : "—"} />
-                <Stat label="Drops (ouro)/h" value={num(perHour(t?.drops_value_gold ?? 0, mins), { compact: true })} />
-                <Stat label="Tempo ativo" value={mins ? `${num(mins / 60)} h` : "—"} />
+                <div className="stats">
+                  <Stat label="Drops em gemas" value={num(perHour(t?.drops_value_orb ?? 0, mins))} />
+                  <Stat label="Abates" value={num(perHour(t?.kills ?? 0, mins))} />
+                  <Stat label="XP" value={num(perHour(t?.xp ?? 0, mins), { compact: true })} />
+                  <Stat label="Ouro" value={num(perHour(t?.gold ?? 0, mins), { compact: true })} />
+                  <Stat label="Ouro líquido" value={num(perHour(t?.gold_net ?? 0, mins), { compact: true })} />
+                  <Stat label="Capturas" value={num(perHour(t?.captures ?? 0, mins))} />
+                  <Stat label="Taxa de captura" value={t?.capture_attempts ? `${num((t.captures * 100) / t.capture_attempts)}%` : "—"} />
+                  <Stat label="Drops em ouro" value={num(perHour(t?.drops_value_gold ?? 0, mins), { compact: true })} />
+                </div>
+                {rank && (
+                  <div className="small">
+                    Rank: {num(rank.species ?? 0)} espécies na semana{rank.target && <>, alvo {rank.target}</>}
+                  </div>
+                )}
               </div>
               <CommandButtons account={a} />
-            </section>
+            </TrainerCard>
           );
         })}
       </div>

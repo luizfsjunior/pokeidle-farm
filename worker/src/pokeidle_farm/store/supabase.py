@@ -248,6 +248,9 @@ class SupabaseStore:
         )
         return {r["item_id"]: r["name"] for r in res.data or []}
 
+    async def upsert_account_profile(self, row: dict[str, Any]) -> None:
+        await self._db.table("account_profile").upsert(row).execute()
+
     async def save_market_asks(self, rows: list[dict[str, Any]]) -> None:
         if rows:
             await self._db.table("market_asks").upsert(rows).execute()
