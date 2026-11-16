@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { ItemIcon } from "@/components/ItemIcon";
 import { Shell } from "@/components/Shell";
+import { itemIconUrl } from "@/lib/sprites";
 import { dateTime, num } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
 import type { Account } from "@/lib/types";
@@ -64,9 +66,9 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
   const takenAt = (lastSnap.data?.taken_at as string | undefined) ?? null;
 
   const itemsRes = names.length
-    ? await supabase.from("game_items").select("item_id, name, npc_price").in("name", names)
+    ? await supabase.from("game_items").select("item_id, name, npc_price, icon").in("name", names)
     : { data: [] as { item_id: number; name: string; npc_price: number | null }[] };
-  const itemByName = new Map<string, { item_id: number; npc_price: number | null }>();
+  const itemByName = new Map<string, { item_id: number; npc_price: number | null; icon?: string | null }>();
   for (const it of (itemsRes.data ?? []) as { item_id: number; name: string; npc_price: number | null }[]) {
     const cur = itemByName.get(it.name);
     if (!cur || it.item_id < cur.item_id) itemByName.set(it.name, it);
@@ -156,7 +158,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
             <tbody>
               {rows.map((r) => (
                 <tr key={r.name}>
-                  <td>{r.name}{r.itemId === null && <span className="error small"> · fora do catálogo</span>}</td>
+                  <td><span className="sale-item"><ItemIcon src={itemIconUrl(itemByName.get(r.name)?.icon)} name={r.name} size={24} />{r.name}</span>{r.itemId === null && <span className="error small"> · fora do catálogo</span>}</td>
                   <td>{num(r.qty)}</td>
                   <td className={r.ref && r.orb && r.orb.avg > r.ref.median * 2 ? "warn" : undefined}>{r.orb ? num(r.orb.avg) : "—"}</td>
                   <td>{r.ref ? <>{num(r.ref.median)} <span className="muted small">({num(r.ref.sales)} vendas)</span></> : "—"}</td>

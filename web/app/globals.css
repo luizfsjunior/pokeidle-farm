@@ -60,10 +60,13 @@ h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
 .num { font-variant-numeric: tabular-nums; }
 
 .topbar { display: flex; align-items: center; gap: 1.25rem; padding: .75rem 1.25rem; background: var(--surface-1); border-bottom: 1px solid var(--border); }
-.topbar .brand { font-weight: 650; color: var(--text-primary); }
+.topbar .brand { font-family: "Silkscreen", ui-monospace, monospace; font-size: .95rem; color: var(--text-primary); white-space: nowrap; }
+.topbar .brand:hover { text-decoration: none; color: var(--accent); }
+.topbar { position: sticky; top: 0; z-index: 10; }
 .topbar nav { display: flex; gap: 1rem; flex: 1; overflow-x: auto; min-width: 0; white-space: nowrap; }
 .topbar nav a { color: var(--text-secondary); }
 .topbar nav a:hover { color: var(--text-primary); text-decoration: none; }
+.topbar nav a[aria-current="page"] { color: var(--text-primary); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); padding-bottom: .15rem; }
 main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
 @media (max-width: 480px) { main { padding: 1rem .75rem 2.5rem; } .topbar { gap: .75rem; padding: .6rem .75rem; } }
 
@@ -303,3 +306,52 @@ h3 { font-size: .9rem; font-weight: 600; color: var(--text-secondary); margin: 1
   .wallet { gap: .35rem; }
   .coin { column-gap: .3rem; }
 }
+
+/* --- fase 4: tabelas, formulários e celular (docs/design/painel-fase-4.md) ------------- */
+
+h1 { font-size: 1.55rem; letter-spacing: -.01em; }
+.card { border-radius: 12px; }
+th { font-size: .78rem; white-space: nowrap; }
+tbody tr:hover td { background: color-mix(in srgb, var(--surface-0) 70%, transparent); }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+button:not(:disabled):hover { filter: brightness(1.06); }
+button.ghost:not(:disabled):hover { color: var(--text-primary); border-color: var(--text-muted); }
+
+.topbar nav { scrollbar-width: none; gap: .9rem; }
+.topbar nav::-webkit-scrollbar { display: none; }
+@media (max-width: 1240px) { .topbar-email { display: none; } }
+
+.hunt-cell { white-space: nowrap; }
+.hunt-cell .sprite { vertical-align: middle; margin-right: .4rem; }
+
+.tabbar, .sheet, .sheet-backdrop { display: none; }
+@media (max-width: 760px) {
+  .topbar nav, .topbar-email, .topbar-exit { display: none; }
+  main { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+  .tabbar {
+    display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    background: var(--surface-1); border-top: 1px solid var(--border); padding: .3rem .25rem calc(.3rem + env(safe-area-inset-bottom));
+  }
+  .tabbar a, .tabbar button {
+    display: grid; justify-items: center; gap: .1rem; padding: .3rem 0; font-size: .7rem; font-weight: 500;
+    color: var(--text-muted); background: none; border: 0; border-radius: 8px; text-decoration: none;
+  }
+  .tabbar a[aria-current="page"], .tabbar button.is-on { color: var(--accent); font-weight: 650; }
+  .sheet-backdrop { display: block; position: fixed; inset: 0; z-index: 25; background: rgb(0 0 0 / .3); border: 0; border-radius: 0; padding: 0; }
+  .sheet {
+    display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 28; background: var(--surface-1);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: .75rem 1rem calc(5rem + env(safe-area-inset-bottom));
+    transform: translateY(100%); transition: transform .2s ease; box-shadow: 0 -8px 30px rgb(0 0 0 / .18); visibility: hidden;
+  }
+  .sheet.is-open { transform: none; visibility: visible; }
+  .sheet ul { list-style: none; margin: 0; padding: 0; display: grid; }
+  .sheet li a { display: block; padding: .8rem .25rem; border-bottom: 1px solid var(--grid); color: var(--text-primary); font-weight: 550; }
+  .sheet li a[aria-current="page"] { color: var(--accent); }
+  .sheet-foot { display: flex; justify-content: space-between; align-items: center; padding-top: .75rem; }
+  .dex-detail.is-open { bottom: calc(4rem + env(safe-area-inset-bottom)); }
+  .dex-controls { top: 3rem; }
+  h1 { font-size: 1.3rem; }
+  .card { padding: .85rem .9rem; }
+  .filters { gap: .5rem; }
+}
+@media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
