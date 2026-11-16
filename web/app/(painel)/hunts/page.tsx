@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AccountTabs, ErrorNote, LinkTabs, PageHeader, Panel } from "@/components/Page";
 import { Shell } from "@/components/Shell";
+import { HuntDrawerProvider, HuntOpen, type HuntDetail } from "./HuntDrawer";
 import { Sprite } from "@/components/Sprite";
 import { loadAtlas, speciesLooktypes } from "@/lib/sprites";
 import { ago, num } from "@/lib/format";
@@ -115,6 +116,30 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
   const face = (h: CatalogHunt | undefined) =>
     h ? <Sprite mon={{ id: h.species_id, species_id: h.species_id, name: h.species_name ?? undefined }} atlas={atlas} looktypes={looktypes} size={32} /> : null;
 
+  // dados da gaveta de cada hunt (clicar no nome abre; HuntDrawer.tsx)
+  const details: Record<string, HuntDetail> = {};
+  const detailOf = (h: CatalogHunt): HuntDetail => {
+    const v = visited.find((x) => x.hunt_slug === h.slug);
+    const stones = stonesFor(h);
+    const measured = v ? [
+      { label: "Tempo no período", value: v.active_minutes >= 60 ? `${num(v.active_minutes / 60)} h` : `${num(v.active_minutes)} min` },
+      { label: "Abates por hora", value: num(perHour(v.kills, v.active_minutes)) },
+      { label: "Gemas por hora", value: num(perHour(v.drops_value_orb, v.active_minutes)) },
+      { label: "Ouro líquido por hora", value: num(perHour(v.gold_net, v.active_minutes), { compact: true }) },
+      { label: "Capturas", value: `${num(v.captures)}${v.shinies ? ` (${num(v.shinies)} shiny)` : ""}` },
+    ] : [];
+    return {
+      slug: h.slug, title: h.species_name ?? h.name ?? h.slug, speciesId: h.species_id, level: h.level,
+      area: [...new Set([h.region, h.area].filter(Boolean))].join(" · "), stones: stoneText(stones),
+      gemsPer1000: gemsPer1000(stones), measured,
+      here: [...current.entries()].filter(([slug]) => slug === h.slug).map(([, c]) => c.nick),
+    };
+  };
+  for (const v of visited) { const h = catalog.get(v.hunt_slug); if (h) details[h.slug] = detailOf(h); }
+  for (const r of reachable) details[r.h.slug] ??= detailOf(r.h);
+  const open = (h: CatalogHunt | undefined, label: React.ReactNode, fallback: string) =>
+    h ? <HuntOpen slug={h.slug}>{face(h)}{label}</HuntOpen> : <>{label ?? fallback}</>;
+
   const link = (over: Record<string, string | null>) => {
     const p = new URLSearchParams();
     const conta = "conta" in over ? over.conta : chosen?.id ?? null;
@@ -134,6 +159,8 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
         <LinkTabs label="Período" items={(Object.keys(PERIODS) as Period[]).map((p) => ({ key: p, href: link({ dias: p }), label: PERIODS[p], active: p === period }))} />
       </PageHeader>
       <ErrorNote message={err} />
+      <HuntDrawerProvider hunts={details} accounts={accounts.filter((a) => a.role === "farm").map((a) => ({ id: a.id, nick: a.nick, enabled: a.enabled }))}
+        defaultAccount={chosen?.id ?? null} atlas={atlas} looktypes={Object.fromEntries(looktypes)}>
       <div className="stack">
 
       <Panel title="Visitadas" meta={PERIODS[period]} flush>
@@ -154,8 +181,7 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
                 return (
                   <tr key={v.hunt_slug}>
                     <td className="hunt-cell">
-                      {face(h)}
-                      {h?.species_name ?? h?.name ?? v.hunt_slug}
+                      {open(h, h?.species_name ?? h?.name ?? v.hunt_slug, v.hunt_slug)}
                       {cur && <span className="badge ready" style={{ marginLeft: ".4rem" }}>agora · {cur.nick}</span>}
                     </td>
                     <td>{h?.level ?? "—"}</td>
@@ -195,8 +221,7 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
             {reachable.map(({ h, stones, g1000, kph, gemsHour }) => (
               <tr key={h.slug}>
                 <td className="hunt-cell">
-                  {face(h)}
-                  {h.species_name ?? h.name ?? h.slug}
+                  {open(h, h.species_name ?? h.name ?? h.slug, h.slug)}
                   {current.has(h.slug) && <span className="badge ready" style={{ marginLeft: ".4rem" }}>agora</span>}
                 </td>
                 <td>{h.level}</td>
@@ -217,6 +242,7 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
         </p>
       </Panel>
       </div>
+      </HuntDrawerProvider>
     </Shell>
   );
 }

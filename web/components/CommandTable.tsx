@@ -1,4 +1,4 @@
-import { cancelCommand } from "@/app/comandos/actions";
+import { cancelCommand } from "@/app/(painel)/comandos/actions";
 import { dateTime } from "@/lib/format";
 import { COMMAND_LABEL, COMMAND_STATUS_LABEL, type Command } from "@/lib/types";
 
