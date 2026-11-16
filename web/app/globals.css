@@ -137,6 +137,7 @@ a:hover > .trainer-nick { color: var(--accent); }
 .trainer-level { display: flex; gap: .6rem; align-items: baseline; color: var(--text-secondary); }
 .trainer-level strong { color: var(--text-primary); font-size: 1.1rem; }
 .tag-vip { font-size: .75rem; font-weight: 650; color: var(--gold); border: 1px solid currentColor; border-radius: 4px; padding: 0 .3rem; }
+.tag-event { font-size: .75rem; font-weight: 650; color: var(--good); border: 1px solid currentColor; border-radius: 4px; padding: 0 .3rem; }
 .xpbar { height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; }
 .xpbar > span { display: block; height: 100%; background: var(--diamond); }
 .trainer-foot { border-top: 1px solid var(--grid); padding-top: .6rem; }
@@ -274,6 +275,10 @@ h3 { font-size: .9rem; font-weight: 600; color: var(--text-secondary); margin: 1
 .hunt-picker select { font: inherit; padding: .4rem .6rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-1); color: var(--text-primary); max-width: 100%; }
 .go-hunt { display: inline-flex; gap: .4rem; align-items: center; margin-left: .5rem; }
 .dex-hunts li { margin-bottom: .35rem; }
+
+.extras { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: 1rem 1.25rem; }
+.extra { display: grid; gap: .1rem; align-content: start; }
+.extra-value { font-size: 1.25rem; font-weight: 650; }
 
 /* --- vendas (docs/design/pagina-vendas.md) -------------------------------------------- */
 

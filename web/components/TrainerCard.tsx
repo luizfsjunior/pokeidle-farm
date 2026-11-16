@@ -18,6 +18,8 @@ export function TrainerCard({ account, profile, atlas, looktypes, href, wide = f
   const active = activeMon(profile);
   const progress = profile ? levelProgress(profile) : null;
   const vip = profile?.vip_until && new Date(profile.vip_until) > new Date();
+  const ev = (profile?.extra?.evento ?? null) as { terminaEm?: number; xpTreinadorPct?: number } | null;
+  const evOn = ev?.terminaEm != null && ev.terminaEm > Date.now();
   const nick = <span className="trainer-nick">{account.nick}</span>;
 
   return (
@@ -34,6 +36,11 @@ export function TrainerCard({ account, profile, atlas, looktypes, href, wide = f
           <div className="trainer-level">
             <span>Nível <strong className="num">{profile?.level ?? "—"}</strong></span>
             {vip && <span className="tag-vip">VIP</span>}
+            {evOn && (
+              <span className="tag-event" title={`Evento até ${new Date(ev!.terminaEm!).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`}>
+                Evento +{ev!.xpTreinadorPct ?? 0}% XP
+              </span>
+            )}
             {!account.enabled && <span className="muted">desligada</span>}
           </div>
           {progress != null && (
