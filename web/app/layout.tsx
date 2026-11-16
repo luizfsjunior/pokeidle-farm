@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/onest";
 import "@fontsource/silkscreen/400.css";
+import "@fontsource-variable/pixelify-sans";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,10 +15,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fbfdfd" },
-    { media: "(prefers-color-scheme: dark)", color: "#182026" },
-  ],
+  themeColor: "#0c0a1a",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
