@@ -81,7 +81,7 @@ export function GemsCard({
         </p>
       )}
       {list.length > 0 && (
-        <div style={{ overflowX: "auto" }}>
+        <div className="table-scroll">
           <table>
             <thead>
               <tr><th>Hunt</th><th>Nível</th><th>Abates/h</th><th>Pedras</th><th>Gemas/h</th><th>US$/mês (24 h)</th></tr>
@@ -125,7 +125,7 @@ function XpCard({ plan, progress }: { plan: GemsPlanData; progress: ProgressPlan
         {target ? `${target.name ?? target.slug} (~${num(target.xp_per_hour, { compact: true })} XP/h)` : "nenhum"}
         {(plan.degraded?.length ?? 0) > 0 && <span className="error"> · {plan.degraded?.join(", ")}</span>}
       </p>
-      <div style={{ overflowX: "auto" }}>
+      <div className="table-scroll">
         <table>
           <thead><tr><th>Hunt</th><th>Nível</th><th>Abates/h</th><th>XP/abate</th><th>XP/h</th></tr></thead>
           <tbody>
@@ -174,7 +174,7 @@ function ProgressPlan({ progress }: { progress: ProgressPlanData }) {
           </>
         )}
       </p>
-      <div style={{ overflowX: "auto" }}>
+      <div className="table-scroll">
         <table>
           <thead>
             <tr><th>Níveis</th><th>Hunt</th><th>Ativo</th><th>Horas</th><th>XP/h</th><th>Poções/h</th><th>Ouro/h</th></tr>

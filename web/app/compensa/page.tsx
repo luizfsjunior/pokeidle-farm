@@ -1,3 +1,4 @@
+import { ErrorNote, Explain, PageHeader, Panel } from "@/components/Page";
 import { Shell } from "@/components/Shell";
 import { num } from "@/lib/format";
 import { requireUser } from "@/lib/supabase/server";
@@ -71,14 +72,15 @@ export default async function EvaluationPage() {
 
   return (
     <Shell email={email}>
-      <h1>Compensa?</h1>
-      <p className="secondary small">
-        Últimos {days} dias (contando a partir do primeiro preço do Mercado). Renda = gemas dos drops por mês × (1 − 15% de comissão) × US$ 0,009 por gema (saque). Supõe
-        vender tudo pela média de 7 dias do Mercado; o ouro não sai do jogo e não entra na renda.
-      </p>
-      {err && <p className="error">Erro ao ler o Supabase: {err}</p>}
+      <PageHeader title="Compensa?" subtitle={`O farm paga a energia? Últimos ${days} dias, contando a partir do primeiro preço do Mercado.`} />
+      <ErrorNote message={err} />
+      <div className="stack">
+      <Explain>
+        <p>Renda = gemas dos drops por mês × (1 − 15% de comissão) × US$ 0,009 por gema (saque).</p>
+        <p>Supõe vender tudo pela média de 7 dias do Mercado. O ouro não sai do jogo e não entra na renda.</p>
+      </Explain>
 
-      <section className="card stack">
+      <section className="card stack verdict">
         <div className="spread">
           <h2 style={{ margin: 0 }}>{verdict}</h2>
           <span className="muted small">{total ? `${num(total.data_days)} de ${days} dias de dado` : ""}</span>
@@ -106,7 +108,7 @@ export default async function EvaluationPage() {
       </section>
 
       {potential && (
-        <div style={{ marginTop: "1rem" }}>
+        <div>
           <p className="muted small" style={{ margin: "0 0 .5rem" }}>
             Potencial: o que a conta renderia no foco gemas, nas melhores hunts que ela alcança (a renda acima é a do
             foco atual).
@@ -116,7 +118,7 @@ export default async function EvaluationPage() {
       )}
 
       {accounts.length > 0 && (
-        <div className="card" style={{ overflowX: "auto", marginTop: "1rem" }}>
+        <Panel title="Por conta" flush>
           <table>
             <thead>
               <tr>
@@ -140,13 +142,11 @@ export default async function EvaluationPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </Panel>
       )}
 
       {liquidity.length > 0 && (
-        <section className="card" style={{ overflowX: "auto", marginTop: "1rem" }}>
-          <h2 style={{ marginTop: 0 }}>Liquidez</h2>
-          <p className="muted small">Dropado por semana contra o vendido por semana no Mercado (gemas). Acima de 10%, vender tudo pela média é otimista.</p>
+        <Panel title="Liquidez" meta="dropado contra vendido por semana" flush>
           <table>
             <thead><tr><th>Item</th><th>Dropado/semana</th><th>Vendido/semana</th><th>Parcela</th></tr></thead>
             <tbody>
@@ -160,11 +160,11 @@ export default async function EvaluationPage() {
               ))}
             </tbody>
           </table>
-        </section>
+          <p className="panel-note">Acima de 10% do vendido por semana, vender tudo pela média é otimista.</p>
+        </Panel>
       )}
 
-      <div style={{ marginTop: "1rem" }}>
-        <SettingsForm initial={settings} />
+      <SettingsForm initial={settings} />
       </div>
     </Shell>
   );

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AccountTabs, ErrorNote, PageHeader } from "@/components/Page";
 import { Shell } from "@/components/Shell";
 import { loadProfiles } from "@/lib/profile";
 import { loadAtlas } from "@/lib/sprites";
@@ -33,15 +33,10 @@ export default async function PokedexPage({ searchParams }: { searchParams: Prom
 
   return (
     <Shell email={email}>
-      <h1>Pokédex</h1>
-      <p className="small">
-        {accounts.map((a) => (
-          <span key={a.id} style={{ marginRight: ".75rem" }}>
-            {a.id === chosen?.id ? <strong>{a.nick}</strong> : <Link href={`/pokedex?conta=${a.id}`}>{a.nick}</Link>}
-          </span>
-        ))}
-      </p>
-      {err && <p className="error">Erro ao ler o Supabase: {err}</p>}
+      <PageHeader title="Pokédex" subtitle="Todas as espécies do jogo e o que a conta já viu e capturou.">
+        <AccountTabs all={false} accounts={accounts} chosen={chosen?.id ?? null} href={(id) => `/pokedex?conta=${id}`} />
+      </PageHeader>
+      <ErrorNote message={err} />
       {species.length === 0 ? (
         <p className="muted">O catálogo de espécies ainda não foi gravado: ele aparece depois que o worker conecta.</p>
       ) : (
