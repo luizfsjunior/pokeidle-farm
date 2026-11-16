@@ -9,6 +9,7 @@ const LINKS = [
   ["/metricas", "Métricas"],
   ["/objetivos", "Objetivos"],
   ["/mercado", "Mercado"],
+  ["/vendas", "Vendas"],
   ["/compensa", "Compensa?"],
   ["/comandos", "Comandos"],
 ] as const;
