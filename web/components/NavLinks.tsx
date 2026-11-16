@@ -8,6 +8,7 @@ const LINKS = [
   ["/hunts", "Hunts"],
   ["/metricas", "Métricas"],
   ["/objetivos", "Objetivos"],
+  ["/pokedex", "Pokédex"],
   ["/mercado", "Mercado"],
   ["/vendas", "Vendas"],
   ["/compensa", "Compensa?"],

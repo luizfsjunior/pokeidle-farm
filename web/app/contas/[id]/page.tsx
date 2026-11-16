@@ -15,6 +15,7 @@ import { NewPlugin } from "./NewPlugin";
 import { PluginEditor } from "./PluginEditor";
 import { GemsCard, type GemsPlanData, type GemsPotentialData, type ProgressPlanData } from "./GemsCard";
 import { ProfileSections, type ItemInfo } from "./ProfileSections";
+import { TrendChart } from "@/components/TrendChart";
 import { RankCard } from "./RankCard";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,13 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
       .map((r) => [String(r.item_id), { name: r.name, category: r.category, icon: r.icon }]),
   );
 
+  const dailyRes = await supabase.from("account_profile_daily")
+    .select("day, level, xp, gold, gems, diamonds, pokemon_count, dex_caught")
+    .eq("account_id", account.id).order("day", { ascending: true }).limit(90);
+  const daily = (dailyRes.data ?? []) as { day: string; level: number | null; xp: number | null; gold: number | null;
+    gems: number | null; diamonds: number | null; pokemon_count: number | null; dex_caught: number | null }[];
+  const series = (k: keyof (typeof daily)[number]) => daily.map((d) => ({ day: d.day, value: d[k] as number | null }));
+
   const progress = progressRes.data
     ? { at: progressRes.data.received_at as string, ...(progressRes.data.data as Omit<ProgressPlanData, "at">) }
     : null;
@@ -80,6 +88,20 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
         </TrainerCard>
 
         {profile && <ProfileSections profile={profile} atlas={atlas} looktypes={looktypes} items={items} />}
+
+        {profile && (
+          <section className="card">
+            <h2>Evolução</h2>
+            <div className="trends">
+              <TrendChart title="Nível" points={series("level")} tone="accent" />
+              <TrendChart title="XP" points={series("xp")} tone="diamond" compact />
+              <TrendChart title="Ouro" points={series("gold")} tone="gold" compact />
+              <TrendChart title="Gemas" points={series("gems")} tone="gem" />
+              <TrendChart title="Espécies capturadas" points={series("dex_caught")} tone="good" />
+              <TrendChart title="Pokémons" points={series("pokemon_count")} tone="accent" />
+            </div>
+          </section>
+        )}
 
         <FocusCard accountId={account.id} plugins={plugins} />
         {rank && (
