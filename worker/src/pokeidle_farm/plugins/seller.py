@@ -2,12 +2,14 @@
 
 Ver docs/design/fase-9-venda-de-pedras.md. Decisões (15/11): só pedras; guarda `keep` (5) de
 cada; anuncia 1 gema abaixo do menor anúncio dos outros vendedores (nunca menos que o mínimo do
-Mercado, 2), mas não abaixo de `floor_ratio` (85%) da média de 7 dias: abaixo disso, guarda.
+Mercado, 2), mas não abaixo de `floor_ratio` (85%) do preço de referência: abaixo disso, guarda.
+A referência é a mediana das vendas reais de 7 dias, sem outliers nem transferências (16/11,
+docs/design/preco-de-referencia.md); com menos de `min_sales` vendas, a média de 7 dias do jogo.
 
 A cada `interval_min`:
 1. lê os próprios anúncios (`market.meus`);
 2. para cada pedra: total = inventário + já anunciado; quer vender total − `keep`;
-3. preço-alvo = max(2, menor anúncio − 1) (sem anúncio de ninguém: a média); piso = 85% da média;
+3. preço-alvo = max(2, menor anúncio − 1) (sem anúncio de ninguém: a referência); piso = 85% dela;
 4. sem anúncio próprio → anuncia o excesso; com anúncio mais caro que o alvo → cancela e anuncia de
    novo no alvo; com `min_lot` ou mais unidades novas → anuncia um lote à parte; até 20 anúncios.
 
@@ -22,7 +24,7 @@ import contextlib
 import math
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -46,7 +48,11 @@ class SellerConfig(BaseModel):
 
     dry_run: bool = True
     keep: int = Field(5, ge=0)  # unidades guardadas de cada pedra
-    floor_ratio: float = Field(0.85, gt=0, le=1)  # piso: fração da média de 7 dias
+    floor_ratio: float = Field(0.85, gt=0, le=1)  # piso: fração do preço de referência
+    # referência do piso: a mediana das vendas reais (sem outliers nem transferências), se houver
+    # `min_sales` vendas em 7 dias; senão a média de 7 dias do jogo (docs/design/preco-de-referencia.md)
+    reference: Literal["median", "avg"] = "median"
+    min_sales: int = Field(3, ge=1)
     interval_min: float = Field(30.0, ge=5)
     min_lot: int = Field(5, ge=1)  # unidades novas para abrir outro anúncio do mesmo item
     probe_price: int | None = Field(None, ge=1)  # sonda: anuncia 1 unidade a esse preço
@@ -139,6 +145,11 @@ class SellerPlugin(Plugin):
         stones = await store.stone_items()
         prices = await store.latest_item_prices()
         asks = await store.latest_asks()
+        try:
+            reference = await store.market_reference()
+        except Exception as exc:  # sem a função (migration pendente) ou o banco fora: usa a média
+            self.ctx.log.warning("seller: sem preço de referência (%r); uso a média", exc)
+            reference = {}
         mine = await self._read_mine()
         if mine is None:
             await self.ctx.actions.note("seller.plan", {"skipped": "sem market.meus"})
@@ -155,18 +166,26 @@ class SellerPlugin(Plugin):
             if total <= self.cfg.keep:
                 continue
             avg = (prices.get(name) or {}).get("orb")
+            ref_row = reference.get(name) or {}
             ask_row = asks.get(item_id)
             ask = (ask_row or {}).get("min_price")
+            ref, ref_source = avg, "avg"
+            if self.cfg.reference == "median" and (ref_row.get("sales") or 0) >= self.cfg.min_sales:
+                ref, ref_source = ref_row.get("median"), "median"
             d: dict[str, Any] = {
                 "item_id": item_id,
                 "name": name,
                 "stock": stock,
                 "listed": listed_qty,
                 "avg": avg,
+                "median": ref_row.get("median"),
+                "sales": ref_row.get("sales", 0),
+                "ref": ref,
+                "ref_source": ref_source,
                 "min_ask": ask,
             }
             decisions.append(d)
-            if avg is None:
+            if ref is None:
                 d["decision"] = "sem_media"
                 continue
             if ask_row is None:
@@ -176,8 +195,8 @@ class SellerPlugin(Plugin):
             if ask is not None:
                 target = max(MIN_ORB_PRICE, int(ask) - 1)
             else:
-                target = max(MIN_ORB_PRICE, round(avg))
-            floor = max(MIN_ORB_PRICE, math.ceil(self.cfg.floor_ratio * avg))
+                target = max(MIN_ORB_PRICE, round(ref))
+            floor = max(MIN_ORB_PRICE, math.ceil(self.cfg.floor_ratio * ref))
             d.update(target=target, floor=floor)
             if target < floor:
                 d["decision"] = "guarda_abaixo_do_piso"
