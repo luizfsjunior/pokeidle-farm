@@ -1,0 +1,110 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { itemIconUrl } from "@/lib/sprites";
+
+export const DAYS = 7;
+export const MIN_SALES = 3; // o mesmo `min_sales` do seller
+const MAX_KILLS = 5000; // abates com drop lidos por vez (bem acima do que uma conta faz em 7 dias)
+
+type Price = { avg: number; units: number | null };
+type Ref = { median: number; sales: number; rawMean: number | null };
+export type Row = {
+  ref: Ref | null;
+  ask: { min: number | null; queue: number } | null;
+  name: string;
+  qty: number;
+  itemId: number | null;
+  icon: string | null;
+  orb: Price | null;
+  gold: Price | null;
+  npc: number | null;
+};
+
+export const goldOf = (r: Row) => (r.gold ? r.gold.avg : r.npc ?? 0);
+// gemas: a referência (mediana das vendas, ou a média de 7 dias com poucas vendas), limitada pelo
+// menor anúncio aberto (o preço pelo qual vende hoje)
+const refOf = (r: Row) => (r.ref && r.ref.sales >= MIN_SALES ? r.ref.median : r.orb?.avg ?? null);
+export const orbOf = (r: Row) => {
+  const ref = refOf(r);
+  if (ref == null) return 0;
+  return r.ask?.min != null ? Math.min(ref, r.ask.min) : ref;
+};
+
+/**
+ * Itens que as contas dropam e quanto valem no Mercado (docs/design/fase-7-precos-do-mercado.md, seção 6).
+ * Os preços aqui são os do último snapshot; as métricas usam o preço da hora de cada drop.
+ */
+export async function loadMarket(supabase: SupabaseClient, conta: string | null) {
+  const since = new Date(Date.now() - DAYS * 86400_000).toISOString();
+  let kills = supabase.from("events").select("data->drops").eq("type", "kill")
+    .gte("received_at", since).neq("data->drops", "[]").limit(MAX_KILLS);
+  if (conta) kills = kills.eq("account_id", conta);
+  const [killsRes, lastSnap, refRes] = await Promise.all([
+    kills,
+    supabase.from("market_prices").select("taken_at").order("taken_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.rpc("market_reference"),
+  ]);
+  // mediana das vendas reais (docs/design/preco-de-referencia.md); só vale com MIN_SALES vendas
+  const refs = new Map<string, Ref>();
+  for (const r of (refRes.data ?? []) as { item_name: string; currency: string; median_unit: number; sales: number; raw_mean_unit: number | null }[]) {
+    if (r.currency === "orb" && r.median_unit != null) {
+      refs.set(r.item_name, { median: Number(r.median_unit), sales: r.sales, rawMean: r.raw_mean_unit == null ? null : Number(r.raw_mean_unit) });
+    }
+  }
+
+  // soma por nome
+  const byName = new Map<string, number>();
+  for (const k of (killsRes.data ?? []) as { drops: { name?: string; qty?: number }[] | null }[]) {
+    for (const d of k.drops ?? []) {
+      if (!d?.name) continue;
+      byName.set(d.name, (byName.get(d.name) ?? 0) + (Number(d.qty) || 1));
+    }
+  }
+  const names = [...byName.keys()];
+  const takenAt = (lastSnap.data?.taken_at as string | undefined) ?? null;
+
+  const itemsRes = names.length
+    ? await supabase.from("game_items").select("item_id, name, npc_price, icon").in("name", names)
+    : { data: [] };
+  const itemByName = new Map<string, { item_id: number; npc_price: number | null; icon?: string | null }>();
+  for (const it of (itemsRes.data ?? []) as { item_id: number; name: string; npc_price: number | null; icon: string | null }[]) {
+    const cur = itemByName.get(it.name);
+    if (!cur || it.item_id < cur.item_id) itemByName.set(it.name, it);
+  }
+  const ids = [...itemByName.values()].map((i) => i.item_id);
+  const [pricesRes, asksRes] = await Promise.all([
+    takenAt && ids.length
+      ? supabase.from("market_prices").select("item_id, currency, avg, units").eq("taken_at", takenAt).in("item_id", ids)
+      : Promise.resolve({ data: [] }),
+    ids.length
+      ? supabase.from("market_asks").select("item_id, min_price, total_units").eq("currency", "orb")
+          .in("item_id", ids).gte("taken_at", new Date(Date.now() - 6 * 3600_000).toISOString())
+          .order("taken_at", { ascending: false }).limit(500)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const asks = new Map<number, { min: number | null; queue: number }>();
+  for (const a of (asksRes.data ?? []) as { item_id: number; min_price: number | null; total_units: number }[]) {
+    if (!asks.has(a.item_id)) asks.set(a.item_id, { min: a.min_price == null ? null : Number(a.min_price), queue: Number(a.total_units) || 0 });
+  }
+  const prices = new Map<string, Price>();
+  for (const p of (pricesRes.data ?? []) as { item_id: number; currency: string; avg: number; units: number | null }[]) {
+    prices.set(`${p.item_id}:${p.currency}`, { avg: Number(p.avg), units: p.units == null ? null : Number(p.units) });
+  }
+
+  const rows: Row[] = names.map((name) => {
+    const it = itemByName.get(name) ?? null;
+    return {
+      name,
+      ref: refs.get(name) ?? null,
+      qty: byName.get(name) ?? 0,
+      itemId: it?.item_id ?? null,
+      icon: itemIconUrl(it?.icon),
+      ask: it ? asks.get(it.item_id) ?? null : null,
+      orb: it ? prices.get(`${it.item_id}:orb`) ?? null : null,
+      gold: it ? prices.get(`${it.item_id}:gold`) ?? null : null,
+      npc: it?.npc_price ?? null,
+    };
+  });
+  // mais valioso primeiro: gemas, depois ouro
+  rows.sort((a, b) => orbOf(b) * b.qty - orbOf(a) * a.qty || goldOf(b) * b.qty - goldOf(a) * a.qty);
+  return { rows, takenAt, err: killsRes.error?.message ?? null };
+}

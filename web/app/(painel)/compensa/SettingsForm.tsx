@@ -1,8 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
+import { supabaseBrowser, useRefreshAll } from "@/lib/query/hooks";
 
 export type EvalSettings = {
   machine_watts: number | null;
@@ -16,8 +15,8 @@ const toNum = (v: string) => (v.trim() === "" ? null : Number(v.replace(",", "."
 
 /** Parâmetros de custo do "Compensa?" (docs/design/fase-8-compensa.md, seção 2). */
 export function SettingsForm({ initial }: { initial: EvalSettings }) {
-  const supabase = useMemo(() => createClient(), []);
-  const router = useRouter();
+  const supabase = supabaseBrowser();
+  const refresh = useRefreshAll();
   const [watts, setWatts] = useState(initial.machine_watts?.toString() ?? "");
   const [kwh, setKwh] = useState(initial.kwh_price_brl?.toString() ?? "");
   const [usd, setUsd] = useState(initial.usd_brl?.toString() ?? "");
@@ -37,7 +36,7 @@ export function SettingsForm({ initial }: { initial: EvalSettings }) {
     const { error } = await supabase.from("evaluation_settings").upsert(row, { onConflict: "owner_id" });
     setBusy(false);
     setMsg(error ? error.message : "salvo");
-    if (!error) router.refresh();
+    if (!error) refresh();
   }
 
   return (

@@ -1,10 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { clearCache } from "@/lib/query/provider";
 import { login } from "./actions";
 
 export default function LoginPage() {
   const [error, action, pending] = useActionState(login, null);
+  useEffect(clearCache, []); // o cache do painel é de quem estava logado antes
   return (
     <main className="login">
       <div className="login-card stack">

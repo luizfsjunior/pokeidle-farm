@@ -1,17 +1,15 @@
 import Link from "next/link";
 import { Icon } from "./icons";
-import { Revalidate } from "./Revalidate";
 
 /** Cabeçalho da página: título, uma linha de contexto e ações à direita; filtros embaixo. */
 export function PageHeader({ title, subtitle, actions, children }: {
-  title: string;
+  title: React.ReactNode;
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   return (
     <header className="page-head">
-      <Revalidate at={Date.now()} />
       <div className="page-head-row">
         <div className="page-head-text">
           <h1>{title}</h1>

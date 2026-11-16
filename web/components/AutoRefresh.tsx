@@ -1,15 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { useEffect } from "react";
 
-/** Recarrega os dados do servidor a cada `ms` enquanto `active`. */
-export function AutoRefresh({ active, ms = 3000 }: { active: boolean; ms?: number }) {
-  const router = useRouter();
+/** Busca de novo os dados da tela (ou só os de `queryKey`) a cada `ms` enquanto `active`. */
+export function AutoRefresh({ active, ms = 3000, queryKey }: { active: boolean; ms?: number; queryKey?: QueryKey }) {
+  const qc = useQueryClient();
   useEffect(() => {
     if (!active) return;
-    const t = setInterval(() => router.refresh(), ms);
+    const t = setInterval(() => qc.invalidateQueries(queryKey ? { queryKey } : undefined), ms);
     return () => clearInterval(t);
-  }, [active, ms, router]);
+  }, [active, ms, qc, queryKey]);
   return null;
 }

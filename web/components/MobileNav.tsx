@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useMe } from "@/lib/query/hooks";
+import { clearCache } from "@/lib/query/provider";
 import { Icon } from "./icons";
 import { InstallApp } from "./InstallApp";
 import { usePrefetch } from "./usePrefetch";
@@ -12,7 +14,8 @@ import { isActive, NAV_GROUPS, TAB_ITEMS } from "./nav";
  * Celular: barra fixa embaixo com as 4 páginas mais usadas e "Mais" (gaveta com o resto, instalar
  * e sair). O topo é o HUD, que rola com a página.
  */
-export function MobileNav({ email }: { email: string }) {
+export function MobileNav() {
+  const email = useMe().data ?? "";
   const path = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
   const warm = usePrefetch();
@@ -47,7 +50,7 @@ export function MobileNav({ email }: { email: string }) {
         <InstallApp />
         <div className="sheet-foot">
           <span className="muted small">{email}</span>
-          <form action="/auth/sair" method="post"><button className="ghost small" type="submit">Sair</button></form>
+          <form action="/auth/sair" method="post" onSubmit={clearCache}><button className="ghost small" type="submit">Sair</button></form>
         </div>
       </div>
 

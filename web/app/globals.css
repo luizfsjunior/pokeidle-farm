@@ -436,6 +436,21 @@ img.sprite { object-fit: contain; transform: scale(1.35); } /* o sprite nacional
 @media (prefers-reduced-motion: no-preference) { .skeleton { animation: shimmer 1.2s linear infinite; } }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
+/* carregamento só dos dados (components/Loading.tsx): o resto da página aparece na hora */
+.ld { display: inline-block; vertical-align: middle; height: .85em; max-width: 100%; border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2)); background-size: 200% 100%; }
+.kpi-value .ld { height: 1.1em; }
+.ld-block { display: block; width: 100%; border-radius: var(--radius); }
+@media (prefers-reduced-motion: no-preference) { .ld { animation: shimmer 1.2s linear infinite; } }
+
+/* linha fina no topo enquanto busca dados por baixo */
+.fetchbar { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 60; pointer-events: none; opacity: 0;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); background-size: 50% 100%; background-repeat: no-repeat;
+  transition: opacity .2s; }
+.fetchbar.is-on { opacity: 1; transition-delay: .25s; }
+@media (prefers-reduced-motion: no-preference) { .fetchbar.is-on { animation: fetchbar 1s linear infinite; } }
+@keyframes fetchbar { from { background-position: -50% 0; } to { background-position: 150% 0; } }
+
 /* --- login ------------------------------------------------------------------------------ */
 
 .login { min-height: 100vh; display: grid; place-items: center; padding: 1.5rem; overflow-y: auto; }
