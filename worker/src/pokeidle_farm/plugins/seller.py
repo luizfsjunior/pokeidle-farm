@@ -53,6 +53,9 @@ class SellerConfig(BaseModel):
     # `min_sales` vendas em 7 dias; senão a média de 7 dias do jogo (docs/design/preco-de-referencia.md)
     reference: Literal["median", "avg"] = "median"
     min_sales: int = Field(3, ge=1)
+    # liquidez: só anuncia se a fila à frente + o lote vende em até `max_days`, pelo volume da semana
+    # (docs/design/seller-liquidez.md)
+    max_days: float = Field(3.0, gt=0)
     interval_min: float = Field(30.0, ge=5)
     min_lot: int = Field(5, ge=1)  # unidades novas para abrir outro anúncio do mesmo item
     probe_price: int | None = Field(None, ge=1)  # sonda: anuncia 1 unidade a esse preço
@@ -170,8 +173,16 @@ class SellerPlugin(Plugin):
             ask_row = asks.get(item_id)
             ask = (ask_row or {}).get("min_price")
             ref, ref_source = avg, "avg"
-            if self.cfg.reference == "median" and (ref_row.get("sales") or 0) >= self.cfg.min_sales:
-                ref, ref_source = ref_row.get("median"), "median"
+            median = ref_row.get("median")
+            if (
+                self.cfg.reference == "median"
+                and median is not None
+                and (ref_row.get("sales") or 0) >= self.cfg.min_sales
+                and (avg is None or median < avg)
+            ):
+                # a menor das duas: as duas podem estar infladas por vendas fora da curva
+                ref, ref_source = median, "median"
+            week = (prices.get(name) or {}).get("orb_units_week")
             d: dict[str, Any] = {
                 "item_id": item_id,
                 "name": name,
@@ -197,11 +208,29 @@ class SellerPlugin(Plugin):
             else:
                 target = max(MIN_ORB_PRICE, round(ref))
             floor = max(MIN_ORB_PRICE, math.ceil(self.cfg.floor_ratio * ref))
-            d.update(target=target, floor=floor)
+            want = total - self.cfg.keep
+            # fila à frente: no menor preço não dá para furar (é o mínimo do Mercado ou o alvo empata)
+            ahead = (
+                int((ask_row or {}).get("units_at_min") or 0)
+                if ask is not None and target >= ask
+                else 0
+            )
+            per_day = float(week) / 7 if isinstance(week, int | float) and week > 0 else 0.0
+            new_units = max(0, want - listed_qty)
+            days = (ahead + new_units) / per_day if per_day > 0 else None
+            d.update(
+                target=target,
+                floor=floor,
+                ahead=ahead,
+                per_day=round(per_day, 1),
+                days_to_sell=round(days, 1) if days is not None else None,
+            )
+            if new_units > 0 and (days is None or days > self.cfg.max_days):
+                d["decision"] = "guarda_fila_longa"
+                continue
             if target < floor:
                 d["decision"] = "guarda_abaixo_do_piso"
                 continue
-            want = total - self.cfg.keep
             pricier = [a for a in listed if (a.get("preco") or 0) > target]
             if pricier:
                 # outro vendedor passou na frente: cancela e anuncia de novo no alvo

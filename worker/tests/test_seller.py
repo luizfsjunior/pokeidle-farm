@@ -306,3 +306,47 @@ async def test_cycle_reference_avg_keeps_old_rule():
     market(r, {THUNDER: 50})
     r.ctx.store.reference = {"Thunder Stone": {"median": 40.0, "sales": 12}}
     assert await run_cycle(r, []) == []  # piso 85% de 142 = 121 > alvo 49: guarda
+
+
+# --- liquidez: dias para vender (docs/design/seller-liquidez.md) ---------------------------
+
+
+async def test_cycle_holds_when_queue_takes_too_long():
+    # 16/11: Water Stone com 4.607 unidades a 2 (o mínimo) e média de 30 inflada
+    r = await started({str(WATER): 18})
+    market(r, {})
+    r.ctx.store.market_asks = [
+        {
+            "taken_at": "t2",
+            "item_id": WATER,
+            "currency": "orb",
+            "min_price": 2,
+            "units_at_min": 4607,
+            "total_units": 4607,
+        }
+    ]
+    assert await run_cycle(r, []) == []
+    by = {s["name"]: s for s in [d for t, d in r.recorded if t == "seller.plan"][-1]["stones"]}
+    w = by["Water Stone"]
+    # 100 vendidas por semana = 14,3/dia; (4.607 + 13) / 14,3 = 323 dias
+    assert w["decision"] == "guarda_fila_longa" and w["ahead"] == 4607 and w["days_to_sell"] > 300
+
+
+async def test_cycle_holds_without_sales_volume():
+    r = await started({str(SUN): 12})
+    market(r, {SUN: None})
+    r.ctx.store.market_prices = [
+        {"taken_at": "t1", "item_id": SUN, "currency": "orb", "avg": 60, "units": 0, "days": 7}
+    ]
+    assert await run_cycle(r, []) == []
+    plan = [d for t, d in r.recorded if t == "seller.plan"][-1]
+    assert plan["stones"][0]["decision"] == "guarda_fila_longa"
+    assert plan["stones"][0]["days_to_sell"] is None
+
+
+async def test_cycle_sells_when_undercutting_short_queue():
+    r = await started({str(THUNDER): 8})
+    market(r, {THUNDER: 140})  # fura a fila: anuncia a 139, à frente de todos
+    would = await run_cycle(r, [])
+    plan = [d for t, d in r.recorded if t == "seller.plan"][-1]
+    assert plan["stones"][0]["ahead"] == 0 and len(would) == 1
