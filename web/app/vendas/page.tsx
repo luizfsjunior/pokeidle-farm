@@ -127,8 +127,10 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
           <section key={p.account_id} className="card">
             <h2>Decisão do seller{!chosen && <> em {nicks.get(p.account_id)}</>}</h2>
             <p className="muted small" style={{ marginTop: 0 }}>
-              Último ciclo, {ago(p.received_at)}. O piso é {num(Number(sellers.find((s) => s.account_id === p.account_id)?.config?.floor_ratio ?? 0.85) * 100)}%
-              da referência: a mediana das vendas reais, ou a média do jogo quando há poucas vendas.
+              Último ciclo, {ago(p.received_at)}. Só anuncia se a fila à frente mais o lote vende em até{" "}
+              {num(Number(sellers.find((s) => s.account_id === p.account_id)?.config?.max_days ?? 3))} dias, pelo volume
+              vendido na semana. O piso ({num(Number(sellers.find((s) => s.account_id === p.account_id)?.config?.floor_ratio ?? 0.85) * 100)}%)
+              é da menor entre a média do jogo e a mediana das vendas.
             </p>
             <StoneTable stones={p.data?.stones as Stone[]} />
           </section>
@@ -254,9 +256,11 @@ type Stone = {
   item_id: number; name: string; stock: number; listed: number; avg: number | null; median?: number | null;
   sales?: number; ref?: number | null; ref_source?: "median" | "avg"; min_ask: number | null;
   target?: number; floor?: number; decision?: string;
+  ahead?: number; per_day?: number; days_to_sell?: number | null;
 };
 
 const DECISION_LABEL: Record<string, string> = {
+  guarda_fila_longa: "Guarda: a fila não anda (passa do limite de dias)",
   guarda_abaixo_do_piso: "Guarda: o mercado está abaixo do piso",
   sem_media: "Guarda: sem preço de referência",
   sem_leitura_de_anuncios: "Espera: sem leitura recente dos anúncios",
@@ -275,7 +279,8 @@ function StoneTable({ stones }: { stones: Stone[] }) {
         <thead>
           <tr>
             <th>Pedra</th><th className="r">Estoque</th><th className="r">Anunciado</th><th className="r">Média do jogo</th>
-            <th className="r">Mediana das vendas</th><th className="r">Menor anúncio</th><th className="r">Alvo</th>
+            <th className="r">Mediana das vendas</th><th className="r">Menor anúncio</th><th className="r">Fila à frente</th>
+            <th className="r">Vendas/dia</th><th className="r">Dias p/ vender</th><th className="r">Alvo</th>
             <th className="r">Piso</th><th>Decisão</th>
           </tr>
         </thead>
@@ -290,6 +295,9 @@ function StoneTable({ stones }: { stones: Stone[] }) {
                 {s.median != null ? <>{num(s.median)} <span className="muted small">({num(s.sales ?? 0)})</span></> : "—"}
               </td>
               <td className="r">{num(s.min_ask)}</td>
+              <td className="r">{num(s.ahead)}</td>
+              <td className="r">{num(s.per_day)}</td>
+              <td className="r">{s.days_to_sell === undefined ? "—" : s.days_to_sell === null ? "∞" : num(s.days_to_sell)}</td>
               <td className="r">{num(s.target)}</td>
               <td className="r">{num(s.floor)}</td>
               <td className={s.decision?.startsWith("guarda") ? "muted" : undefined}>{DECISION_LABEL[s.decision ?? ""] ?? s.decision ?? "—"}</td>

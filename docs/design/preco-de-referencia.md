@@ -45,3 +45,9 @@ nossas contas.
 
 Ainda na média (próximo passo): as métricas `drops_value_orb` (`refresh_metric_hourly`), o `/compensa` e o
 `gems_model` do plugin gems.
+
+## Atualização (16/11, mais tarde)
+
+Para pedras, a amostra do histórico global mostrou poucas vendas, todas bem acima do livro de ofertas: a
+Rock Stone tinha mediana de 185 (3 vendas) com a fila a 2. O seller passou a usar a **menor** entre a média
+do jogo e a mediana, e a decisão principal virou a liquidez ([seller-liquidez.md](seller-liquidez.md)).
