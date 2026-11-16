@@ -201,7 +201,8 @@ class GemsPlugin(Plugin):
         d, t = event.data, event.type
         if t == "kill":
             slug = d.get("hunt_slug") or self.switch.current
-            self._pace.add_kill(slug, self.now(), d.get("active_level"))
+            if not self._season_hit(slug, d):  # o ritmo medido é o de dias normais
+                self._pace.add_kill(slug, self.now(), d.get("active_level"))
             if slug:
                 xp, kills = self._xp.get(slug, (0.0, 0.0))
                 self._xp[slug] = (xp + float(d.get("xp") or 0), kills + 1)
@@ -315,6 +316,22 @@ class GemsPlugin(Plugin):
         }
         await self.ctx.actions.note("gems.plan", data)
         await self._go(target.slug if target else None, current, reason)
+
+    def _season_hit(self, slug: str | None, kill: dict[str, Any]) -> bool:
+        """O tipo do dia sazonal no abate é do ativo ou da espécie da hunt (como o banco calcula)."""
+        season = str(kill.get("season") or "").upper()
+        species = getattr(self.ctx.species, "species", None) or {}
+        if not season or not species:
+            return False
+        ids = [kill.get("active_species_id")]
+        hunt = self.ctx.catalog.hunts.get(slug) if self.ctx.catalog and slug else None
+        if hunt is not None:
+            ids.append(hunt.species_id)
+        for sid in ids:
+            sp = species.get(sid)
+            if sp is not None and season in {str(t or "").upper() for t in (sp.type1, sp.type2)}:
+                return True
+        return False
 
     def _model_rates(self, cat: Any, species: Any, season: str | None = None) -> dict[str, float]:
         """Previsão do simulador de combate para o ativo (vazia se faltar dado)."""

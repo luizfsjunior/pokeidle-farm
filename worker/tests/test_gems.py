@@ -408,3 +408,18 @@ async def test_swallowed_select_is_retried_at_next_free_window():
         )
     )
     assert sw.current == "butterfree" and len(sw.sent) == 1
+
+
+async def test_season_kills_stay_out_of_the_measured_pace():
+    h = await Harness().start()
+    p = h.plugin
+    bug = {"season": "BUG", "active_species_id": None}
+    assert p._season_hit("caterpie", bug)  # a hunt é BUG
+    assert not p._season_hit("caterpie", {"season": "FIRE"})
+    assert not p._season_hit("caterpie", {})
+    added: list[str] = []
+    p._pace.add_kill = lambda slug, *_a, **_k: added.append(slug)  # type: ignore[method-assign]
+    kill = lambda d: Event(account_id=uuid4(), session_id=uuid4(), type="kill", data=d)  # noqa: E731
+    await p.on_event(kill({"hunt_slug": "caterpie", **bug}))
+    await p.on_event(kill({"hunt_slug": "caterpie", "season": "FIRE"}))
+    assert added == ["caterpie"]  # só o abate de dia normal entra no ritmo

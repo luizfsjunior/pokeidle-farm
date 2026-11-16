@@ -63,6 +63,7 @@ def test_translate_kill_and_capture():
         "active_level": None,
         "active_species_id": None,
         "wave_seq": None,
+        "season": None,
     }
     assert kill.raw["extra"] == "guardado no raw"
     assert cap.type == "capture_attempt" and cap.data["success"] is True
@@ -206,6 +207,7 @@ def test_v2_real_kill():
         "active_level": None,
         "active_species_id": None,
         "wave_seq": None,
+        "season": None,
     }
 
 
@@ -653,3 +655,23 @@ def test_translator_tracks_trainer_xp_bonus_and_event():
     assert tr.trainer_xp == 1000 and tr.xp_bonus == bonus and tr.xp_event == {"farmPct": 5}
     tr.translate(*codec.decode(json.dumps({"t": "estado", "estado": {"evento": None}})))
     assert tr.xp_event is None
+
+
+def test_kill_carries_season_while_it_lasts():
+    from datetime import UTC, datetime, timedelta
+
+    tr = Translator(uuid4(), uuid4())
+    fim = int((datetime.now(UTC) + timedelta(hours=1)).timestamp() * 1000)
+    tr.translate(
+        *codec.decode(
+            json.dumps({"t": "estado", "estado": {"diaSazonal": {"tipo": "rock", "fim": fim}}})
+        )
+    )
+    assert _one(tr, {"t": "batalha", "ev": [{"k": "morte"}]}).data["season"] == "ROCK"
+    passed = int((datetime.now(UTC) - timedelta(minutes=1)).timestamp() * 1000)
+    tr.translate(
+        *codec.decode(
+            json.dumps({"t": "estado", "estado": {"diaSazonal": {"tipo": "ROCK", "fim": passed}}})
+        )
+    )
+    assert _one(tr, {"t": "batalha", "ev": [{"k": "morte"}]}).data["season"] is None

@@ -19,11 +19,12 @@ psql -h /tmp -U postgres -d t -v ON_ERROR_STOP=1 -f supabase/tests/rank_points_t
 psql -h /tmp -U postgres -d t -v ON_ERROR_STOP=1 -f supabase/tests/drops_value_test.sql
 psql -h /tmp -U postgres -d t -v ON_ERROR_STOP=1 -f supabase/tests/evaluation_test.sql
 psql -h /tmp -U postgres -d t -v ON_ERROR_STOP=1 -f supabase/tests/hunt_summary_test.sql
+psql -h /tmp -U postgres -d t -v ON_ERROR_STOP=1 -f supabase/tests/season_pace_test.sql
 ```
 
 `stubs.sql` imita só o que as migrations usam do Supabase: os papéis `anon`, `authenticated` e `service_role`, `auth.users`, `auth.uid()` e o Vault. O pg_cron é pulado se não estiver instalado.
 
-O `metrics_test.sql` precisa de eventos do simulador no banco. O `ouro_liquido_test.sql`, o `commands_test.sql`, o `rank_hunt_stats_test.sql`, o `rank_points_test.sql`, o `drops_value_test.sql`, o `evaluation_test.sql` e o `hunt_summary_test.sql` criam os
+O `metrics_test.sql` precisa de eventos do simulador no banco. O `ouro_liquido_test.sql`, o `commands_test.sql`, o `rank_hunt_stats_test.sql`, o `rank_points_test.sql`, o `drops_value_test.sql`, o `evaluation_test.sql`, o `hunt_summary_test.sql` e o `season_pace_test.sql` criam os
 próprios dados (em 2001) e apagam no fim, então roda num banco vazio.
 
 Sem Postgres instalado (Windows), dá para usar a imagem `postgres:16`. O entrypoint reinicia o servidor

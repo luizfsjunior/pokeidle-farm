@@ -41,13 +41,18 @@ mais acelera a ida ao treinador 150, além da hunt e do ativo que as camadas 1 e
 - **Ritmo medido no dia sazonal** (corrigido em 16/11): o ritmo medido vem de dias normais, então o foco XP o multiplica
   pela razão entre a previsão com o tipo do dia e a previsão sem ele (`model/predict.season_adjust`; origem
   `measured_season`, "medido, ajustado ao dia sazonal" no painel). O `ModelRates` guarda as duas previsões em cache.
-  Resíduo: os abates feitos num dia sazonal entram no ritmo medido da hunt como se fossem de um dia normal; só pesa
-  quando o tipo do dia é o do ativo ou o da hunt (1 dia em 18 para cada tipo) e se dilui nos 14 dias de histórico.
+- **Abates do dia sazonal fora do histórico** (16/11, migration `20261116010000_season_pace.sql`): cada abate carimba
+  `season` (o tipo do dia, enquanto vale). O `refresh_metric_hourly` guarda à parte os números dos abates afetados (o
+  tipo do dia é um dos tipos do ativo ou da espécie da hunt, pelo `game_species`): `kills_season`,
+  `active_minutes_season`, `xp_season`, `active_level_sum_season` e `kills_leveled_season`; o `rank_hunt_stats` os
+  desconta, então o ritmo medido é o de dias normais. As métricas totais não mudam (o painel segue contando tudo). Na
+  sessão, o plugin gems também deixa os abates afetados fora do `PaceBook` (`_season_hit`, a mesma regra).
 
 ## Testes
 
 `tests/test_daily.py` (virada do dia às 03:00 UTC, resgate único, confirmação, falha e nova tentativa) e
-`tests/test_combat_model.py` (fator sazonal, efeito no ritmo, correção do ritmo medido e os dois caches).
+`tests/test_combat_model.py` (fator sazonal, efeito no ritmo, correção do ritmo medido e os dois caches),
+`tests/test_gems.py` e `test_protocol.py` (carimbo e filtro na sessão) e `supabase/tests/season_pace_test.sql`.
 
 ## Próximo
 

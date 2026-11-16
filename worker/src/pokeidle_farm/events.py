@@ -72,6 +72,7 @@ class KillData(_Data):
     active_level: int | None = None
     active_species_id: int | None = None
     wave_seq: int | None = None  # onda de spawn do abate (estado.ondaSeq / combateOndaSeq)
+    season: str | None = None  # tipo do dia sazonal no abate (estado.diaSazonal), se ainda valia
 
 
 class CaptureAttemptData(_Data):
@@ -429,6 +430,15 @@ class Translator:
         if isinstance(src.get("passe"), dict):
             self.battle_pass = src["passe"]
 
+    def season_type(self) -> str | None:
+        """O tipo do dia sazonal se ainda vale agora (relógio do servidor)."""
+        s = self.season or {}
+        end = s.get("fim")
+        if not isinstance(s.get("tipo"), str) or not isinstance(end, int | float):
+            return None
+        now = utcnow() + (self.server_offset or timedelta(0))
+        return s["tipo"].upper() if now.timestamp() * 1000 < end else None
+
     def active_profile(self) -> dict[str, Any] | None:
         """O pokémon ativo (campos de combate), com o nível mais recente."""
         prof = self.pokemon_profiles.get(self.active_id)
@@ -489,6 +499,7 @@ class Translator:
                 active_level=self.pokemon_levels.get(self.active_id),
                 active_species_id=self.pokemon_species.get(self.active_id),
                 wave_seq=self.wave_seq,
+                season=self.season_type(),
             )
             return self._ev("kill", data, ev)
         if k == "bola":
