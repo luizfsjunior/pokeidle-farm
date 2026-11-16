@@ -70,7 +70,11 @@ Magikarp e Geodude ~1.000–1.100/h (teto), Nidoran e Zubat ~100/h, Charmander e
 - Carga das regras: golpes e base stats das espécies (dos `creatures*.json` e `golpes-planilhas.mjs`), tabela de
   efetividade.
 - Script de validação contra os eventos da conta, com a tabela previsto × medido.
-- Uso imediato: escolher o **pokémon ativo** pela hunt (o de mais abates/h previstos entre os da conta).
+- Uso imediato (15/11): o foco XP/gemas usa a previsão para as hunts **não medidas** (`model/predict.py`,
+  `rates_for(..., model=)`, origem `model`). A troca de ativo pela hunt ficou para depois: a simulação de todos os pares
+  pokémon × hunt da conta mostrou o Bulbasaur 24 melhor em todas, e o achado foi a Kabuto (nível 20, Pedra/Água, 4× fraca
+  a Planta): ~100 mil XP/h previstos contra ~47 mil no Horsea. O perfil do ativo (espécie, nível, IV, qualidade,
+  potência, shiny) vem do `estado` pelo tradutor (`Translator.active_profile`) para o `AccountStateView.active_pokemon`.
 
 ## Resultado da validação (15/11, primeira passada)
 

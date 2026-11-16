@@ -246,6 +246,7 @@ class AccountSession:
                 for ev in self._translator.translate(msg, raw):
                     self.state_view.apply(ev)
                     self.state_view.server_offset = self._translator.server_offset
+                    self.state_view.active_pokemon = self._translator.active_profile()
                     await self.bus.publish(ev)
                 return
             # frames antes do welcome são ignorados (comportamento da referência)
@@ -296,6 +297,7 @@ class AccountSession:
             for ev in events:
                 self.state_view.apply(ev)
             self.state_view.server_offset = self._translator.server_offset
+            self.state_view.active_pokemon = self._translator.active_profile()
             # o tradutor sabe a hunt atual (hunt, patch, campo.init); os plugins leem daqui
             self.state_view.hunt_slug = self._translator.hunt_slug
             for ev in events:

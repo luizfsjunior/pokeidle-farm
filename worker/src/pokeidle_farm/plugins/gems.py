@@ -29,6 +29,7 @@ from ..gems_model import (
     rank_options,
 )
 from ..hunt_switch import HuntSwitcher
+from ..model.predict import ModelRates
 from ..pace import PaceBook, rates_for
 from ..xp_model import xp_option_dict, xp_options
 from .base import Plugin, PluginContext
@@ -40,6 +41,8 @@ class GemsConfig(BaseModel):
     dry_run: bool = True
     # o que maximizar: gemas das pedras (foco gemas) ou XP por hora (foco XP, docs/design/foco-xp.md)
     objective: Literal["gems", "xp"] = "gems"
+    # ritmo das hunts não medidas pelo simulador de combate (docs/design/simulador-1-combate.md)
+    use_model: bool = True
     interval_min: float = Field(15.0, ge=1)
     max_market_share: float = Field(0.10, gt=0, le=1)
     hysteresis: float = Field(0.15, ge=0)
@@ -231,6 +234,7 @@ class GemsPlugin(Plugin):
             self._pace,
             self._default_kph,
             self.ctx.state.active_level,
+            await asyncio.to_thread(self._model_rates, cat, species),
         )
         if self.cfg.objective == "xp":
             await self._plan_xp(reason, cat, rate)
@@ -276,6 +280,24 @@ class GemsPlugin(Plugin):
         }
         await self.ctx.actions.note("gems.plan", data)
         await self._go(target.slug if target else None, current, reason)
+
+    def _model_rates(self, cat: Any, species: Any) -> dict[str, float]:
+        """Previsão do simulador de combate para o ativo (vazia se faltar dado)."""
+        if not self.cfg.use_model:
+            return {}
+        if not hasattr(self, "_model"):
+            self._model = ModelRates()
+        try:
+            return self._model.rates(
+                {s: (h.level, h.species_id) for s, h in cat.hunts.items()},
+                self.ctx.state.active_pokemon,
+                getattr(species, "raw", {}) or {},
+                getattr(cat, "rules", {}) or {},
+                max_level=self._level or None,
+            )
+        except Exception:  # o modelo nunca derruba o plano: cai no ritmo por nível
+            self.ctx.log.exception("simulador de combate falhou")
+            return {}
 
     async def _plan_xp(self, reason: str, cat: Any, rate: dict[str, tuple[float, str]]) -> None:
         """Foco XP: a hunt de maior XP/h projetada (ritmo pelo nível do ativo × XP por abate)."""

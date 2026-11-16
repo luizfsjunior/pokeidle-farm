@@ -10,8 +10,11 @@ XP/h(hunt) = abates/h projetados × XP por abate
 ```
 
 - **Abates/h projetados**: o ritmo medido na hunt, projetado para o nível atual do pokémon ativo
-  ([ritmo-por-nivel.md](ritmo-por-nivel.md)); hunt nunca medida usa a do mesmo nível ou a do nível medido mais próximo
-  abaixo.
+  ([ritmo-por-nivel.md](ritmo-por-nivel.md)). Hunt nunca medida usa a **previsão do simulador de combate** para o
+  pokémon ativo (origem `model`; [simulador-1-combate.md](simulador-1-combate.md)), que enxerga a vantagem de tipo; sem
+  previsão (falta a Pokedex, as regras do `welcome` ou o perfil do ativo), a do mesmo nível ou a do nível medido mais
+  próximo abaixo. Ao entrar na hunt prevista, o ritmo medido substitui a previsão (`GemsConfig.use_model`, padrão
+  ligado).
 - **XP por abate**: a medida na própria hunt (com 30 abates ou mais; já vem com os bônus de VIP, evento etc.); senão a
   fórmula do jogo, ⌊0,6 × nível²⌋ + 8, vezes o bônus medido da conta (XP real ÷ XP da fórmula nas hunts medidas).
 - Troca de hunt só se a melhor render mais que `1 + hysteresis` (15%) da atual, com o mesmo `HuntSwitcher` do foco gemas
@@ -33,4 +36,5 @@ opções; o `rank_hunt_stats` devolve a XP por hunt (migration `20261115090000_h
 
 ## Próximo
 
-Equipar o pokémon ativo pela hunt (`team.active`): o tipo do ativo contra o da hunt é o que mais pesa no ritmo.
+Equipar o pokémon ativo pela hunt (`team.active {pokemonId}`, 3 s entre trocas): adiado até a conta ter um segundo
+pokémon forte; em 15/11 o Bulbasaur 24 ganha em todas as hunts por 4–30× (simulação).

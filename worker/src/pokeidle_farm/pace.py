@@ -114,6 +114,7 @@ def rates_for(
     pace: PaceBook,
     default_kph: float,
     active_level: int | None = None,
+    model: dict[str, float] | None = None,
 ) -> dict[str, tuple[float, str]]:
     """Ritmo de cada hunt com a origem, projetado para o nível do ativo quando ele é conhecido.
 
@@ -122,6 +123,9 @@ def rates_for(
     - "near_level": a do nível medido mais próximo **abaixo** (hunts mais altas são mais lentas,
       então é a estimativa conservadora); sem nenhum abaixo, a do mais próximo acima;
     - "default": nada medido ainda (o padrão da conta).
+
+    Com `model` (previsão do simulador de combate para o ativo), toda hunt não medida usa a
+    previsão ("model") no lugar de "level"/"near_level"/"default": ela enxerga a vantagem de tipo.
     """
     measured = pace.all_measured(active_level)
     level_kph = pace.by_level(levels, active_level)
@@ -130,6 +134,8 @@ def rates_for(
     for slug, lvl in levels.items():
         if slug in measured:
             out[slug] = (measured[slug], "measured")
+        elif model and slug in model:
+            out[slug] = (model[slug], "model")
         elif lvl in level_kph:
             out[slug] = (level_kph[lvl], "level")
         elif known:

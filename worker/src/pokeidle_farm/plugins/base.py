@@ -48,6 +48,9 @@ class AccountStateView:
     switch_free_at: datetime | None = None
     server_offset: timedelta | None = None  # servidor − local
     active_level: int | None = None  # nível do pokémon ativo (do último abate)
+    # o pokémon ativo como vem no `estado` (speciesId, level, ivs, quality, potencia, shiny);
+    # a sessão copia do tradutor. Usado pelo simulador de combate.
+    active_pokemon: dict[str, Any] | None = None
 
     def server_now(self, now: datetime | None = None) -> datetime:
         """Relógio do servidor (o local, se o offset ainda não é conhecido)."""

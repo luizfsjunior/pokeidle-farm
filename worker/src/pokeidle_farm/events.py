@@ -234,6 +234,10 @@ def _qty(value: Any) -> int:
 NOT_PERSISTED = frozenset({"attack", "wild.spawned", "rank.board", *NOISE_TYPES.values()})
 
 
+# campos do pokémon no `estado` que o simulador de combate usa
+PROFILE_FIELDS = ("speciesId", "level", "ivs", "quality", "potencia", "shiny")
+
+
 class Translator:
     """Traduz mensagens do jogo em eventos internos para uma sessão."""
 
@@ -252,6 +256,7 @@ class Translator:
         self.pokemon_levels: dict[Any, int] = {}
         self.pokemon_species: dict[Any, int] = {}
         self.wave_seq: int | None = None
+        self.pokemon_profiles: dict[Any, dict[str, Any]] = {}
 
     def _ev(self, type_: str, data: BaseModel | dict[str, Any], raw: dict[str, Any]) -> Event:
         now = utcnow()
@@ -399,7 +404,19 @@ class Translator:
                 self.pokemon_levels[p["id"]] = p["level"]
             if isinstance(p.get("speciesId"), int):
                 self.pokemon_species[p["id"]] = p["speciesId"]
+            prof = self.pokemon_profiles.setdefault(p["id"], {})
+            prof.update({k: p[k] for k in PROFILE_FIELDS if p.get(k) is not None})
         return ids
+
+    def active_profile(self) -> dict[str, Any] | None:
+        """O pokémon ativo (campos de combate), com o nível mais recente."""
+        prof = self.pokemon_profiles.get(self.active_id)
+        if not prof:
+            return None
+        out = dict(prof)
+        if self.active_id in self.pokemon_levels:
+            out["level"] = self.pokemon_levels[self.active_id]
+        return out
 
     def _consumed(self, items: Any) -> list[Event]:
         if not isinstance(items, dict):

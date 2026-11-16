@@ -625,3 +625,16 @@ def test_welcome_rules_are_kept():
         {"hunts": [], "tabelaTipos": {"FIRE": {"GRASS": 2}}, "multHpSelvagem": 5, "x": 1}
     )
     assert cat.rules == {"tabelaTipos": {"FIRE": {"GRASS": 2}}, "multHpSelvagem": 5}
+
+
+def test_active_profile_follows_active_pokemon():
+    tr = Translator(uuid4(), uuid4())
+    pk = {"id": 7, "speciesId": 1, "level": 23, "ivs": {"atk": 27}, "quality": 1.6, "potencia": 2}
+    tr.translate(
+        *codec.decode(json.dumps({"t": "estado", "estado": {"activeId": 7, "pkMud": [pk]}}))
+    )
+    assert tr.active_profile() == {k: v for k, v in pk.items() if k != "id"}
+    tr.translate(
+        *codec.decode(json.dumps({"t": "estado", "estado": {"pkMud": [{"id": 7, "level": 24}]}}))
+    )
+    assert tr.active_profile()["level"] == 24 and tr.active_profile()["quality"] == 1.6

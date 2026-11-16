@@ -124,3 +124,86 @@ def test_species_from_raw_reads_moves():
     )
     assert sp.types == ("GRASS", "POISON") and sp.base["hp"] == 45
     assert [m.name for m in sp.moves] == ["Tackle"]
+
+
+def test_rates_for_prefers_model_over_level_guess():
+    from pokeidle_farm.pace import PaceBook, rates_for
+
+    pace = PaceBook(5.0)
+    pace.load("horsea", 600, 60, 23)
+    levels = {"horsea": 10, "krabby": 10, "kabuto": 20}
+    out = rates_for(levels, pace, 300.0, 23, {"kabuto": 406.0, "horsea": 1.0})
+    assert out["horsea"][1] == "measured"  # o medido continua valendo
+    assert out["kabuto"] == (406.0, "model")
+    assert out["krabby"][1] == "level"  # sem previsão: cai no ritmo do mesmo nível
+
+
+def _raw(pid, t1, t2, base, attacks=()):
+    keys = ("baseHp", "baseAtk", "baseDef", "baseSpAtk", "baseSpDef", "baseSpeed")
+    return {
+        "pokeId": pid,
+        "type1": t1,
+        "type2": t2,
+        **dict(zip(keys, base, strict=True)),
+        "attacks": list(attacks),
+    }
+
+
+RAW = {
+    1: _raw(
+        1,
+        "GRASS",
+        "POISON",
+        (45, 49, 49, 65, 65, 45),
+        [
+            {
+                "name": "Razor Leaf",
+                "power": 56,
+                "type": "GRASS",
+                "category": "SPECIAL",
+                "cooldownMs": 19600,
+                "learnLevel": 1,
+            }
+        ],
+    ),
+    116: _raw(116, "WATER", None, (30, 40, 70, 70, 25, 60)),
+    4: _raw(4, "FIRE", None, (39, 52, 43, 60, 50, 65)),
+}
+WELCOME_RULES = {
+    "tabelaTipos": TABLE,
+    "ampliacaoHunt": 1.5,
+    "multHpSelvagem": 5,
+    "potencias": [{"n": 1, "bonus": 0, "chance": 100}, {"n": 2, "bonus": 0.05}],
+}
+PROFILE = {
+    "speciesId": 1,
+    "level": 23,
+    "ivs": {s: 27 for s in STATS},
+    "quality": 1.6,
+    "potencia": 2,
+}
+
+
+def test_fighter_from_profile_matches_game_stats():
+    from pokeidle_farm.model.predict import fighter_from_profile
+
+    f = fighter_from_profile(PROFILE, RAW, WELCOME_RULES)
+    assert f is not None and f.multiplier == 1.05
+    assert f.stats()["atk"] == 36 and f.stats()["spAtk"] == 42
+    assert fighter_from_profile({"speciesId": 999, "level": 5}, RAW, WELCOME_RULES) is None
+
+
+def test_model_rates_orders_by_type_and_caches():
+    from pokeidle_farm.model.predict import ModelRates
+
+    m = ModelRates(n_kills=60)
+    hunts = {"horsea": (10, 116), "charmander": (10, 4), "alto": (90, 4)}
+    out = m.rates(hunts, PROFILE, RAW, WELCOME_RULES, max_level=24)
+    assert set(out) == {"horsea", "charmander"}  # acima do treinador fica de fora
+    assert out["horsea"] > 3 * out["charmander"]
+    m._cache["horsea"] = 1.0
+    assert m.rates(hunts, PROFILE, RAW, WELCOME_RULES, max_level=24)["horsea"] == 1.0  # cache
+    up = {**PROFILE, "level": 24}
+    assert m.rates(hunts, up, RAW, WELCOME_RULES, max_level=24)["horsea"] > 1.0  # subiu: recalcula
+    assert m.rates(hunts, None, RAW, WELCOME_RULES) == {}
+    assert m.rates(hunts, PROFILE, RAW, {}) == {}  # sem tabela de tipos
