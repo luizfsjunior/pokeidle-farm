@@ -235,7 +235,7 @@ NOT_PERSISTED = frozenset({"attack", "wild.spawned", "rank.board", *NOISE_TYPES.
 
 
 # campos do pokémon no `estado` que o simulador de combate usa
-PROFILE_FIELDS = ("speciesId", "level", "xp", "ivs", "quality", "potencia", "shiny")
+PROFILE_FIELDS = ("speciesId", "level", "xp", "maxHp", "ivs", "quality", "potencia", "shiny")
 
 
 class Translator:

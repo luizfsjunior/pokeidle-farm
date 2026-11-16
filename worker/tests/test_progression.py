@@ -113,7 +113,8 @@ def test_without_stone_there_is_no_evolution_and_it_is_slower():
 def test_bonus_counts_until_it_expires():
     forever = plan_to(15, _account(bonuses=(Bonus(2.0, None),)), HUNTS, RAW, RULES, NOW, n_kills=30)
     none = plan_to(15, _account(), HUNTS, RAW, RULES, NOW, n_kills=30)
-    assert abs(none.hours / forever.hours - 2.0) < 0.01
+    # o dobro de XP corta o tempo pela metade, fora as trocas de hunt (tempo fixo)
+    assert 1.8 < none.hours / forever.hours <= 2.0
     soon = Bonus(2.0, NOW + timedelta(minutes=1))
     expiring = plan_to(15, _account(bonuses=(soon,)), HUNTS, RAW, RULES, NOW, n_kills=30)
     assert forever.hours < expiring.hours <= none.hours
@@ -212,3 +213,32 @@ async def test_plan_waits_for_data_without_burning_the_interval():
     p.maybe_plan("start")
     await p.task
     assert p.last_plan_at is None  # sem o ativo: não conta como plano feito
+
+
+async def test_evolution_is_confirmed_or_reported_failed():
+    sent: list[dict[str, Any]] = []
+    clock = [NOW]
+    ctx = _ctx(12, {"76": 1}, sent)
+    notes: list[tuple[str, dict[str, Any]]] = []
+
+    async def note(t: str, d: dict[str, Any]) -> None:
+        notes.append((t, d))
+
+    ctx.actions.note = note  # type: ignore[method-assign]
+    p = Progress(ctx, source="gems", now=lambda: clock[0])
+    await p.maybe_evolve()
+    assert p.evolving is not None
+    ctx.state.active_pokemon = {"id": 7, "speciesId": 2, "level": 12}  # o jogo trocou a espécie
+    await p.check_evolution()
+    assert ("progress.evolved", {"pokemon_id": 7, "from": 1, "to": 2, "level": 12}) in notes
+    # um pedido que não muda nada em 2 min vira falha
+    ctx.state.active_pokemon = {"id": 8, "speciesId": 1, "level": 12}
+    p.evolving = (8, 1, 2, NOW)
+    clock[0] = NOW + timedelta(minutes=3)
+    await p.check_evolution()
+    assert notes[-1][0] == "progress.evolve_failed" and notes[-1][1]["species_now"] == 1
+
+
+def test_plan_switch_overhead_and_potion_in_phases():
+    plan = plan_to(20, _account(stones={"Leaf Stone": 1}), HUNTS, RAW, RULES, NOW, n_kills=30)
+    assert all(p.potion_id == 200 for p in plan.phases)  # HP baixo: Small Potion

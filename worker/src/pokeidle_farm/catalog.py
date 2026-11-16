@@ -40,6 +40,32 @@ ITEM_PRICES: dict[int, int] = {
 }
 
 
+# Cura das poções (items.json: healAmount; Golden Potion: 50% do HP máximo)
+POTION_HEAL: dict[int, int] = {200: 60, 201: 150, 202: 400, 203: 1_000, 204: 3_000}
+POTION_HEAL_PCT: dict[int, float] = {70070: 0.5}
+POTION_THRESHOLD = 0.3  # a automação do jogo bebe abaixo de 30% do HP (automation.hpLimiar)
+
+
+def potion_useful_hp(potion_id: int, max_hp: float, threshold: float = POTION_THRESHOLD) -> float:
+    """HP que a poção cura de fato: no máximo o que falta quando a automação bebe."""
+    missing = max_hp * (1 - threshold)
+    heal = POTION_HEAL.get(potion_id) or POTION_HEAL_PCT.get(potion_id, 0) * max_hp
+    return min(heal, missing)
+
+
+def best_potion(max_hp: float, threshold: float = POTION_THRESHOLD) -> tuple[int, float]:
+    """A poção de menor ouro por HP útil para esse HP máximo: (id, ouro por HP)."""
+    best: tuple[int, float] | None = None
+    for pid in (*POTION_HEAL, *POTION_HEAL_PCT):
+        useful = potion_useful_hp(pid, max_hp, threshold)
+        if useful <= 0:
+            continue
+        cost = ITEM_PRICES[pid] / useful
+        if best is None or cost < best[1]:
+            best = (pid, cost)
+    return best or (200, ITEM_PRICES[200] / 60)
+
+
 def ball_price(ball_id: object) -> int | None:
     ball = BALLS.get(ball_id) if isinstance(ball_id, int) else None
     return ball.price if ball else None

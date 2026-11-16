@@ -85,6 +85,19 @@ Venusaur no 80) → Kabutops (114–150). A partir do 100 o selvagem bate forte:
 cai para perto de zero na Kabutops; poções maiores (Ultimate: 3.000 HP por 1.500, 0,5 de ouro por HP contra 0,83 da
 Small) passam a compensar quando o HP máximo cresce. Fica para depois (restock).
 
+## Melhorias (16/11, depois da primeira versão)
+
+- **Poção certa**: o restock (`potion_auto`, ligado) troca a poção das regras pela de menor ouro por HP útil para o
+  HP máximo do ativo (a automação bebe abaixo de 30%, então cada poção cura no máximo 70% do HP): Small até ~1.400
+  HP, Hyper até ~4.300, Ultimate até ~7.100, Golden (50% do HP) acima. Mínimo e alvo viram o mesmo HP de estoque.
+  O plano usa a mesma escolha (`Phase.potion_id`).
+- **Trocas de hunt**: +2 min por troca no plano (trava, pedido engolido, primeira onda).
+- **Verificação da evolução**: depois de `progress.evolve`, o worker grava `progress.evolved` quando a espécie do
+  ativo muda ou `progress.evolve_failed` se 2 min passam sem mudar. **Pendente**: conferir na conta de teste no nível
+  40 (primeira evolução de verdade).
+- **Atenção, teto do restock**: o `max_gold_per_hour` (50 mil) fica abaixo do gasto em poção previsto do nível ~60 em
+  diante; com o teto, as poções acabam e o pokémon desmaia.
+
 ## Decisões (16/11)
 
 - **P-A.** Modelar o dano do selvagem, as poções e o ouro; descartar as hunts que não se pagam.

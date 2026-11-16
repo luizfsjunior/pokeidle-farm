@@ -14,15 +14,17 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
+from ..catalog import best_potion, potion_useful_hp
 from ..gems_model import STONE_BY_TYPE
 from ..xp_model import base_xp, total_xp
-from .combat import Fighter, Rules, SpeciesData, simulate_hunt
+from .combat import Fighter, Rules, SpeciesData, combat_hp, simulate_hunt
 from .predict import fighter_from_profile
 
 GOLD_KILL_LEVEL_1 = 36
 GOLD_KILL_EXP = 0.6007  # ln(6000/36)/ln(5000) (sell-value.mjs)
 LOOT_BONUS = 0.15  # bônus de loot até o nível 25.000
-POTION_GOLD_PER_HP = 50 / 60  # Small Potion: 60 HP por 50 de ouro (a que o restock compra)
+# troca de hunt: a trava de combate, o pedido engolido e a primeira onda (medido em 16/11: 1–5 min)
+SWITCH_OVERHEAD_H = 2 / 60
 # desempenho: a cada nível só entram na busca os 3 níveis de hunt mais altos liberados e as
 # `KEEP_BEST` melhores do nível anterior (no primeiro nível, todas)
 TOP_TIERS = 3
@@ -70,6 +72,7 @@ class Phase:
     xp_per_hour: float
     potions_per_hour: float
     net_gold_per_hour: float
+    potion_id: int = 200
 
 
 @dataclass
@@ -173,6 +176,10 @@ def plan_to(
             break
         allowed = [lv for lv in tiers if lv <= level][-TOP_TIERS:]
         bonus = _bonus_at(account.bonuses, clock)
+        # a poção de menor custo por HP útil para o HP do ativo (como o restock compra)
+        max_hp = combat_hp(fighter.stats()["hp"])
+        potion_id, gold_per_hp = best_potion(max_hp)
+        useful_hp = potion_useful_hp(potion_id, max_hp) or 1.0
         best = None
         ranked: list[tuple[float, str]] = []
         candidates: list[Any] = []
@@ -184,9 +191,9 @@ def plan_to(
             r = cache.sim(fighter, wild[h.species_id], h.level)
             if r.kills_per_hour <= 0:
                 continue
-            potions = r.damage_per_hour / 60
+            potions = r.damage_per_hour / useful_hp
             net = r.kills_per_hour * gold_per_kill(h.level, account.farm_pct) - (
-                r.damage_per_hour * POTION_GOLD_PER_HP
+                r.damage_per_hour * gold_per_hp
             )
             if net < 0:
                 continue
@@ -211,6 +218,10 @@ def plan_to(
         hours += dt
         clock += timedelta(hours=dt)
         last = phases[-1] if phases else None
+        if last is not None and last.hunt != h.slug:
+            dt += SWITCH_OVERHEAD_H
+            hours += SWITCH_OVERHEAD_H
+            clock += timedelta(hours=SWITCH_OVERHEAD_H)
         if last and last.hunt == h.slug and last.species_id == fighter.species.id:
             tot = last.hours + dt
             phases[-1] = Phase(
@@ -223,6 +234,7 @@ def plan_to(
                 (last.xp_per_hour * last.hours + xph * dt) / tot,
                 (last.potions_per_hour * last.hours + potions * dt) / tot,
                 (last.net_gold_per_hour * last.hours + net * dt) / tot,
+                potion_id,
             )
         else:
             phases.append(
@@ -236,6 +248,7 @@ def plan_to(
                     xph,
                     potions,
                     net,
+                    potion_id,
                 )
             )
         level += 1

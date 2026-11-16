@@ -64,6 +64,9 @@ class Progress:
         self.last_plan_at: datetime | None = None
         self.task: asyncio.Task[None] | None = None
         self.evolve_tries: dict[tuple[Any, Any], datetime] = {}
+        # pedido de evoluir aguardando a confirmação: (pokémon, de, para, quando)
+        self.evolving: tuple[Any, int, int, datetime] | None = None
+        self.evolve_confirm = timedelta(minutes=2)
         self._stone_names: dict[int, str] | None = None
 
     async def stones(self) -> dict[str, int]:
@@ -82,7 +85,28 @@ class Progress:
 
     # --- evolução -----------------------------------------------------------------
 
+    async def check_evolution(self) -> None:
+        """Confere o último pedido de evoluir: a espécie do pokémon mudou (`progress.evolved`) ou
+        o prazo passou sem mudar (`progress.evolve_failed`)."""
+        if self.evolving is None:
+            return
+        pid, src, to, at = self.evolving
+        prof = self.ctx.state.active_pokemon or {}
+        if prof.get("id") == pid and prof.get("speciesId") == to:
+            self.evolving = None
+            await self.ctx.actions.note(
+                "progress.evolved",
+                {"pokemon_id": pid, "from": src, "to": to, "level": prof.get("level")},
+            )
+        elif self.now() - at >= self.evolve_confirm:
+            self.evolving = None
+            await self.ctx.actions.note(
+                "progress.evolve_failed",
+                {"pokemon_id": pid, "from": src, "to": to, "species_now": prof.get("speciesId")},
+            )
+
     async def maybe_evolve(self) -> None:
+        await self.check_evolution()
         prof = self.ctx.state.active_pokemon
         species = self.ctx.species
         if not prof or species is None:
@@ -109,6 +133,7 @@ class Progress:
             )
         except ActionBlocked:
             return
+        self.evolving = (pid, sid, int(to), now)
         await self.ctx.actions.note(
             "progress.evolve",
             {"pokemon_id": pid, "from": sid, "to": int(to), "level": level, "stone": stone},

@@ -413,3 +413,43 @@ async def test_rank_fallback_capture_then_back_to_active():
     h.now += 120
     await h.kills(60, gold=200)
     assert len(h.wires("auto.set")) == 1
+
+
+# --- poção pela de menor custo por HP útil (simulador camada 2) -------------------
+
+
+async def test_potion_rule_switches_to_cheapest_per_useful_hp():
+    # HP máximo 5.000: a Ultimate (3.000 HP por 1.500) sai a 0,5 de ouro por HP, a Small a 0,83
+    h = Harness(focus="gold_xp_drop", items=[{"id": 200, "min": 50, "target": 100}])
+    h.state.items = {"200": 0}
+    h.state.active_pokemon = {"maxHp": 5_000}
+    await h.start()
+    await h.kills(1)
+    (buy,) = h.wires("shop.buy")
+    # 100 Small = 6.000 HP de estoque = 2 Ultimate (mínimo de 5 e alvo mínimo + 5)
+    assert buy == {"t": "shop.buy", "kind": "item", "id": 204, "qty": 10}
+
+
+async def test_potion_rule_keeps_small_with_low_hp_or_off():
+    h = Harness(focus="gold_xp_drop", items=[{"id": 200, "min": 50, "target": 100}])
+    h.state.items = {"200": 0}
+    h.state.active_pokemon = {"maxHp": 468}
+    await h.start()
+    await h.kills(1)
+    assert h.wires("shop.buy")[0]["id"] == 200
+    off = Harness(
+        focus="gold_xp_drop", potion_auto=False, items=[{"id": 200, "min": 50, "target": 100}]
+    )
+    off.state.items = {"200": 0}
+    off.state.active_pokemon = {"maxHp": 5_000}
+    await off.start()
+    await off.kills(1)
+    assert off.wires("shop.buy")[0]["id"] == 200
+
+
+def test_best_potion_by_max_hp():
+    from pokeidle_farm.catalog import best_potion
+
+    assert best_potion(468)[0] == 200
+    assert best_potion(2_000)[0] == 203  # Hyper: 1.000 HP por 800
+    assert best_potion(4_500)[0] == 204  # Ultimate cabe inteira (70% de 4.500 > 3.000)

@@ -25,7 +25,7 @@ from typing import Any, ClassVar, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..actions import ActionBlocked, AutoSet, ShopBuy
-from ..catalog import BALLS, ITEM_PRICES
+from ..catalog import BALLS, ITEM_PRICES, POTION_HEAL, best_potion
 from ..events import Event
 from .base import Plugin, PluginContext
 
@@ -53,6 +53,9 @@ class RestockConfig(BaseModel):
     confirm_timeout_s: float = 15.0
     late_confirm_s: float = 300.0
     retry_after_s: float = 60.0
+    # troca a poção das regras pela de menor ouro por HP útil para o HP máximo do ativo
+    # (a automação bebe abaixo de 30%); mínimo e alvo são convertidos em HP equivalente
+    potion_auto: bool = True
 
 
 @dataclass
@@ -250,11 +253,7 @@ class RestockPlugin(Plugin):
 
     def _rules(self) -> list[tuple[str, int, int, int, int]]:
         cfg = self.cfg
-        rules = [
-            ("item", r.id, r.min, r.target, ITEM_PRICES[r.id])
-            for r in cfg.items
-            if r.id in ITEM_PRICES
-        ]
+        rules = [self._potion_rule(r.id, r.min, r.target) for r in cfg.items if r.id in ITEM_PRICES]
         focus = self._focus()
         if focus == "capture":
             ready, ball = self._ball_choice()
@@ -264,6 +263,23 @@ class RestockPlugin(Plugin):
             ball = self._rank_ball
             rules.append(("ball", ball, cfg.ball_min, cfg.ball_target, BALLS[ball].price))
         return rules
+
+    def _potion_rule(self, id_: int, min_: int, target: int) -> tuple[str, int, int, int, int]:
+        """Regra de item; uma poção vira a de menor custo por HP útil (mesmo HP de estoque)."""
+        max_hp = (self.ctx.state.active_pokemon or {}).get("maxHp")
+        if (
+            not self.cfg.potion_auto
+            or id_ not in POTION_HEAL
+            or not isinstance(max_hp, int | float)
+        ):
+            return ("item", id_, min_, target, ITEM_PRICES[id_])
+        best, _ = best_potion(float(max_hp))
+        if best == id_ or best not in POTION_HEAL:
+            return ("item", id_, min_, target, ITEM_PRICES[id_])
+        ratio = POTION_HEAL[id_] / POTION_HEAL[best]
+        new_min = max(5, -(-min_ * ratio // 1))
+        new_target = max(new_min + 5, -(-target * ratio // 1))
+        return ("item", best, int(new_min), int(new_target), ITEM_PRICES[best])
 
     async def _restock(self) -> None:
         if self._pending is not None:
