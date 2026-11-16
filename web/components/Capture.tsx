@@ -1,0 +1,128 @@
+"use client";
+
+import { useState } from "react";
+import { commandSummary } from "./CommandButtons";
+import { dateTime } from "@/lib/format";
+import { useCommand } from "@/lib/useCommand";
+
+export const BALLS: { id: number; name: string; price: number }[] = [
+  { id: 1, name: "Poké Ball", price: 5 },
+  { id: 2, name: "Great Ball", price: 20 },
+  { id: 3, name: "Super Ball", price: 50 },
+  { id: 4, name: "Ultra Ball", price: 130 },
+];
+type Stop = "count" | "time" | "first" | "manual";
+
+/**
+ * "Capturar esta espécie" (comando capture.start; docs/design/captura-alvo.md): o worker vai para a hunt
+ * da espécie com a bola escolhida e para no que for escolhido (N capturas, tempo, o que vier primeiro, ou
+ * só pelo botão Parar).
+ */
+export function CaptureForm({ accountId, speciesId, speciesName, hunts, balls }: {
+  accountId: string;
+  speciesId: number;
+  speciesName: string;
+  hunts: { slug: string; name: string | null; level: number }[];
+  balls?: Record<string, number>;
+}) {
+  const { send, cmd, error, busy } = useCommand();
+  const [hunt, setHunt] = useState(hunts[0]?.slug ?? "");
+  const [ball, setBall] = useState(4);
+  const [stop, setStop] = useState<Stop>("first");
+  const [count, setCount] = useState(5);
+  const [hours, setHours] = useState(2);
+
+  if (hunts.length === 0) {
+    return <p className="small muted" style={{ margin: 0 }}>Nenhuma hunt tem esta espécie como principal, então não dá para mirar nela.</p>;
+  }
+  const go = () => void send(accountId, "capture.start", {
+    species_id: speciesId, species_name: speciesName, hunt_slug: hunt, ball_id: ball,
+    count: stop === "count" || stop === "first" ? count : null,
+    hours: stop === "time" || stop === "first" ? hours : null,
+  });
+
+  return (
+    <div className="action-box">
+      <strong>Capturar {speciesName}</strong>
+      {hunts.length > 1 && (
+        <label>Hunt
+          <select value={hunt} onChange={(e) => setHunt(e.target.value)}>
+            {hunts.map((h) => <option key={h.slug} value={h.slug}>nv {h.level} · {h.name ?? h.slug}</option>)}
+          </select>
+        </label>
+      )}
+      <label>Bola
+        <select value={ball} onChange={(e) => setBall(Number(e.target.value))}>
+          {BALLS.map((b) => (
+            <option key={b.id} value={b.id}>{b.name} · {b.price} de ouro{balls ? ` · ${balls[String(b.id)] ?? 0} na mochila` : ""}</option>
+          ))}
+        </select>
+      </label>
+      <label>Parar
+        <select value={stop} onChange={(e) => setStop(e.target.value as Stop)}>
+          <option value="first">no que vier primeiro: capturas ou tempo</option>
+          <option value="count">depois de N capturas</option>
+          <option value="time">depois de um tempo</option>
+          <option value="manual">só quando eu parar</option>
+        </select>
+      </label>
+      {(stop === "count" || stop === "first" || stop === "time") && (
+        <div className="row">
+          {(stop === "count" || stop === "first") && (
+            <label>Capturas<input type="number" min={1} max={10000} value={count} onChange={(e) => setCount(Math.max(1, Number(e.target.value) || 1))} /></label>
+          )}
+          {(stop === "time" || stop === "first") && (
+            <label>Horas<input type="number" min={0.25} max={72} step={0.25} value={hours} onChange={(e) => setHours(Math.min(72, Math.max(0.25, Number(e.target.value) || 1)))} /></label>
+          )}
+        </div>
+      )}
+      <button type="button" disabled={busy || !hunt} onClick={go}>Começar a captura</button>
+      {(cmd || error) && (
+        <p className={`small ${error || cmd?.status === "failed" ? "error" : "muted"}`} role="status" style={{ margin: 0 }}>
+          {error ?? (cmd && commandSummary(cmd))}
+        </p>
+      )}
+      <p className="small muted" style={{ margin: 0 }}>
+        Enquanto durar, os plugins não trocam de hunt nem mexem nas bolas; a bola é reposta com ouro (fica uma
+        reserva de 5 mil). No fim, tudo volta ao que estava.
+      </p>
+    </div>
+  );
+}
+
+export type ActiveCapture = {
+  species_id: number;
+  species_name: string | null;
+  hunt_slug: string;
+  ball_id: number;
+  count: number | null;
+  until: string | null;
+  started_at: string;
+  captured: number;
+};
+
+/** A captura em andamento, com o progresso e o botão de parar. */
+export function CaptureStatus({ accountId, active }: { accountId: string; active: ActiveCapture }) {
+  const { send, cmd, error, busy } = useCommand();
+  const ball = BALLS.find((b) => b.id === active.ball_id)?.name ?? `bola ${active.ball_id}`;
+  const pct = active.count ? Math.min(1, active.captured / active.count) : null;
+  return (
+    <div className="action-box">
+      <div className="spread">
+        <strong>Capturando {active.species_name ?? `#${active.species_id}`}</strong>
+        <span className="badge ready">ativa</span>
+      </div>
+      <div className="small secondary">
+        {active.captured}{active.count ? ` de ${active.count}` : ""} capturas · {ball} · desde {dateTime(active.started_at)}
+        {active.until ? ` · até ${dateTime(active.until)}` : active.count ? "" : " · até você parar"}
+      </div>
+      {pct != null && <div className="progress"><span style={{ width: `${pct * 100}%` }} /></div>}
+      <button type="button" className="ghost" disabled={busy} onClick={() => void send(accountId, "capture.stop")}>Parar a captura</button>
+      {(cmd || error) && (
+        <p className={`small ${error || cmd?.status === "failed" ? "error" : "muted"}`} role="status" style={{ margin: 0 }}>
+          {error ?? (cmd && commandSummary(cmd))}
+        </p>
+      )}
+    </div>
+  );
+}

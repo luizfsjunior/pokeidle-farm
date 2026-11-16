@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
+import { CaptureForm, CaptureStatus, type ActiveCapture } from "@/components/Capture";
 import { commandSummary } from "@/components/CommandButtons";
 import { Sprite } from "@/components/Sprite";
 import { useCommand } from "@/lib/useCommand";
@@ -38,13 +39,15 @@ function kills(e: Entry | undefined): number | null {
   return e != null && typeof e === "object" && typeof e.k === "number" ? e.k : null;
 }
 
-export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId }: {
+export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId, capture, balls }: {
   species: DexSpecies[];
   hunts: DexHunt[];
   dex: Record<string, Entry>;
   atlas: Atlas | null;
   hasProfile: boolean;
   accountId: string | null;
+  capture?: ActiveCapture | null;
+  balls?: Record<string, number>;
 }) {
   const [filter, setFilter] = useState<Filter>("todas");
   const [query, setQuery] = useState("");
@@ -167,6 +170,17 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId 
                   </Fragment>
                 ))}
               </dl>
+              {accountId && (
+                capture && capture.species_id === sel.species_id
+                  ? <CaptureStatus accountId={accountId} active={capture} />
+                  : (
+                    <>
+                      {capture && <p className="small muted" style={{ margin: 0 }}>Já há uma captura em andamento ({capture.species_name}); começar outra troca o alvo.</p>}
+                      <CaptureForm accountId={accountId} speciesId={sel.species_id} speciesName={sel.name ?? `#${sel.species_id}`}
+                        hunts={huntsBySpecies.get(sel.species_id) ?? []} balls={balls} />
+                    </>
+                  )
+              )}
               <h3>Onde aparece</h3>
               {(huntsBySpecies.get(sel.species_id) ?? []).length === 0 ? (
                 <p className="muted small">Nenhuma hunt tem esta espécie como principal.</p>

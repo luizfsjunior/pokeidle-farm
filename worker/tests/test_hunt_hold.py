@@ -39,15 +39,15 @@ async def test_gateway_hold_blocks_others_until_it_ends():
     with pytest.raises(ActionBlocked) as exc:
         await gw.submit(HuntSelect(slug="meowth"), source="gems")
     assert exc.value.wait_s is not None and 3500 < exc.value.wait_s <= 3600
-    assert rec[-1][1]["reason"] == "hunt_hold" and sent == []
+    assert rec[-1][1]["reason"] == "hold" and rec[-1][1]["hold"] == "kabuto" and sent == []
     await gw.submit(HuntSelect(slug="kabuto"), source="hunt_hold")
     assert sent == [{"t": "hunt.select", "slug": "kabuto"}]
     gw.release_hunt("gems")  # só o dono solta
-    assert gw.hunt_hold is not None
-    gw.hunt_hold = ("kabuto", datetime.now(UTC) - timedelta(seconds=1), "hunt_hold")
+    assert "hunt.select" in gw.holds
+    gw.holds["hunt.select"] = (datetime.now(UTC) - timedelta(seconds=1), "hunt_hold", "kabuto")
     gw.limiter._last.clear()  # type: ignore[union-attr]
     await gw.submit(HuntSelect(slug="meowth"), source="gems")  # prazo vencido: passa
-    assert gw.hunt_hold is None and sent[-1]["slug"] == "meowth"
+    assert "hunt.select" not in gw.holds and sent[-1]["slug"] == "meowth"
 
 
 def ctx_for(gw: ActionGateway, cfg: HuntHoldConfig) -> PluginContext:
@@ -75,7 +75,7 @@ async def test_plugin_holds_switches_and_releases_on_stop():
     cfg = HuntHoldConfig(slug="kabuto", until=datetime.now(UTC) + timedelta(hours=2))
     ctx = ctx_for(gw, cfg)
     await plugin.start(ctx)
-    assert gw.hunt_hold is not None and gw.hunt_hold[0] == "kabuto"
+    assert gw.holds["hunt.select"][2] == "kabuto"
     assert sent == [{"t": "hunt.select", "slug": "kabuto"}]
     await plugin.on_event(
         Event(
@@ -87,7 +87,7 @@ async def test_plugin_holds_switches_and_releases_on_stop():
     )
     assert plugin.switch.current == "kabuto"
     await plugin.stop()
-    assert gw.hunt_hold is None
+    assert "hunt.select" not in gw.holds
     assert [t for t, _ in rec if t.startswith("hunt_hold.")] == [
         "hunt_hold.started",
         "hunt_hold.ended",
@@ -99,7 +99,7 @@ async def test_plugin_with_expired_deadline_does_nothing():
     plugin = HuntHoldPlugin()
     cfg = HuntHoldConfig(slug="kabuto", until=datetime.now(UTC) - timedelta(minutes=1))
     await plugin.start(ctx_for(gw, cfg))
-    assert gw.hunt_hold is None and sent == []
+    assert not gw.holds and sent == []
     assert rec[-1] == ("hunt_hold.ended", {"slug": "kabuto", "reason": "expired"})
     await plugin.stop()
 

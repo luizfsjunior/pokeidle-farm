@@ -36,6 +36,7 @@ seller = "pokeidle_farm.plugins.seller:SellerPlugin"
 daily = "pokeidle_farm.plugins.daily:DailyPlugin"
 profile = "pokeidle_farm.plugins.profile:ProfilePlugin"
 hunt_hold = "pokeidle_farm.plugins.hunt_hold:HuntHoldPlugin"
+capture_target = "pokeidle_farm.plugins.capture_target:CaptureTargetPlugin"
 
 [build-system]
 requires = ["hatchling"]

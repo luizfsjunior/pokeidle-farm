@@ -193,6 +193,8 @@ class RestockPlugin(Plugin):
         }
 
     async def _sync_automation(self) -> None:
+        if self.ctx.actions.held_by_other("auto.set", self.name):
+            return  # alvo de captura do painel cuidando das bolas (capture_target)
         want = self._desired_automation()
         if want is None or want == self.ctx.state.automation:
             return

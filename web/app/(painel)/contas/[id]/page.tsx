@@ -20,6 +20,8 @@ import { ProfileSections, type ItemInfo } from "./ProfileSections";
 import { TrendChart } from "@/components/TrendChart";
 import { HuntPicker, type HuntHold, type HuntOption } from "@/components/HuntPicker";
 import { activeMon } from "@/lib/profile";
+import { loadActiveCapture } from "@/lib/capture";
+import { CaptureStatus } from "@/components/Capture";
 import { RankCard } from "./RankCard";
 
 export const dynamic = "force-dynamic";
@@ -71,6 +73,8 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
   const holdCfg = plugins.find((p) => p.plugin === "hunt_hold");
   const hold: HuntHold = holdCfg?.enabled && typeof holdCfg.config.slug === "string" && typeof holdCfg.config.until === "string"
     ? { slug: holdCfg.config.slug, until: holdCfg.config.until } : null;
+
+  const capture = await loadActiveCapture(supabase, account.id);
 
   const dailyRes = await supabase.from("account_profile_daily")
     .select("day, level, xp, gold, gems, diamonds, pokemon_count, dex_caught")
@@ -131,6 +135,11 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
 
         {/* Estratégia */}
         <>
+          <Panel title="Captura" meta="escolha a espécie na Pokédex">
+            {capture
+              ? <CaptureStatus accountId={account.id} active={capture} />
+              : <p className="small muted" style={{ margin: 0 }}>Nenhuma captura em andamento. Na <Link href={`/pokedex?conta=${account.id}`}>Pokédex</Link>, abra uma espécie e use <strong>Começar a captura</strong>.</p>}
+          </Panel>
           {huntOptions.length > 0 && (
             <Panel title="Hunt" meta="os plugins gems e rank respeitam a trava até o fim do prazo">
               <HuntPicker accountId={account.id} hunts={huntOptions} current={profile?.hunt_slug ?? null} hold={hold}

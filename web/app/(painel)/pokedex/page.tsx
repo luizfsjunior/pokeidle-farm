@@ -1,5 +1,6 @@
 import { AccountTabs, ErrorNote, PageHeader } from "@/components/Page";
 import { Shell } from "@/components/Shell";
+import { loadActiveCapture } from "@/lib/capture";
 import { loadProfiles } from "@/lib/profile";
 import { loadAtlas } from "@/lib/sprites";
 import { requireUser } from "@/lib/supabase/server";
@@ -27,6 +28,7 @@ export default async function PokedexPage({ searchParams }: { searchParams: Prom
     loadAtlas(),
   ]);
   const species = [...(p1.data ?? []), ...(p2.data ?? [])] as unknown as DexSpecies[];
+  const capture = chosen ? await loadActiveCapture(supabase, chosen.id) : null;
   const hunts = (huntsRes.data ?? []) as DexHunt[];
   const profile = chosen ? profiles.get(chosen.id) : undefined;
   const err = accountsRes.error?.message ?? p1.error?.message ?? huntsRes.error?.message;
@@ -46,7 +48,9 @@ export default async function PokedexPage({ searchParams }: { searchParams: Prom
           dex={profile?.pokedex ?? {}}
           atlas={atlas}
           hasProfile={!!profile}
-          accountId={chosen?.id ?? null}
+          accountId={chosen?.role === "farm" ? chosen.id : null}
+          capture={capture}
+          balls={profile?.balls}
         />
       )}
     </Shell>
