@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "./icons";
 import { InstallApp } from "./InstallApp";
+import { usePrefetch } from "./usePrefetch";
 import { isActive, NAV_GROUPS, TAB_ITEMS } from "./nav";
 
 /**
@@ -14,6 +15,7 @@ import { isActive, NAV_GROUPS, TAB_ITEMS } from "./nav";
 export function MobileNav({ email }: { email: string }) {
   const path = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
+  const warm = usePrefetch();
   useEffect(() => setOpen(false), [path]);
   useEffect(() => {
     if (!open) return;
@@ -36,7 +38,7 @@ export function MobileNav({ email }: { email: string }) {
         <ul>
           {rest.map((i) => (
             <li key={i.href}>
-              <Link href={i.href} aria-current={isActive(path, i.href) ? "page" : undefined}>
+              <Link href={i.href} aria-current={isActive(path, i.href) ? "page" : undefined} onTouchStart={warm(i.href)}>
                 <Icon name={i.icon} /> {i.label}
               </Link>
             </li>
@@ -51,7 +53,7 @@ export function MobileNav({ email }: { email: string }) {
 
       <nav className="tabbar" aria-label="Páginas">
         {tabs.map((i) => (
-          <Link key={i.href} href={i.href} aria-current={isActive(path, i.href) ? "page" : undefined}>
+          <Link key={i.href} href={i.href} aria-current={isActive(path, i.href) ? "page" : undefined} onTouchStart={warm(i.href)} onMouseEnter={warm(i.href)}>
             <Icon name={i.icon} size={22} />
             <span>{i.label}</span>
           </Link>

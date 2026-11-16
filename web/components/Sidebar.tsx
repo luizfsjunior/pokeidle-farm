@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "./icons";
 import { InstallApp } from "./InstallApp";
+import { usePrefetch } from "./usePrefetch";
 import { isActive, NAV_GROUPS } from "./nav";
 
 /** Barra lateral do desktop: páginas em grupos, instalar e sair (docs/design/painel-ajustes.md). */
 export function Sidebar({ email }: { email: string }) {
   const path = usePathname() ?? "/";
+  const warm = usePrefetch();
   return (
     <aside className="rail" aria-label="Navegação">
       <nav className="rail-nav">
@@ -16,7 +18,7 @@ export function Sidebar({ email }: { email: string }) {
           <div key={i} className="rail-group">
             {g.title && <div className="rail-title rail-label">{g.title}</div>}
             {g.items.map((it) => (
-              <Link key={it.href} href={it.href} className="rail-link" title={it.label}
+              <Link key={it.href} href={it.href} className="rail-link" title={it.label} onMouseEnter={warm(it.href)} onFocus={warm(it.href)}
                 aria-current={isActive(path, it.href) ? "page" : undefined}>
                 <Icon name={it.icon} />
                 <span className="rail-label">{it.label}</span>

@@ -22,6 +22,12 @@ O nome disso é **stale-while-revalidate (SWR)**.
 - **Barra de cima.** Fica dentro da área que rola e sobe com o conteúdo. A barra de baixo do celular
   continua parada, como linha do grid da casca, sem `position: fixed`.
 
+## Pré-busca no toque e no mouse
+
+Os links da barra lateral e das barras do celular chamam `router.prefetch` quando o mouse passa ou o
+dedo encosta (`usePrefetch`). A página inteira entra no cache antes do clique, e até a primeira visita a
+uma página do menu abre mais rápido.
+
 ## Limite
 
 O cache vive na memória da aba ou do app aberto. Ao abrir o app do zero, a primeira página carrega com
