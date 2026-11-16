@@ -228,6 +228,11 @@ class SellerPlugin(Plugin):
             if new_units > 0 and (days is None or days > self.cfg.max_days):
                 d["decision"] = "guarda_fila_longa"
                 continue
+            if ask is not None and per_day > 0 and ahead >= per_day and target >= ask:
+                # preço estabelecido: há mais de um dia de demanda parada no menor preço e ela anda.
+                # A média acima disso é distorção; o piso só protege de um anúncio isolado barato.
+                d["floor"] = floor = min(floor, int(ask))
+                d["floor_reason"] = "preco_estabelecido"
             if target < floor:
                 d["decision"] = "guarda_abaixo_do_piso"
                 continue

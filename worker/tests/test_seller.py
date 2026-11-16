@@ -350,3 +350,57 @@ async def test_cycle_sells_when_undercutting_short_queue():
     would = await run_cycle(r, [])
     plan = [d for t, d in r.recorded if t == "seller.plan"][-1]
     assert plan["stones"][0]["ahead"] == 0 and len(would) == 1
+
+
+async def test_cycle_sells_into_established_price():
+    # 16/11: Rock Stone com 306 a 2 e ~257 vendidas por dia; média 21 inflada
+    rock = 77
+    r = await started({str(rock): 12})
+    market(r, {})
+    st = r.ctx.store
+    st.game_items[rock] = {
+        "item_id": rock,
+        "name": "Rock Stone",
+        "category": "stone",
+        "source": "json",
+    }
+    st.market_prices = [
+        {"taken_at": "t1", "item_id": rock, "currency": "orb", "avg": 21, "units": 1798, "days": 7}
+    ]
+    st.market_asks = [
+        {
+            "taken_at": "t2",
+            "item_id": rock,
+            "currency": "orb",
+            "min_price": 2,
+            "units_at_min": 306,
+            "total_units": 306,
+        }
+    ]
+    would = await run_cycle(r, [])
+    s = [d for t, d in r.recorded if t == "seller.plan"][-1]["stones"][0]
+    assert s["floor"] == 2 and s["floor_reason"] == "preco_estabelecido"
+    assert [(w["input"]["qtd"], w["input"]["preco"]) for w in would] == [(7, 2)]
+
+
+async def test_cycle_floor_still_blocks_isolated_cheap_ask():
+    # 1 unidade a 2 numa pedra que vende a ~100: o piso continua valendo
+    r = await started({str(SUN): 12})
+    market(r, {})
+    st = r.ctx.store
+    st.market_prices = [
+        {"taken_at": "t1", "item_id": SUN, "currency": "orb", "avg": 100, "units": 140, "days": 7}
+    ]
+    st.market_asks = [
+        {
+            "taken_at": "t2",
+            "item_id": SUN,
+            "currency": "orb",
+            "min_price": 2,
+            "units_at_min": 1,
+            "total_units": 50,
+        }
+    ]
+    assert await run_cycle(r, []) == []
+    s = [d for t, d in r.recorded if t == "seller.plan"][-1]["stones"][0]
+    assert s["decision"] == "guarda_abaixo_do_piso" and "floor_reason" not in s

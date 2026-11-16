@@ -256,7 +256,7 @@ type Stone = {
   item_id: number; name: string; stock: number; listed: number; avg: number | null; median?: number | null;
   sales?: number; ref?: number | null; ref_source?: "median" | "avg"; min_ask: number | null;
   target?: number; floor?: number; decision?: string;
-  ahead?: number; per_day?: number; days_to_sell?: number | null;
+  ahead?: number; per_day?: number; days_to_sell?: number | null; floor_reason?: string;
 };
 
 const DECISION_LABEL: Record<string, string> = {
@@ -299,7 +299,9 @@ function StoneTable({ stones }: { stones: Stone[] }) {
               <td className="r">{num(s.per_day)}</td>
               <td className="r">{s.days_to_sell === undefined ? "—" : s.days_to_sell === null ? "∞" : num(s.days_to_sell)}</td>
               <td className="r">{num(s.target)}</td>
-              <td className="r">{num(s.floor)}</td>
+              <td className="r" title={s.floor_reason === "preco_estabelecido" ? "Mais de um dia de demanda parada no menor preço, e ela anda: o piso desce até ele" : undefined}>
+                {num(s.floor)}{s.floor_reason === "preco_estabelecido" && <span className="muted small"> (preço do mercado)</span>}
+              </td>
               <td className={s.decision?.startsWith("guarda") ? "muted" : undefined}>{DECISION_LABEL[s.decision ?? ""] ?? s.decision ?? "—"}</td>
             </tr>
           ))}
