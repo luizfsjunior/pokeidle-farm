@@ -175,7 +175,7 @@ MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W)/worker:/src" python:3.12-slim  
 | `catalog.py` | preços da loja do NPC (bolas, poções, revives) e chance das bolas |
 | `pace.py` | ritmo de abates por hunt aprendido na sessão; hunt não medida usa a previsão do simulador (`model/`) e, sem ela, o nível medido mais próximo (rank e gems) |
 | `model/` | simulador do jogo (não confundir com `sim/`, que gera eventos falsos): `combat.py` prevê abates/h de um pokémon numa hunt com as regras do jogo; `predict.py` aplica ao pokémon ativo, com cache; `progression.py` simula nível a nível até um marco (hunt, evoluções,
-poções, ouro, bônus de XP até expirarem). Ver [docs/design/simulador-1-combate.md](../docs/design/simulador-1-combate.md) |
+poções, ouro, bônus de XP até expirarem); `capture.py` é a sorte da captura (chance por bola, nascimento sorteado, Monte Carlo contra o ativo; ver [docs/design/simulador-3-captura.md](../docs/design/simulador-3-captura.md)). Ver [docs/design/simulador-1-combate.md](../docs/design/simulador-1-combate.md) |
 | `gems_model.py` | valor em gemas de cada hunt: pedra do tipo a 0,2/0,35/0,5% por abate e teto de liquidez |
 | `progress.py` | `Progress` do foco XP: grava o plano até o nível 150 (`progress.plan`) e evolui o ativo (`pokemon.evoluir`); ver [docs/design/simulador-2-progressao.md](../docs/design/simulador-2-progressao.md) |
 | `hunt_switch.py` | `HuntSwitcher`: troca de hunt com trava, timer, confirmação e nova tentativa (usado pelo gems) |
