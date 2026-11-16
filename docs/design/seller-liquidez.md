@@ -31,6 +31,12 @@ O piso continua, mas só como trava contra vender barato demais quando alguém a
 referência dele passa a ser a **menor** entre a média do jogo e a mediana das vendas, porque as duas podem
 estar infladas.
 
+**Preço estabelecido.** Às vezes o menor preço tem mais de um dia de demanda parada nele (fila à frente ≥
+vendas por dia) e a fila anda (dias para vender ≤ `max_days`). Nesse caso o menor preço **é** o preço do
+mercado: o piso desce até ele (`floor_reason: "preco_estabelecido"`). Em 16/11 a Rock Stone tinha 306 na
+fila a 2 e ~257 vendidas por dia, com média de 21. O piso só continua valendo contra um anúncio isolado
+barato, por exemplo 1 unidade a 2 numa pedra que vende a 100.
+
 O `seller.plan` grava `ahead`, `per_day` e `days_to_sell` de cada pedra, e o `/vendas` mostra esses números.
 
 ## Em aberto
