@@ -222,7 +222,14 @@ async def test_prices_are_saved():
 
 ITEMS = {
     "items": [
-        {"id": 142, "name": "Water Stone", "category": "stone", "rare": True, "npcPrice": 5000},
+        {
+            "id": 142,
+            "name": "Water Stone",
+            "category": "stone",
+            "rare": True,
+            "npcPrice": 5000,
+            "icon": "items/water_stone.png",
+        },
         {"id": 1, "name": "Air Tank", "category": "loot", "rare": True, "npcPrice": 1000},
         {"id": "x", "name": "inválido"},
     ]
@@ -231,17 +238,33 @@ ITEMS = {
 
 def test_item_rows():
     assert item_rows_from_json(ITEMS) == [
-        {"item_id": 1, "name": "Air Tank", "category": "loot", "rare": True, "npc_price": 1000},
+        {
+            "item_id": 1,
+            "name": "Air Tank",
+            "category": "loot",
+            "rare": True,
+            "npc_price": 1000,
+            "icon": None,
+        },
         {
             "item_id": 142,
             "name": "Water Stone",
             "category": "stone",
             "rare": True,
             "npc_price": 5000,
+            "icon": "items/water_stone.png",
         },
     ]
     welcome = {
-        "itensNossos": [{"id": 70070, "nome": "Poção Nossa", "categoria": "pocao", "raro": False}]
+        "itensNossos": [
+            {
+                "id": 70070,
+                "nome": "Poção Nossa",
+                "categoria": "pocao",
+                "raro": False,
+                "icon": "items/pocao.png",
+            }
+        ]
     }
     assert item_rows_from_welcome(welcome) == [
         {
@@ -250,6 +273,7 @@ def test_item_rows():
             "category": "pocao",
             "rare": False,
             "npc_price": None,
+            "icon": "items/pocao.png",
         }
     ]
 

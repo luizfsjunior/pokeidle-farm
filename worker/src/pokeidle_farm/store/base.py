@@ -162,6 +162,12 @@ class Store(Protocol):
         """Grava uma linha em game_catalog (ex.: `loot_stones`, as constantes das pedras)."""
         ...
 
+    # --- perfil da conta para o painel (docs/design/painel-perfil.md) ----------------
+
+    async def upsert_account_profile(self, row: dict[str, Any]) -> None:
+        """Grava (ou substitui) a linha da conta em account_profile."""
+        ...
+
     async def rank_hunt_stats(self, account_id: UUID, since: datetime) -> list[HuntStats]:
         """Por hunt, desde `since`: abates e minutos ativos e a última chance de captura."""
         ...

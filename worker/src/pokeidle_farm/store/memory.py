@@ -209,6 +209,11 @@ class MemoryStore:
             if v.get("category") == "stone"
         }
 
+    async def upsert_account_profile(self, row: dict[str, Any]) -> None:
+        if not hasattr(self, "profiles"):
+            self.profiles: dict[str, dict[str, Any]] = {}
+        self.profiles[row["account_id"]] = row
+
     async def save_market_asks(self, rows: list[dict[str, Any]]) -> None:
         self.market_asks = [*getattr(self, "market_asks", []), *rows]
 

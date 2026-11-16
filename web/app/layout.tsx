@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import "@fontsource-variable/onest";
+import "@fontsource/silkscreen/400.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
