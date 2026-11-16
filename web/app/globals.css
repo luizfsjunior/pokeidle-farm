@@ -192,6 +192,21 @@ h3 { font-size: .9rem; font-weight: 600; color: var(--text-secondary); margin: 1
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* --- vendas (docs/design/pagina-vendas.md) -------------------------------------------- */
+
+.sales-totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .75rem 1rem; }
+.tone-gem { color: var(--gem); }
+.sale-item { display: inline-flex; align-items: center; gap: .45rem; white-space: nowrap; }
+.sale-item .item-icon { width: 24px; height: 24px; }
+.sale-status { white-space: nowrap; font-weight: 550; }
+.sale-vendido { color: var(--good); }
+.sale-cancelado { color: var(--text-muted); }
+.activity { list-style: none; margin: 0; padding: 0; display: grid; gap: .3rem; font-size: .88rem; }
+.activity li { display: grid; grid-template-columns: 8.5rem 1fr; gap: .75rem; }
+.activity li.muted { color: var(--text-muted); }
+.activity li.error { color: var(--critical); }
+@media (max-width: 480px) { .activity li { grid-template-columns: 1fr; gap: 0; } }
+
 @media (max-width: 480px) {
   .trainer { padding: .9rem; }
   .trainer-wide .trainer-nick { font-size: 1.25rem; }
