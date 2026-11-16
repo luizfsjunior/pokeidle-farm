@@ -22,8 +22,7 @@ export function NavLinks() {
   return (
     <nav>
       {LINKS.map(([href, label]) => (
-        <Link key={href} href={href} aria-current={active(href) ? "page" : undefined}
-          style={active(href) ? { fontWeight: 600, textDecoration: "underline", textUnderlineOffset: "4px" } : undefined}>
+        <Link key={href} href={href} aria-current={active(href) ? "page" : undefined}>
           {label}
         </Link>
       ))}

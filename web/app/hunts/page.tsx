@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
+import { Sprite } from "@/components/Sprite";
+import { loadAtlas, speciesLooktypes } from "@/lib/sprites";
 import { ago, num } from "@/lib/format";
 import {
   chainPosition,
@@ -105,6 +107,13 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
     .sort((a, b) => b.g1000 - a.g1000 || a.h.level - b.h.level)
     .slice(0, q ? 200 : 60);
 
+  // retrato da espécie de cada hunt (atlas do jogo por looktype)
+  const huntSpecies = [...new Set([...visited.map((v) => catalog.get(v.hunt_slug)?.species_id), ...reachable.map((r) => r.h.species_id)]
+    .filter((x): x is number => x != null))];
+  const [atlas, looktypes] = await Promise.all([loadAtlas(), speciesLooktypes(supabase, huntSpecies)]);
+  const face = (h: CatalogHunt | undefined) =>
+    h ? <Sprite mon={{ id: h.species_id, species_id: h.species_id, name: h.species_name ?? undefined }} atlas={atlas} looktypes={looktypes} size={32} /> : null;
+
   const link = (over: Record<string, string | null>) => {
     const p = new URLSearchParams();
     const conta = "conta" in over ? over.conta : chosen?.id ?? null;
@@ -153,7 +162,8 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
                 const cur = current.get(v.hunt_slug);
                 return (
                   <tr key={v.hunt_slug}>
-                    <td>
+                    <td className="hunt-cell">
+                      {face(h)}
                       {h?.species_name ?? h?.name ?? v.hunt_slug}
                       {cur && <span className="badge ready" style={{ marginLeft: ".4rem" }}>agora · {cur.nick}</span>}
                     </td>
@@ -195,7 +205,8 @@ export default async function HuntsPage({ searchParams }: { searchParams: Promis
           <tbody>
             {reachable.map(({ h, stones, g1000, kph, gemsHour }) => (
               <tr key={h.slug}>
-                <td>
+                <td className="hunt-cell">
+                  {face(h)}
                   {h.species_name ?? h.name ?? h.slug}
                   {current.has(h.slug) && <span className="badge ready" style={{ marginLeft: ".4rem" }}>agora</span>}
                 </td>
