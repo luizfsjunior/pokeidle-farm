@@ -16,8 +16,13 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 ### Pendente
 
 - Guardar o print da conversa com o suporte (fora do repo).
-- Contratar o VPS e um proxy **estático dedicado** (residencial ou ISP), subir pelo guia e conferir o log do IP de
-  saída e o Ping (`vps-1`).
+- VPS e proxy (escolhidos em 16/11): VM ARM grátis da **Oracle Cloud em São Paulo** (região principal permanente;
+  se der "Out of capacity", tentar outro horário; Hetzner ou o droplet de US$ 4 como alternativa) e **IPRoyal ISP,
+  Dedicated, Brasil, 1 proxy, 30 dias, fraud score Premium (IP Quality Score)**, ~US$ 5,40/mês, sem extras.
+  Nas primeiras 24 h (reembolso), no VPS:
+  `curl -s -x http://usuario:senha@host:porta https://api.ipapi.is/ | grep -E '"is_datacenter"|"is_abuser"|"type"|"name"'`
+  → esperado `is_datacenter: false`, `is_abuser: false`, tipo `isp`. Se não, reembolso ou troca. Depois, guia da
+  seção 3b do deploy.md (`WORKER_HOLDER=vps-1`, `GAME_PROXY_URL`), parar o worker de casa e conferir o Ping.
 - `/compensa`: campo de custo fixo mensal (VPS + proxy), hoje só há energia.
 - Lint: dois B008 em `model/combat.py` (de 15/11).
 
