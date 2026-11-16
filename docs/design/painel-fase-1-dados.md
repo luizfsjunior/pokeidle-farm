@@ -15,3 +15,18 @@ Esta fase abre o caminho para a Pokédex interativa, os gráficos de evolução 
   fica. O worker não muda. O RLS deixa cada dono só ler.
 - **Passe de batalha** na página da conta: dia N de 30, se o prêmio de hoje foi resgatado (`passe.ultimo`
   é o dia do jogo: dias desde 1970 no fuso de Brasília), total de resgates e trilhas completas.
+
+## Formatos vistos em 16/11 e o card "Bônus e progresso"
+
+- `bonusXp`: `{pk, tr, partes: [{id: "vip"|"evento", pk, tr, ate}]}`, multiplicadores (1,725 = +72,5%).
+- `evento`: `{id, farmPct, minutos, terminaEm, xpPokemonPct, xpTreinadorPct}`.
+- `pvp`: `{tierId: "bronze", divisaoNum: "I", pontos, vitorias, derrotas, partidas, ...}`.
+- `boss`: `{pontos, vitorias: {}, auto, arena}`.
+- `chocadeira`: `{ovos: [], total}`.
+- `ginasios`: lista, vazia nesta conta.
+- `outlandTier`: número.
+- `casa`, `bicicleta`: `{lista: [], ...}`. `caixas` são as caixas de fundador; fora do painel.
+
+A página da conta mostra bônus de XP (com as partes e o prazo), evento ativo, PvP, boss, chocadeira,
+ginásios, Outland e guild (quando houver bônus). O cartão de treinador mostra "Evento +N% XP" durante um
+evento.

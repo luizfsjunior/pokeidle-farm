@@ -20,6 +20,7 @@ export function ProfileSections({ profile, atlas, looktypes, items }: {
   const highlights = profile.top_pokemon.filter((m) => !profile.team.some((t) => t.id === m.id)).slice(0, 12);
 
   const pass = profile.extra?.passe;
+  const ex = profile.extra ?? {};
   return (
     <>
       {pass?.degrau != null && (
@@ -41,6 +42,8 @@ export function ProfileSections({ profile, atlas, looktypes, items }: {
           </p>
         </section>
       )}
+
+      <ExtrasCard ex={ex} />
 
       <section className="card">
         <h2>Equipe</h2>
@@ -150,5 +153,73 @@ function Figure({ value, label }: { value: number; label: string }) {
       <span className="figure-value num">{num(value)}</span>
       <span className="figure-label">{label}</span>
     </div>
+  );
+}
+
+type Obj = Record<string, unknown>;
+const obj = (v: unknown): Obj => (v && typeof v === "object" && !Array.isArray(v) ? (v as Obj) : {});
+const n = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+const pct = (mult: number) => `+${num((mult - 1) * 100)}%`;
+const until = (ms: number | null) =>
+  ms == null ? "" : new Date(ms).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+const BONUS_NAME: Record<string, string> = { vip: "VIP", evento: "Evento", guild: "Guild", pocao: "Poção" };
+
+/** Bônus ativos, evento, PvP, boss, chocadeira e Outland, do `extra` (formatos vistos em 16/11). */
+function ExtrasCard({ ex }: { ex: Obj }) {
+  const now = Date.now();
+  const bonus = obj(ex.bonusXp);
+  const parts = (Array.isArray(bonus.partes) ? bonus.partes : []).map(obj).filter((p) => (n(p.ate) ?? Infinity) > now);
+  const ev = obj(ex.evento);
+  const evOn = (n(ev.terminaEm) ?? 0) > now;
+  const pvp = obj(ex.pvp);
+  const boss = obj(ex.boss);
+  const egg = obj(ex.chocadeira);
+  const eggs = Array.isArray(egg.ovos) ? egg.ovos.length : null;
+  const gyms = Array.isArray(ex.ginasios) ? ex.ginasios.length : null;
+  const bossWins = Object.values(obj(boss.vitorias)).reduce<number>((s, v) => s + (n(v) ?? 0), 0);
+  const tier = typeof pvp.tierId === "string" ? pvp.tierId : null;
+
+  const items: { label: string; value: string; note?: string }[] = [];
+  if (n(bonus.tr) != null) {
+    items.push({
+      label: "Bônus de XP",
+      value: pct(n(bonus.tr)!),
+      note: parts.map((p) => `${BONUS_NAME[String(p.id)] ?? String(p.id)} ${pct(n(p.tr) ?? 1)} até ${until(n(p.ate))}`).join(" · ") || undefined,
+    });
+  }
+  if (evOn) {
+    items.push({
+      label: "Evento",
+      value: `XP ${n(ev.xpTreinadorPct) != null ? `+${ev.xpTreinadorPct}%` : "—"}`,
+      note: `farm +${n(ev.farmPct) ?? 0}% · termina ${until(n(ev.terminaEm))}`,
+    });
+  }
+  if (tier) {
+    items.push({
+      label: "PvP",
+      value: `${tier.charAt(0).toUpperCase()}${tier.slice(1)} ${String(pvp.divisaoNum ?? "")}`.trim(),
+      note: `${num(n(pvp.vitorias) ?? 0)} V · ${num(n(pvp.derrotas) ?? 0)} D · ${num(n(pvp.pontos) ?? 0)} pontos`,
+    });
+  }
+  if (Object.keys(boss).length) items.push({ label: "Boss", value: `${num(n(boss.pontos) ?? 0)} pontos`, note: `${num(bossWins)} vitórias` });
+  if (eggs != null) items.push({ label: "Chocadeira", value: `${eggs} de ${num(n(egg.total) ?? 0)}`, note: eggs ? "ovos chocando" : "vazia" });
+  if (gyms != null) items.push({ label: "Ginásios", value: num(gyms), note: "insígnias" });
+  if (n(ex.outlandTier) != null) items.push({ label: "Outland", value: `tier ${num(n(ex.outlandTier))}` });
+  if (n(ex.guildBonusPct)) items.push({ label: "Guild", value: `+${num(n(ex.guildBonusPct))}%`, note: n(ex.guildBonusRank) ? `rank ${ex.guildBonusRank}` : undefined });
+
+  if (items.length === 0) return null;
+  return (
+    <section className="card">
+      <h2>Bônus e progresso</h2>
+      <div className="extras">
+        {items.map((it) => (
+          <div key={it.label} className="extra">
+            <span className="figure-label">{it.label}</span>
+            <span className="extra-value num">{it.value}</span>
+            {it.note && <span className="small muted">{it.note}</span>}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
