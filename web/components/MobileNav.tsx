@@ -5,11 +5,11 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "./icons";
 import { InstallApp } from "./InstallApp";
-import { isActive, NAV_GROUPS, navLabel, TAB_ITEMS } from "./nav";
+import { isActive, NAV_GROUPS, TAB_ITEMS } from "./nav";
 
 /**
- * Celular: barra do topo com a página atual (rola junto, sem pular) e barra fixa embaixo com as
- * 4 páginas mais usadas e "Mais" (gaveta com o resto, instalar e sair).
+ * Celular: barra fixa embaixo com as 4 páginas mais usadas e "Mais" (gaveta com o resto, instalar
+ * e sair). O topo é o HUD, que rola com a página.
  */
 export function MobileNav({ email }: { email: string }) {
   const path = usePathname() ?? "/";
@@ -29,10 +29,6 @@ export function MobileNav({ email }: { email: string }) {
 
   return (
     <>
-      <header className="mbar">
-        <Link href="/" className="rail-logo" aria-label="Início" />
-        <span className="mbar-title">{navLabel(path) || "pokeidle-farm"}</span>
-      </header>
 
       {open && <div className="sheet-backdrop" onClick={() => setOpen(false)} aria-hidden />}
       <div className={`sheet ${open ? "is-open" : ""}`} role="dialog" aria-modal="true" aria-label="Mais páginas" hidden={!open}>

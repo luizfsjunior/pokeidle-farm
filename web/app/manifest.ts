@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Painel das contas de farm do pokeidle.io",
     start_url: "/",
     display: "standalone",
-    background_color: "#e8eef0",
-    theme_color: "#1b2430",
+    background_color: "#120f24",
+    theme_color: "#0c0a1a",
     lang: "pt-BR",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
