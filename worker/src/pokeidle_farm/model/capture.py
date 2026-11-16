@@ -200,3 +200,102 @@ class CaptureOption:
             "hours_to_beat": rnd(self.hours_to_beat),
             "gold_to_beat": rnd(self.gold_to_beat),
         }
+
+
+# --- nota do pokémon (nota-pokemon.mjs) e pontos do Sacrifício (sacrificio.mjs) ------------
+# A nota (0 a 10) é a força de nascimento numa escala logarítmica entre o pior e o melhor
+# nascimento possível da espécie (IV 32, qualidade 1,8, P5, shiny). Não depende do nível.
+# Conferida contra a conta de teste (Bulbasaur 3,179; Zubat 1,334...). Sem os "ancestrais"
+# (piso pela pré-evolução), que só sobe a nota de formas evoluídas.
+
+_QUALITY_EXP = {"hp": 0.95, "speed": 0.95, "atk": 0.8, "def": 0.8, "spAtk": 0.8, "spDef": 0.8}
+_POTENCY_BONUS = (0.0, 0.05, 0.1, 0.25, 1.0)
+_REF_BASE = dict.fromkeys(STATS, 80.0)
+SACRIFICE_POINTS = (  # (nota mínima, pontos)
+    (3.5, 10),
+    (3.6, 12),
+    (3.7, 14),
+    (3.8, 17),
+    (3.9, 20),
+    (4.0, 25),
+    (4.1, 30),
+    (4.2, 35),
+    (4.3, 42),
+    (4.4, 50),
+    (4.5, 60),
+    (4.6, 70),
+    (4.7, 80),
+    (4.8, 90),
+    (4.9, 100),
+    (5.0, 110),
+    (5.1, 125),
+    (5.2, 140),
+    (5.3, 155),
+    (5.4, 170),
+    (5.5, 190),
+    (5.6, 210),
+    (5.7, 235),
+    (5.8, 260),
+    (5.9, 290),
+    (6.0, 320),
+    (6.1, 360),
+    (6.2, 400),
+    (6.3, 450),
+    (6.4, 500),
+    (6.5, 560),
+    (6.6, 620),
+    (6.7, 700),
+    (6.8, 780),
+    (6.9, 870),
+    (7.0, 1000),
+)
+
+
+def _birth_sum(
+    ivs: dict[str, int], q: float, potency: int, shiny: bool, base: dict[str, float]
+) -> int:
+    q = min(max(q, 0.8), 1.8)
+    m = (1 + _POTENCY_BONUS[min(max(potency, 1), 5) - 1]) * (3 if shiny else 1)
+    return sum(round((base[k] + 2 * ivs.get(k, 1)) * q ** _QUALITY_EXP[k] * m) for k in STATS)
+
+
+def _limits(base: dict[str, float]) -> tuple[int, int]:
+    lo = _birth_sum(dict.fromkeys(STATS, 1), 0.8, 1, False, base)
+    hi = _birth_sum(dict.fromkeys(STATS, 32), 1.8, 5, True, base)
+    return max(1, lo), max(lo + 1, hi)
+
+
+_REF_LIMITS = _limits(_REF_BASE)
+
+
+def _score(
+    ivs: dict[str, int], q: float, potency: int, shiny: bool, base: dict[str, float]
+) -> float:
+    import math
+
+    lo, hi = _REF_LIMITS
+    s = min(max(_birth_sum(ivs, q, potency, shiny, base), lo), hi)
+    raw = 10 * (math.log(max(1, s)) - math.log(lo)) / (math.log(hi) - math.log(lo))
+    return min(max(round(min(max(raw, 0), 10) * 1000) / 1000 / 10, 0), 1)
+
+
+def pokemon_grade(
+    ivs: dict[str, int], quality: float, potency: int, shiny: bool, base: dict[str, float]
+) -> float:
+    """A nota do jogo (0 a 10) de um nascimento, para os stats base da espécie."""
+    mn = _score(dict.fromkeys(STATS, 1), 0.8, 1, False, base)
+    mx = max(mn, _score(dict.fromkeys(STATS, 32), 1.8, 5, True, base))
+    if mx <= mn:
+        return 0.0
+    s = min(max(_score(ivs, quality, potency, shiny, base), mn), mx)
+    return round(10 * (s - mn) / (mx - mn) * 1000) / 1000
+
+
+def sacrifice_points(grade: float) -> int:
+    """Pontos do Sacrifício por uma nota (0 abaixo de 3,5)."""
+    import math
+
+    tenth = math.floor(round(grade * 1000) / 100)
+    if tenth < 35:
+        return 0
+    return SACRIFICE_POINTS[min(tenth - 35, len(SACRIFICE_POINTS) - 1)][1]

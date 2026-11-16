@@ -124,3 +124,15 @@ def test_odds_and_option_costs():
     )
     d = CaptureOption("oddish", 43, 1, odds, 0.2, hard).as_dict()
     assert d["p_beats"] == 0 and d["hours_to_beat"] is None  # impossível: sem número
+
+
+def test_grade_matches_the_game_and_sacrifice_points():
+    from pokeidle_farm.model.capture import pokemon_grade, sacrifice_points
+
+    bulba = {"hp": 45, "atk": 49, "def": 49, "spAtk": 65, "spDef": 65, "speed": 45}
+    # o Bulbasaur da conta de teste: IV 27 em tudo, qualidade 1,6, P2 -> o jogo mostra 3,179
+    assert pokemon_grade(dict.fromkeys(bulba, 27), 1.6, 2, False, bulba) == 3.179
+    assert pokemon_grade(dict.fromkeys(bulba, 32), 1.8, 5, True, bulba) == 10.0
+    assert pokemon_grade(dict.fromkeys(bulba, 1), 0.8, 1, False, bulba) == 0.0
+    assert sacrifice_points(3.49) == 0 and sacrifice_points(3.5) == 10
+    assert sacrifice_points(5.0) == 110 and sacrifice_points(9.9) == 1000

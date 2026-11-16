@@ -51,7 +51,27 @@ qualidade 1,6 e IV 27 fixos, o que um nascimento sorteado quase nunca alcança (
 Consequência para o protocolo: até o 150 o caminho é o inicial e as evoluções dele (como a camada 2 já faz). A captura
 vale pelo que rende no Mercado (shiny, P4/P5, raros) e, depois do 150, pela Outland; isso entra na camada 4.
 
+## Capturar ajuda a subir de outra forma? (16/11)
+
+Pergunta do usuário: vale gastar tempo capturando para subir mais fácil? Três caminhos olhados:
+
+1. **Capturado como ativo**: não (seção anterior; o inicial ganha de quase tudo).
+2. **Sacrifício** (`sacrificio.mjs`): sacrificar pokémon com nota ≥ 3,5 dá pontos (3,5 = 10 pontos; 5,0 = 110) que viram
+   um boost de **×1,2 na XP** (50 pontos = 8 h; 125 = 24 h; 250 = 60 h). Seria o jeito de a captura acelerar a XP, mas
+   a nota de um nascimento sorteado quase nunca chega a 3,5: Monte Carlo de 200 mil nascimentos (nota portada de
+   `nota-pokemon.mjs`, `pokemon_grade`, igual à do jogo nos 28 pokémon da conta) dá **0,01% a 0,035%** das capturas
+   com nota ≥ 3,5 (Kabuto, Geodude, Onix), ~0,01 ponto por captura. Os 50 pontos do primeiro nível pediriam ~5 mil
+   capturas; ligando bolas na própria hunt de XP (sem perder abates, só o ouro das bolas), saem 3 a 6 capturas/h:
+   **mais de 1.000 h**. Não compensa até o 150. (O inicial nem pode ser sacrificado, e a nota dele é 3,18.)
+3. **Outro tipo para as hunts em que o inicial é fraco**: o plano já escolhe a hunt de maior XP/h do inicial; um
+   segundo pokémon só ajudaria se a melhor hunt dele rendesse mais, e no mesmo nível os nascimentos sorteados perdem
+   para o do inicial (item 1).
+
+Conclusão: até o 150 a captura não acelera a XP; o protocolo segue só com o inicial. A nota fica no simulador
+(`pokemon_grade`, `sacrifice_points`) para o Mercado (o jogo só deixa vender pokémon com nível ≥ 50 e nota ≥ 3,5) e
+para a camada 4.
+
 ## Testes
 
 `tests/test_capture_model.py`: chance igual à do servidor, distribuição dos nascimentos, multiplicador de potência e
-shiny, forma pela cadeia, custos por captura e até vencer o ativo.
+shiny, forma pela cadeia, custos por captura e até vencer o ativo, nota do jogo e pontos do Sacrifício.
