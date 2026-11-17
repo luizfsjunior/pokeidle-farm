@@ -1,8 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { supabaseBrowser, useRefreshAll } from "@/lib/query/hooks";
 import { FINAL_STATUSES, type Command, type CommandType } from "@/lib/types";
 
 const POLL_MS = 1500;
@@ -10,8 +9,8 @@ const GIVE_UP_MS = 6 * 60_000; // um pouco além do expires_at (5 min)
 
 /** Cria um comando e acompanha o status até terminar. */
 export function useCommand() {
-  const supabase = useMemo(() => createClient(), []);
-  const router = useRouter();
+  const supabase = useMemo(() => supabaseBrowser(), []);
+  const refresh = useRefreshAll();
   const [cmd, setCmd] = useState<Command | null>(null);
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -29,13 +28,13 @@ export function useCommand() {
       const poll = async () => {
         const { data: row } = await supabase.from("commands").select("*").eq("id", data.id).single<Command>();
         if (row) setCmd(row);
-        if (row && FINAL_STATUSES.includes(row.status)) { router.refresh(); return; }
+        if (row && FINAL_STATUSES.includes(row.status)) { refresh(); return; }
         if (Date.now() - started > GIVE_UP_MS) return;
         timer.current = setTimeout(poll, POLL_MS);
       };
       timer.current = setTimeout(poll, POLL_MS);
     },
-    [supabase, router],
+    [supabase, refresh],
   );
 
   const busy = cmd !== null && !FINAL_STATUSES.includes(cmd.status);

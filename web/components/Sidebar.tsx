@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useMe } from "@/lib/query/hooks";
+import { clearCache } from "@/lib/query/provider";
 import { Icon } from "./icons";
 import { InstallApp } from "./InstallApp";
 import { usePrefetch } from "./usePrefetch";
 import { isActive, NAV_GROUPS } from "./nav";
 
 /** Barra lateral do desktop: páginas em grupos, instalar e sair (docs/design/painel-ajustes.md). */
-export function Sidebar({ email }: { email: string }) {
+export function Sidebar() {
+  const email = useMe().data ?? "";
   const path = usePathname() ?? "/";
   const warm = usePrefetch();
   return (
@@ -32,7 +35,7 @@ export function Sidebar({ email }: { email: string }) {
         <div className="rail-user">
           <span className="rail-avatar" aria-hidden>{email.slice(0, 1).toUpperCase()}</span>
           <span className="rail-email rail-label" title={email}>{email}</span>
-          <form action="/auth/sair" method="post">
+          <form action="/auth/sair" method="post" onSubmit={clearCache}>
             <button type="submit" className="rail-exit" title="Sair" aria-label="Sair"><Icon name="logout" size={18} /></button>
           </form>
         </div>

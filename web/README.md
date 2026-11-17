@@ -34,7 +34,23 @@ Next.js 16 (App Router) + Supabase Auth. Lê as contas, as métricas da fase 4a
   cada usuário vê só as próprias contas. O app recusa subir se receber uma `sb_secret_`.
 - A chave secreta (service_role) é só do worker. Nunca na Vercel, no `.env.local` do painel ou em commit.
 - Login por e-mail e senha do usuário criado em **Authentication → Users**. A sessão é validada no
-  servidor com `getClaims()` em `proxy.ts` e em cada página.
+  servidor com `getClaims()` em `proxy.ts` (quem não entrou vai para `/login`) e nas Server Actions.
+  Os dados são lidos no navegador com a mesma sessão, então o RLS vale igual.
+
+## Como as peças se conectam
+
+- **Páginas estáticas, dados no navegador** ([docs/design/painel-swr.md](../docs/design/painel-swr.md)). O
+  layout de `(painel)` não lê cookie, então as páginas são pré-renderizadas e trocar de página é instantâneo.
+  Cada página tem um carregador (`data.ts` ao lado, ou dentro do `View.tsx`) que recebe o cliente do Supabase;
+  `usePanel` (em `lib/query/hooks.ts`) roda o carregador com o TanStack Query.
+- **Cache persistido**: `lib/query/provider.tsx` guarda os resultados no `localStorage` (24 h). A página já
+  vista aparece na hora e se atualiza por baixo, inclusive depois de fechar o app. O cache é apagado ao entrar
+  e ao sair.
+- **Carregamento**: `components/Loading.tsx` (`Ld`, `LdRows`, `LdBlock`). Título, descrição, abas e cabeçalhos
+  aparecem direto; só os valores mostram a animação.
+- **Ações** (comandos, objetivos, configurações) gravam no Supabase e depois invalidam as consultas
+  (`useRefreshAll`) para a tela buscar de novo.
+- **Imagens do jogo**: o atlas dos retratos é lido pelo servidor em `/api/atlas` (o site do jogo não libera CORS).
 
 ## Rodar no Codespaces (ou local)
 
@@ -44,6 +60,9 @@ npm ci                     # o devcontainer já faz isso num codespace novo
 cp .env.example .env.local # e preencha a URL e a publishable key
 npm run dev
 ```
+
+Para conferir como em produção: `npm run build && npx next start -p 3100` e entrar pelo `/login` do localhost (o
+login da Vercel não vale aqui). O `next dev` cria um `web/AGENTS.md`; não precisa commitar.
 
 No Codespaces a porta 3000 abre sozinha no navegador (aba **Portas**). Para ter dados, rode antes
 `pokeidle-farm simulate --nick <nick> --days 3` (ver [worker/README.md](../worker/README.md)).

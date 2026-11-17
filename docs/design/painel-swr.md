@@ -1,36 +1,48 @@
-# Painel: navegação stale-while-revalidate e barra de cima que rola (16/11/2026)
+# Painel: dados no navegador com cache (stale-while-revalidate)
 
-Pedido de 16/11:
-- a barra de cima pode rolar, e só a barra de baixo fica parada;
-- o carregamento mostra o que é fixo e faz esqueleto só dos dados;
-- uma página já vista abre na hora, com o que estava em cache, e troca quando os dados novos chegam;
-- o esqueleto só aparece na primeira vez.
+Pedido de 16/11: a página já vista abre na hora e troca quando chegam os dados novos; título, descrição,
+abas e cabeçalhos aparecem direto e só os dados mostram carregamento; o painel no celular tem que ser rápido.
 
-O nome disso é **stale-while-revalidate (SWR)**.
+## Versão 1 (descartada): servidor + `router.refresh()`
 
-## Como ficou
+As páginas buscavam tudo no servidor, o `staleTimes` guardava a página no cache do App Router e um
+`<Revalidate>` chamava `router.refresh()` quando ela vinha do cache. Medido no celular em 16/11:
 
-- **Cache do navegador para páginas dinâmicas.** `experimental.staleTimes: { dynamic: 600 }`. A página
-  já visitada fica 10 min no cache do App Router, e voltar a ela não vai ao servidor nem mostra
-  esqueleto.
-- **Revalidação por baixo.** O componente `<Revalidate at={Date.now()}>` fica no `PageHeader`, que toda
-  página usa. Quando a página veio do cache (renderizada há mais de 5 s), ele chama `router.refresh()`:
-  a tela antiga fica e a nova entra no lugar quando chega, sem esqueleto. Ele também atualiza ao voltar
-  para a aba ou o app depois de 1 min.
-- **Esqueleto só dos dados.** O `loading.tsx` de `(painel)` só aparece na primeira visita de cada página.
-  Mantém a casca e mostra o título real da página (pelo caminho); só os blocos de dados viram esqueleto.
-- **Barra de cima.** Fica dentro da área que rola e sobe com o conteúdo. A barra de baixo do celular
-  continua parada, como linha do grid da casca, sem `position: fixed`.
+- **o `router.refresh()` apaga o cache de todas as páginas**, não só a atual: ver A, ir para B (que se
+  atualiza) e voltar para A mostrava o esqueleto de novo. Só a última página ficava em cache;
+- o `loading.tsx` era um esqueleto genérico (4 KPIs e um bloco) para todas as páginas, até o subtítulo;
+- cada página esperava todas as consultas antes de mostrar qualquer coisa (Vendas: 3 a 6 s).
 
-## Pré-busca no toque e no mouse
+## Versão 2 (atual): TanStack Query com cache persistido
 
-Os links da barra lateral e das barras do celular chamam `router.prefetch` quando o mouse passa ou o
-dedo encosta (`usePrefetch`). A página inteira entra no cache antes do clique, e até a primeira visita a
-uma página do menu abre mais rápido.
+- **Páginas estáticas.** O layout de `(painel)` não lê cookie (quem não entrou é barrado pelo `proxy.ts`),
+  então todas as páginas saem pré-renderizadas: trocar de página é instantâneo (~25 ms medidos).
+- **Dados no navegador.** Cada página tem um carregador (`data.ts` ao lado da página, ou dentro do
+  `View.tsx`) que recebe o cliente do Supabase e devolve o que a tela precisa. Roda no navegador
+  (`lib/query/hooks.ts`, `usePanel`), com a sessão dos cookies e o mesmo RLS do servidor.
+- **Cache persistido.** `lib/query/provider.tsx`: o resultado de cada consulta fica no `localStorage`
+  (`pf-cache-v1`, 24 h), com `Map` e `Set` serializados. A página já vista mostra o cache na hora e busca a
+  versão nova por baixo (`staleTime` de 5 s); vale também depois de fechar e abrir o app. Uma linha fina
+  amarela no topo (`FetchBar`) aparece enquanto busca.
+- **Carregamento só dos dados.** `components/Loading.tsx`: `Ld` (barrinha no lugar de um valor), `LdRows`
+  (linhas de tabela debaixo do cabeçalho real) e `LdBlock` (gráfico ou card). Título, descrição, abas e
+  cabeçalhos são renderizados direto.
+- **Depois de agir**, `useCommand`, o formulário do Compensa e as ações dos objetivos chamam
+  `invalidateQueries` (`useRefreshAll`) em vez de `router.refresh()`. O `AutoRefresh` invalida as consultas
+  (ou só a da página) a cada intervalo.
+- **Atlas dos retratos** pelo servidor, em `/api/atlas` (o site do jogo não libera CORS).
 
-## Limite
+## Cuidados (gotchas)
 
-O cache vive na memória da aba ou do app aberto. Ao abrir o app do zero, a primeira página carrega com
-esqueleto; daí em diante, as que já foram vistas abrem na hora. Guardar a página entre aberturas do app
-(em localStorage, como faz o TanStack Query com persistência) exigiria buscar os dados no navegador, e não
-no servidor. Isso é uma mudança maior, que fica para depois se fizer falta.
+- **Hidratação.** O HTML estático vem sem dados, mas o cache do `localStorage` pode já estar no primeiro
+  render do navegador. `usePanel`, `useAtlas` e `useMe` escondem os dados até hidratar
+  (`useSyncExternalStore`); sem isso o React acusa a diferença (#418) e refaz a árvore.
+- **Usuário trocado.** O cache é apagado ao entrar (`login/page.tsx`) e ao sair (botões Sair), para não
+  mostrar dados de outro usuário no mesmo aparelho. Mudou o formato dos dados guardados? Suba o `buster`
+  no provider.
+- **Consultas em `events` com RLS.** `like "seller.%"` não usa o índice `(type, received_at)` e, com o RLS,
+  o banco varria todos os eventos da conta (~7 s). Use lista fechada de tipos (`in`).
+- **`[hidden]`** tem `display: none !important` no CSS: as abas da conta usam `hidden` em `.stack`, que tem
+  `display: grid` e ganhava.
+- **Rodar local:** `web/.env.local` com `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+  (a chave pública), `npm run build && npx next start`, e entrar pelo `/login` do localhost.
