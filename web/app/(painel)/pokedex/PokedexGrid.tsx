@@ -42,7 +42,8 @@ function kills(e: Entry | undefined): number | null {
   return e != null && typeof e === "object" && typeof e.k === "number" ? e.k : null;
 }
 
-export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId, capture, balls, together, updatedAt }: {
+export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId, capture, balls, together, updatedAt, level = null }: {
+  level?: number | null; // nível do treinador: hunt acima dele fica trancada no jogo
   together?: boolean; // as contas juntas (capturas e abates somados)
   updatedAt?: string | null;
   species: DexSpecies[];
@@ -293,7 +294,7 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
                     <>
                       {capture && <p className="small muted" style={{ margin: 0 }}>Já há uma captura em andamento ({capture.species_name}); começar outra troca o alvo.</p>}
                       <CaptureForm accountId={accountId} speciesId={sel.species_id} speciesName={sel.name ?? `#${sel.species_id}`}
-                        hunts={huntsBySpecies.get(sel.species_id) ?? []} balls={balls} />
+                        hunts={huntsBySpecies.get(sel.species_id) ?? []} balls={balls} level={level} />
                     </>
                   )
               )}
@@ -301,13 +302,13 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
                 inHunt={(formsOf.get(keyOf(sel)) ?? [sel]).some((f) => (huntsBySpecies.get(f.species_id) ?? []).length > 0)} />
               <h3>Onde aparece</h3>
               {(huntsBySpecies.get(sel.species_id) ?? []).length === 0 ? (
-                <OtherForms sel={sel} species={species} huntsBySpecies={huntsBySpecies} accountId={accountId} onPick={setSelected} />
+                <OtherForms sel={sel} species={species} huntsBySpecies={huntsBySpecies} accountId={accountId} onPick={setSelected} level={level} />
               ) : (
                 <ul className="small dex-hunts">
                   {huntsBySpecies.get(sel.species_id)!.map((h) => (
                     <li key={h.slug}>
                       {h.name ?? h.slug} <span className="muted">nv {h.level}</span>
-                      {accountId && <GoHunt accountId={accountId} slug={h.slug} />}
+                      {accountId && <GoHunt accountId={accountId} slug={h.slug} need={h.level} level={level} />}
                     </li>
                   ))}
                 </ul>
@@ -326,7 +327,8 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
  * Espécie sem hunt própria. O jogo tem formas regionais com outro número (ex.: Aron #304 de Kanto
  * e Aron #13304 de Hoenn, que é o da hunt aron_hoenn): mostra as hunts das formas de mesmo nome.
  */
-function OtherForms({ sel, species, huntsBySpecies, accountId, onPick }: {
+function OtherForms({ sel, species, huntsBySpecies, accountId, onPick, level }: {
+  level: number | null;
   sel: DexSpecies;
   species: DexSpecies[];
   huntsBySpecies: Map<number, DexHunt[]>;
@@ -347,7 +349,7 @@ function OtherForms({ sel, species, huntsBySpecies, accountId, onPick }: {
             {huntsBySpecies.get(f.species_id)!.map((h) => (
               <li key={h.slug}>
                 {h.name ?? h.slug} <span className="muted">nv {h.level}{h.region ? ` · ${h.region}` : ""}</span>
-                {accountId && <GoHunt accountId={accountId} slug={h.slug} />}
+                {accountId && <GoHunt accountId={accountId} slug={h.slug} need={h.level} level={level} />}
               </li>
             ))}
           </ul>
@@ -419,8 +421,11 @@ function CaptureTable({ rules, factor, estimated }: { rules: NonNullable<Awaited
 }
 
 /** "Ir para esta hunt" por 2 h (comando hunt.select; docs/design/painel-fase-3.md). */
-function GoHunt({ accountId, slug }: { accountId: string; slug: string }) {
+function GoHunt({ accountId, slug, need, level }: { accountId: string; slug: string; need: number; level: number | null }) {
   const { send, cmd, error, busy } = useCommand();
+  if (level != null && need > level) {
+    return <span className="go-hunt small warn-text" title="O jogo tranca área acima do nível do treinador">trancada: faltam {num(need - level)} níveis</span>;
+  }
   return (
     <span className="go-hunt">
       <button type="button" className="ghost small" disabled={busy} onClick={() => void send(accountId, "hunt.select", { slug, hours: 2 })}>

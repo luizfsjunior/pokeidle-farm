@@ -26,7 +26,8 @@ function clamp(text: string, min: number, max: number, fallback: number, int: bo
   return int ? Math.round(v) : v;
 }
 
-export function CaptureForm({ accountId, speciesId, speciesName, hunts, balls }: {
+export function CaptureForm({ accountId, speciesId, speciesName, hunts: allHunts, balls, level = null }: {
+  level?: number | null; // nível do treinador: hunt acima dele fica trancada no jogo
   accountId: string;
   speciesId: number;
   speciesName: string;
@@ -34,6 +35,7 @@ export function CaptureForm({ accountId, speciesId, speciesName, hunts, balls }:
   balls?: Record<string, number>;
 }) {
   const { send, cmd, error, busy } = useCommand();
+  const hunts = level == null ? allHunts : allHunts.filter((h) => h.level <= level);
   const [hunt, setHunt] = useState(hunts[0]?.slug ?? "");
   const [ball, setBall] = useState(4);
   const [stop, setStop] = useState<Stop>("first");
@@ -44,6 +46,10 @@ export function CaptureForm({ accountId, speciesId, speciesName, hunts, balls }:
   const count = clamp(countText, 1, 10_000, 5, true);
   const hours = clamp(hoursText, 0.25, 72, 2, false);
 
+  if (hunts.length === 0 && allHunts.length > 0) {
+    const need = Math.min(...allHunts.map((h) => h.level));
+    return <p className="small muted" style={{ margin: 0 }}>A hunt desta espécie pede nível {need}, e a conta está no {level}: o jogo tranca até lá.</p>;
+  }
   if (hunts.length === 0) {
     return <p className="small muted" style={{ margin: 0 }}>Nenhuma hunt tem esta espécie como principal, então não dá para mirar nela.</p>;
   }
