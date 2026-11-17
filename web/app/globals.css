@@ -770,3 +770,4 @@ body:has(.login) { overflow: auto; }
 .mini-selo { font-size: .7rem; font-weight: 650; padding: 0 .35rem; border-radius: 6px; color: var(--tier); background: var(--tier-bg);
   border: 1px solid color-mix(in srgb, var(--tier) 45%, transparent); }
 .meter.tier-1 > span, .meter.tier-2 > span, .meter.tier-3 > span, .meter.tier-4 > span, .meter.tier-5 > span { background: var(--tier); }
+.dex-hunt-lv { font-size: .68rem; color: var(--text-muted); }
