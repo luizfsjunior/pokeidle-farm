@@ -38,10 +38,11 @@ export const prizeChances = (step: number) => ({
   megaShiny: ((step + 1) * 50) / 10_000,
 });
 
-// o dia do jogo vira à meia-noite de Brasília (UTC−3)
-const BRT = 3 * 3600_000;
+// o "dia sazonal" do jogo vira às 18:00 de Brasília (dia-sazonal.mjs: fuso de Brasília adiantado
+// 6 h; a wiki confirma "o prêmio gira dentro da trinca todo dia às 18:00"): 21:00 UTC
+const SHIFT = 3 * 3600_000;
 const DAY = 86_400_000;
-const dayIndex = (t: number) => Math.floor((t - BRT) / DAY);
+const dayIndex = (t: number) => Math.floor((t + SHIFT) / DAY);
 
 /** O prêmio do boss na posição `pos` do trio, no instante `t` (premioDoBossNoInstante). */
 export function prizeAt(pos: number, t = Date.now()): Prize {
@@ -50,8 +51,8 @@ export function prizeAt(pos: number, t = Date.now()): Prize {
   return PRIZES[(((pos - d) % n) + n) % n];
 }
 
-/** Quando o prêmio gira de novo (próxima meia-noite de Brasília). */
-export const nextRotation = (t = Date.now()) => (dayIndex(t) + 1) * DAY + BRT;
+/** Quando o prêmio gira de novo (próximas 18:00 de Brasília). */
+export const nextRotation = (t = Date.now()) => (dayIndex(t) + 1) * DAY - SHIFT;
 
 // --- espécies -------------------------------------------------------------------------------------
 

@@ -572,6 +572,10 @@ GAME_FILES = (
     "shared/nota-pokemon.mjs",
     "shared/pvp-tabuleiro.mjs",
     "shared/starter.mjs",
+    # o sorteio do Safari e dos ovos (especiesDoOvo) e o dia do jogo (vira às 18:00 de Brasília)
+    "shared/chocadeira.mjs",
+    "shared/dia-sazonal.mjs",
+    "shared/fuso-brasilia.mjs",
 )
 
 

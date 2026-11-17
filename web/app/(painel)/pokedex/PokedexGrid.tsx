@@ -240,7 +240,7 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
               <SpeciesExtra id={sel.species_id} />
               <h3>Onde aparece</h3>
               {(huntsBySpecies.get(sel.species_id) ?? []).length === 0 ? (
-                <p className="muted small">Nenhuma hunt tem esta espécie como principal.</p>
+                <OtherForms sel={sel} species={species} huntsBySpecies={huntsBySpecies} accountId={accountId} onPick={setSelected} />
               ) : (
                 <ul className="small dex-hunts">
                   {huntsBySpecies.get(sel.species_id)!.map((h) => (
@@ -258,6 +258,41 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
         </aside>
       </div>
     </div>
+  );
+}
+
+/**
+ * Espécie sem hunt própria. O jogo tem formas regionais com outro número (ex.: Aron #304 de Kanto
+ * e Aron #13304 de Hoenn, que é o da hunt aron_hoenn): mostra as hunts das formas de mesmo nome.
+ */
+function OtherForms({ sel, species, huntsBySpecies, accountId, onPick }: {
+  sel: DexSpecies;
+  species: DexSpecies[];
+  huntsBySpecies: Map<number, DexHunt[]>;
+  accountId: string | null;
+  onPick: (id: number) => void;
+}) {
+  const name = (sel.name ?? "").toLowerCase();
+  const forms = species.filter((s) => s.species_id !== sel.species_id && (s.name ?? "").toLowerCase() === name && (huntsBySpecies.get(s.species_id) ?? []).length);
+  return (
+    <>
+      <p className="muted small" style={{ margin: 0 }}>
+        Nenhuma hunt tem a #{sel.species_id} como principal.{forms.length ? " A mesma espécie, em outra forma, aparece em:" : ""}
+      </p>
+      {forms.map((f) => (
+        <div key={f.species_id} className="small" style={{ marginTop: ".4rem" }}>
+          <button type="button" className="linklike" onClick={() => onPick(f.species_id)}>{f.name} #{f.species_id}</button>
+          <ul className="dex-hunts">
+            {huntsBySpecies.get(f.species_id)!.map((h) => (
+              <li key={h.slug}>
+                {h.name ?? h.slug} <span className="muted">nv {h.level}{h.region ? ` · ${h.region}` : ""}</span>
+                {accountId && <GoHunt accountId={accountId} slug={h.slug} />}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </>
   );
 }
 

@@ -53,7 +53,7 @@ export function BossesView() {
     <>
       <PageHeader title="Bosses" hint={<>
         Cada região tem um trio fixo de lendários. A região pede um nível mínimo, e cada luta gasta 1 Boss Token. O prêmio de cada boss
-        do trio gira todo dia à meia-noite (TM, fragmento de Mega, tickets). O dano que você leva sobe ×3 por degrau abaixo do nível do
+        do trio gira todo dia às 18:00 de Brasília (TM, fragmento de Mega, tickets). O dano que você leva sobe ×3 por degrau abaixo do nível do
         boss: o ideal são 5 pokémons no nível dele ou acima. Fraquezas e &quot;quem serve&quot; supõem que os golpes do boss saem no tipo dele.
       </>}>
         <AccountTabs all={false} accounts={accounts} chosen={chosen?.id ?? null} href={(id) => `/bosses?conta=${id}`} />
