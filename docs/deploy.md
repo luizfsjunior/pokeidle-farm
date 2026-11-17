@@ -98,8 +98,8 @@ O VPS sozinho não serve: o jogo recusa IP de datacenter. O tráfego do jogo sai
    - `IP de saída ... é de datacenter ... Não conectei.`: o proxy entrega IP de servidor. Troque de plano ou de
      provedor; não force (`EXIT_IP_CHECK=false` só para diagnóstico, nunca para conectar mesmo assim).
 5. No painel: **Ping** no card deve voltar `sessão ready em vps-1`.
-6. O `/compensa` ainda só conhece custo de energia: até ganhar um campo de custo fixo mensal (pendência), o
-   lucro mostrado não desconta o VPS e o proxy.
+6. No `/compensa`, em **Custo por mês**, preencha o fixo (VPS + proxy) e marque que a máquina fica ligada de
+   qualquer jeito (o PC de casa não entra mais na conta).
 
 ## 4. O que conferir
 
