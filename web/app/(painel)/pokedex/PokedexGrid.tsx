@@ -57,6 +57,7 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
   const [filter, setFilter] = useState<Filter>("todas");
   const [query, setQuery] = useState("");
   const [type, setType] = useState("");
+  const [order, setOrder] = useState<"numero" | "hunt">("numero");
   const [selected, setSelected] = useState<number | null>(null);
 
   const types = useMemo(
@@ -91,6 +92,9 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
       return true;
     });
   }, [species, dex, filter, type, query]);
+  // por nível de hunt: as espécies sem hunt vão para o fim; empate, pelo número
+  const sorted = useMemo(() => order === "numero" ? shown : [...shown].sort((a, b) =>
+    (a.hunt_level ?? Infinity) - (b.hunt_level ?? Infinity) || a.species_id - b.species_id), [shown, order]);
 
   const sel = selected != null ? byId.get(selected) : undefined;
   const selEntry = sel ? dex[String(sel.species_id)] : undefined;
@@ -127,12 +131,16 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
           <option value="">Todos os tipos</option>
           {types.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
+        <select value={order} onChange={(e) => setOrder(e.target.value as "numero" | "hunt")} aria-label="Ordenar">
+          <option value="numero">Ordem: número</option>
+          <option value="hunt">Ordem: nível da hunt</option>
+        </select>
         <span className="muted small">{num(shown.length)} espécies</span>
       </div>
 
       <div className="dex-body">
         <ul className="dex-grid">
-          {shown.map((s) => {
+          {sorted.map((s) => {
             const e = dex[String(s.species_id)];
             const st = caught(e) > 0 ? "caught" : e != null ? "seen" : "missing";
             return (
@@ -143,6 +151,7 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
                   <span className="dex-num num">#{s.species_id}</span>
                   <span className="dex-name">{st === "missing" ? "???" : s.name}</span>
                   {st === "caught" && <span className="dex-count num">×{num(caught(e))}</span>}
+                  {order === "hunt" && s.hunt_level != null && <span className="dex-hunt-lv num">nv {num(s.hunt_level)}</span>}
                 </button>
               </li>
             );
