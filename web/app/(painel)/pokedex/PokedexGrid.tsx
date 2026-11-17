@@ -27,7 +27,7 @@ type Filter = "todas" | "capturadas" | "vistas" | "faltando";
 const FILTERS: [Filter, string][] = [
   ["todas", "Todas"],
   ["capturadas", "Capturadas"],
-  ["vistas", "Vistas, sem captura"],
+  ["vistas", "Só vistas"],
   ["faltando", "Faltando"],
 ];
 

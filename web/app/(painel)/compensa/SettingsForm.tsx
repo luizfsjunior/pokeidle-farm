@@ -8,6 +8,7 @@ export type EvalSettings = {
   marginal: boolean;
   kwh_price_brl: number | null;
   usd_brl: number | null;
+  fixed_cost_usd: number | null;
   window_days: number;
 };
 
@@ -21,12 +22,13 @@ export function SettingsForm({ initial }: { initial: EvalSettings }) {
   const [kwh, setKwh] = useState(initial.kwh_price_brl?.toString() ?? "");
   const [usd, setUsd] = useState(initial.usd_brl?.toString() ?? "");
   const [marginal, setMarginal] = useState(initial.marginal);
+  const [fixed, setFixed] = useState(initial.fixed_cost_usd?.toString() ?? "");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const row = { machine_watts: toNum(watts), kwh_price_brl: toNum(kwh), usd_brl: toNum(usd), marginal };
+    const row = { machine_watts: toNum(watts), kwh_price_brl: toNum(kwh), usd_brl: toNum(usd), marginal, fixed_cost_usd: toNum(fixed) };
     if (Object.values(row).some((v) => typeof v === "number" && (Number.isNaN(v) || v < 0))) {
       setMsg("use números positivos (ou deixe vazio)");
       return;
@@ -41,7 +43,8 @@ export function SettingsForm({ initial }: { initial: EvalSettings }) {
 
   return (
     <form onSubmit={submit} className="card stack">
-      <h2 style={{ margin: 0 }}>Custo de energia</h2>
+      <h2 style={{ margin: 0 }}>Custo por mês</h2>
+      <label className="row">Fixo, em US$ (VPS, proxy)<input value={fixed} onChange={(e) => setFixed(e.target.value)} inputMode="decimal" style={{ width: "6rem" }} /></label>
       <label className="row">
         <input type="checkbox" checked={marginal} onChange={(e) => setMarginal(e.target.checked)} />
         A máquina fica ligada de qualquer jeito (o farm não aumenta a conta de luz)
@@ -54,7 +57,8 @@ export function SettingsForm({ initial }: { initial: EvalSettings }) {
         </div>
       )}
       <p className="muted small" style={{ margin: 0 }}>
-        A tarifa vem na conta de luz (total em R$ ÷ kWh do mês). Com algum campo vazio, o lucro sai sem o custo de energia.
+        O custo do mês é o fixo mais a energia. A tarifa vem na conta de luz (total em R$ ÷ kWh do mês); com algum campo
+        da energia vazio, ela fica de fora.
       </p>
       <div className="row">
         <button type="submit" disabled={busy}>{busy ? "Salvando…" : "Salvar"}</button>

@@ -46,7 +46,7 @@ export function AccountView() {
       />
       <SectionTabs tabs={[
         { id: "resumo", label: "Resumo" },
-        { id: "colecao", label: "Equipe e coleção" },
+        { id: "colecao", label: "Coleção" },
         { id: "estrategia", label: "Estratégia" },
         { id: "ajustes", label: "Ajustes" },
       ]}>
@@ -54,12 +54,12 @@ export function AccountView() {
         <>
           {!d ? loading : (
             <div className="account-top">
-              <TrainerCard account={d.account} profile={profile} atlas={atlas} looktypes={d.looktypes} wide />
+              <TrainerCard account={d.account} profile={profile} atlas={atlas} looktypes={d.looktypes} wide hideNick />
               {profile && <div className="stack"><ProfileSections part="status" profile={profile} atlas={atlas} looktypes={d.looktypes} items={d.items} /></div>}
             </div>
           )}
           {(!d || profile) && (
-            <Panel title="Evolução" meta="por dia, até 90 dias">
+            <Panel title="Evolução" meta={d && d.daily.length < 2 ? "a linha aparece a partir do 2º dia" : "por dia, até 90 dias"}>
               {!d ? <LdBlock h={160} /> : (
                 <div className="trends">
                   <TrendChart title="Nível" points={series("level")} tone="accent" />
