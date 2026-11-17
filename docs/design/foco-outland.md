@@ -1,6 +1,6 @@
 # Foco Outland (planejado)
 
-Status: **planejado** (17/11/2026). Começar quando a primeira conta chegar no nível 150.
+Status: **em estudo** (17/11/2026). O caminho de renda mais provável são os bosses a partir de Johto (nível 650); a Outland é a fonte (fraca) de tokens.
 
 ## Por quê
 
@@ -54,11 +54,48 @@ gema por abate, menos 15% ≈ **~2 gemas/h por conta (~US$ 0,40 por dia)**. Os t
 A Outland **não é uma mina** por si: o valor dela está mais no **Boss Token**, a porta para os bosses, que soltam os
 fragmentos de Mega (84 e 350), as peças de TM e os tickets (Safari a 306).
 
+## Bosses (17/11, `shared/bosses-lendarios.mjs`, `safari.mjs`, `mistico.mjs`, `raid.mjs`)
+
+**Regras.** Cada luta custa **1 Bronze Boss Token**, ganhando ou perdendo. Há 3 bosses por região (Kanto: Articuno,
+Moltres, Zapdos), os três abertos todo dia. O prêmio gira entre eles às 18h de Brasília: um dá **TM**, outro **Mega**,
+outro **tickets**; dá para lutar sempre no boss do prêmio que se quer. O treinador precisa do nível da região, e o boss
+luta **sempre nesse nível**. Equipe ideal: **5 pokémon com pelo menos o nível do boss**; para cada um que falta, o dano
+tomado ×3 (`3 ^ déficit`). O Loot Boost não vale. Há repetição automática enquanto houver token.
+
+**Nível do boss** (`nivelMinimoDoPar`, par = região a partir de 0): Kanto **300**, Johto **650**, Hoenn **3.100**,
+Sinnoh **9.750**, Unova 22.700 (`300 + 350·par³` a partir de Hoenn).
+
+**Chance por vitória** (p = par + 1; cada vitória sorteia os dois itens do prêmio do dia):
+
+| Prêmio do dia | Itens (mediana, gemas) | Chance de cada | Valor por vitória, líquido |
+|---|---|---|---|
+| Mega | Mega Stone Fragment (84) e Mega Shiny Stone Fragment (350) | 0,65% · p e 0,5% · p | **~1,95 · p** |
+| TM | TM Disk Piece (107) e AoE TM Disk Piece (266) | 0,5% · p cada | ~1,59 · p |
+| Tickets | Safari Ticket (306) e Mystic Ticket (sem vendas) | 0,25% · p e 0,0005% · p | ~0,65 · p |
+
+**Conta por luta no boss de Mega**, com o token comprado a 3 gemas (1.387 vendas em 14 dias, sobra no Mercado):
+
+| Região | Nível | Valor líquido por vitória | Saldo por luta ganha |
+|---|---|---|---|
+| Kanto | 300 | ~1,95 | **−1,05** (perde) |
+| Johto | 650 | ~3,9 | **+0,9** |
+| Hoenn | 3.100 | ~5,9 | +2,9 |
+| Sinnoh | 9.750 | ~7,8 | +4,8 |
+
+Sem contar as poções nem as derrotas (o token vai embora). Farmar o token na Outland não muda a conta: a ~1.000
+abates/h sai ~0,1 token por hora, e vender o token rende 2,55 líquidas, então usar o próprio token custa o mesmo.
+
+**Conclusão.** O caminho de renda é **boss a partir de Johto**: treinador no 650 e **5 pokémon no 650**, comprando
+tokens a 3 e lutando no boss de Mega do dia. O lucro depende de quantas lutas cabem por hora e da taxa de vitória,
+que só dá para medir lutando. Liquidez: ~8 Mega Shiny e ~7 Mega por dia no Mercado, o que segura poucas contas.
+
+**Sacrifício** (`sacrificio.mjs`): sacrificar pokémon com nota ≥ 3,5 (fora o ativo, a equipe e lendários) dá pontos;
+50 a 1.000 pontos viram um boost de **XP ×1,2** por 8 h a 14 dias. O Osso do Sacrifício (1 em 250 mil na Outland)
+vale 100 pontos. É um acelerador para o foco XP, não renda.
+
 ## Próximos a investigar
 
-- **Bosses** (`shared/bosses-lendarios.mjs`, ainda não baixado): nível mínimo por par, chance de fragmento de Mega por
-  luta, quantos tokens custa cada luta. Se uma luta rende ~1 fragmento de Mega Shiny (350) por poucos tokens (3 cada),
-  esse é o caminho de renda, e a Outland vira só a fábrica de tokens.
-- Osso do Sacrifício: chance e o que a barra do Sacrifício dá.
-- As chances reais vêm do welcome (`c.d.casas.fragmento.chanceDrop` etc.); a wiki mostra o padrão. Conferir no welcome.
-- Loot Boost (Loja): quanto multiplica e quanto custa.
+- **Uma luta de verdade**: duração, taxa de vitória e poções gastas, com uma conta no nível do boss de Kanto (300).
+  Mesmo perdendo dinheiro em Kanto, dá a medida de lutas por hora.
+- Montar a equipe de 5 no nível do boss: hoje o foco XP só sobe o ativo. Ver o XP Share e o que divide XP com a equipe.
+- O Sacrifício como boost do foco XP: quantos pokémon de nota ≥ 3,5 as contas capturam por dia.
