@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from importlib.metadata import entry_points
 from typing import Any
 
@@ -12,6 +14,9 @@ from ..bus import EventBus, Unsubscribe
 from .base import Plugin, PluginContext
 
 log = logging.getLogger(__name__)
+
+STOP_DRAIN_S = 3.0  # quanto esperar a fila de eventos esvaziar ao reiniciar um plugin
+STOP_TIMEOUT_S = 5.0  # quanto esperar o stop() do plugin
 
 ENTRY_POINT_GROUP = "pokeidle_farm.plugins"
 
@@ -82,17 +87,25 @@ class PluginHost:
         name = subscriber.split(":", 1)[-1]
         self.degraded[name] = repr(exc)
 
-    async def stop_one(self, name: str) -> None:
+    async def stop_one(
+        self, name: str, *, drain_s: float = STOP_DRAIN_S, stop_s: float = STOP_TIMEOUT_S
+    ) -> None:
+        """Para um plugin (reinício pelo painel). Com prazo: a fila de eventos pode estar cheia
+        e o `stop()` pode esperar uma tarefa; nenhum dos dois pode travar o comando (17/11)."""
         unsub = self._unsubs.pop(name, None)
         plugin = self.running.pop(name, None)
         self.degraded.pop(name, None)
+        t0 = time.monotonic()
         if unsub is not None:
-            await unsub()
+            await unsub(drain_s=drain_s)
         if plugin is not None:
             try:
-                await plugin.stop()
+                await asyncio.wait_for(plugin.stop(), stop_s)
+            except TimeoutError:
+                log.warning("plugin %s: stop() passou de %.0f s; seguindo", name, stop_s)
             except Exception:
                 log.exception("plugin %s: falha ao parar", name)
+        log.info("plugin %s parado em %.1f s", name, time.monotonic() - t0)
 
     async def stop_all(self) -> None:
         for name, unsub in list(self._unsubs.items()):
