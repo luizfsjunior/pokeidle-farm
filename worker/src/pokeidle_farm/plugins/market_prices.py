@@ -27,6 +27,7 @@ from ..actions import (
     MarketListPokemon,
 )
 from ..events import Event
+from ..outland_model import DROPS, GOAL_LEVEL, outland_dict, outland_options, tier_mults
 from .base import Plugin, PluginContext
 
 
@@ -187,16 +188,55 @@ class MarketPricesPlugin(Plugin):
             self.ctx.log.warning("market_prices: não consegui gravar os anúncios (%s)", exc)
 
     async def _potential(self) -> None:
-        # potencial em gemas das melhores hunts, com os preços novos (análise de 15/11, proposta D)
-        from .gems import compute_potential
-
+        # estimativa de gemas na Outland com os preços novos (docs/design/outland-potencial.md);
+        # substituiu o potencial em pedras (2 gemas, filas de semanas)
         try:
-            potential = await compute_potential(self.ctx, self.now())
+            potential = await compute_outland(self.ctx, self.now())
         except Exception as exc:
-            self.ctx.log.warning("market_prices: não consegui calcular o potencial (%s)", exc)
+            self.ctx.log.warning("market_prices: não consegui calcular a Outland (%s)", exc)
             return
         if potential is not None:
-            await self.ctx.actions.note("gems.potential", potential)
+            await self.ctx.actions.note("outland.potential", potential)
+
+
+async def compute_outland(
+    ctx: PluginContext, now: datetime, *, preview: int = 5
+) -> dict[str, Any] | None:
+    """Gemas/h previstas nas melhores hunts da Outland para o ativo no 150 (`outland.potential`)."""
+    cat, species = ctx.catalog, ctx.species
+    prof = ctx.state.active_pokemon
+    if cat is None or species is None or not prof or not getattr(cat, "rules", None):
+        return None
+    hunts = [
+        (h.slug, h.species_name or h.name, h.level, h.species_id)
+        for h in cat.hunts.values()
+        if str(h.area or "").lower() == "outland"
+    ]
+    if not hunts:
+        return None
+    ref = await ctx.store.market_reference()
+    by_lower = {k.lower(): v for k, v in ref.items()}
+    prices: dict[str, float] = {}
+    for name, _c, _s in DROPS:
+        r = by_lower.get(name.lower())
+        if r and r.get("median"):
+            prices[name] = float(r["median"])
+    raw = getattr(species, "raw", {}) or {}
+    proj, options = await asyncio.to_thread(outland_options, hunts, prof, raw, cat.rules, prices)
+    _low, top = tier_mults(cat.rules)
+    return {
+        "trainer_level": ctx.state.level,
+        "goal_level": GOAL_LEVEL,
+        "active_species_id": proj.get("speciesId"),
+        "active_name": (raw.get(proj.get("speciesId")) or {}).get("name"),
+        "top_tier_mult": top,
+        "prices": {
+            name: {"gems": prices.get(name), "chance": chance, "tier_scaled": scaled}
+            for name, chance, scaled in DROPS
+        },
+        "hunts": len(hunts),
+        "options": [outland_dict(o) for o in options[:preview]],
+    }
 
 
 def ask_row(taken_at: datetime, raw: dict[str, Any], own_nick: str) -> dict[str, Any] | None:

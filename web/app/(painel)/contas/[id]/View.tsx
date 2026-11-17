@@ -17,6 +17,7 @@ import { useAccounts, useAtlas, usePanel } from "@/lib/query/hooks";
 import { loadAccount } from "./data";
 import { FocusCard } from "./FocusCard";
 import { GemsCard } from "./GemsCard";
+import { OutlandCard } from "./OutlandCard";
 import { NewPlugin } from "./NewPlugin";
 import { PluginEditor } from "./PluginEditor";
 import { ProfileSections } from "./ProfileSections";
@@ -102,7 +103,8 @@ export function AccountView() {
               <RankCard rank={d.rank} />
             </>
           )}
-          {d && <GemsCard plan={d.gemsPlan} potential={d.potential} progress={d.progress} />}
+          {d && <GemsCard plan={d.gemsPlan} progress={d.progress} />}
+          {d?.outland && <OutlandCard data={d.outland} progress={d.progress} />}
         </>
 
         {/* Ajustes */}

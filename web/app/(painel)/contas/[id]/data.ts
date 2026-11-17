@@ -5,7 +5,8 @@ import { loadProfiles, speciesOf } from "@/lib/profile";
 import { rankSummary } from "@/lib/rank";
 import { speciesLooktypes } from "@/lib/sprites";
 import type { Account, Command } from "@/lib/types";
-import type { GemsPlanData, GemsPotentialData, ProgressPlanData } from "./GemsCard";
+import type { GemsPlanData, ProgressPlanData } from "./GemsCard";
+import type { OutlandPotentialData } from "./OutlandCard";
 import type { ItemInfo } from "./ProfileSections";
 
 export type PluginRow = { plugin: string; enabled: boolean; config: Record<string, unknown> };
@@ -25,7 +26,7 @@ export async function loadAccount(supabase: SupabaseClient, id: string) {
     supabase.from("strategy_configs").select("plugin, enabled, config").eq("account_id", id).order("plugin"),
     supabase.from("commands").select("*").eq("account_id", id).order("created_at", { ascending: false }).limit(20),
     loadProfiles(supabase, [id]),
-    lastEvent(supabase, id, "gems.potential"),
+    lastEvent(supabase, id, "outland.potential"),
     supabase.from("game_hunts").select("slug, name, level").order("level").limit(1000),
     loadActiveCapture(supabase, id),
     supabase.from("account_profile_daily").select("day, level, xp, gold, gems, diamonds, pokemon_count, dex_caught")
@@ -42,7 +43,7 @@ export async function loadAccount(supabase: SupabaseClient, id: string) {
   const [rank, gemsPlanRes, progressRes, looktypes, itemsRes] = await Promise.all([
     rankOn ? rankSummary(supabase, id) : Promise.resolve(null),
     gemsOn ? lastEvent(supabase, id, "gems.plan") : Promise.resolve({ data: null }),
-    gemsOn ? lastEvent(supabase, id, "progress.plan") : Promise.resolve({ data: null }),
+    lastEvent(supabase, id, "progress.plan"),
     profile ? speciesLooktypes(supabase, speciesOf(profile.team, profile.top_pokemon, profile.shinies)) : Promise.resolve(new Map<number, number>()),
     itemIds.length ? supabase.from("game_items").select("item_id, name, category, icon").in("item_id", itemIds) : Promise.resolve({ data: [] }),
   ]);
@@ -60,7 +61,7 @@ export async function loadAccount(supabase: SupabaseClient, id: string) {
     huntOptions: (huntsRes.data ?? []) as HuntOption[],
     daily: (dailyRes.data ?? []) as Daily[],
     gemsPlan: withAt<GemsPlanData>(gemsPlanRes),
-    potential: withAt<GemsPotentialData>(potentialRes),
+    outland: withAt<OutlandPotentialData>(potentialRes),
     progress: withAt<ProgressPlanData>(progressRes),
   };
 }

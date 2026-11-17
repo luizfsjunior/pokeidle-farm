@@ -21,7 +21,7 @@ from pokeidle_farm.gamedata import (
 from pokeidle_farm.gems_model import StonePrice, chain_position, rank_options, stones_of
 from pokeidle_farm.pace import PaceBook, rates_for
 from pokeidle_farm.plugins.base import AccountStateView, PluginContext
-from pokeidle_farm.plugins.gems import GemsConfig, GemsPlugin, compute_potential
+from pokeidle_farm.plugins.gems import GemsConfig, GemsPlugin
 from pokeidle_farm.store.base import HuntStats
 from pokeidle_farm.store.memory import MemoryStore
 
@@ -296,17 +296,6 @@ async def test_replans_on_interval_and_prices():
         Event(account_id=uuid4(), session_id=uuid4(), type="market.prices", data={})
     )
     assert h.events("gems.plan")[-1]["reason"] == "prices"
-
-
-async def test_compute_potential():
-    h = Harness()
-    pot = await compute_potential(h.ctx, NOW)
-    assert pot is not None
-    assert pot["options"][0]["slug"] == "butterfree"
-    assert pot["prices"] == 4 and pot["trainer_level"] == 10
-
-
-# --- ritmo projetado pelo nível do ativo -------------------------------------------------
 
 
 def test_pace_projects_rate_to_active_level():

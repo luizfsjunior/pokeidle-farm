@@ -43,7 +43,7 @@ export async function loadHunts(
     loadAllSpecies(supabase),
     loadLootStones(supabase),
     loadStonePrices(supabase),
-    supabase.from("events").select("data->trainer_level").in("type", ["gems.plan", "gems.potential", "rank.plan"])
+    supabase.from("events").select("data->trainer_level").in("type", ["gems.plan", "outland.potential", "rank.plan"])
       .order("received_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("events").select("account_id, received_at, data->slug").eq("type", "hunt.changed")
       .order("received_at", { ascending: false }).limit(50),
