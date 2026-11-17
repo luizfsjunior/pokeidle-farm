@@ -23,13 +23,15 @@ export type Mon = {
   xp_next?: number;
   nickname?: string;
   skin?: unknown;
-  refine?: number;
+  refine?: number | Record<string, number>;
+  grade?: number; // a nota que o jogo calcula (0 a 10)
+  min_level?: number;
   refine_total?: number;
   tm_elemental?: unknown;
   tm_physical?: unknown;
   tm_aoe?: unknown;
   held_item_id?: number;
-  caught_by?: string;
+  caught_by?: string | boolean;
   gym_level?: number;
 };
 

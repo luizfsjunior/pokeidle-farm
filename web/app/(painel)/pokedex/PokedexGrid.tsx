@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { CaptureForm, CaptureStatus, type ActiveCapture } from "@/components/Capture";
 import { commandSummary } from "@/components/CommandButtons";
-import { Matchups, Moves, PvpRange, StatBars } from "@/components/SpeciesFacts";
+import { Matchups, Moves, PvpRange, StatBars, StatRadar } from "@/components/SpeciesFacts";
 import { Sprite } from "@/components/Sprite";
 import { RARITY_PT, loadGameRules, loadSpeciesInfo } from "@/lib/pokemon";
 import { usePanel } from "@/lib/query/hooks";
@@ -231,7 +231,7 @@ function SpeciesExtra({ id }: { id: number }) {
         {s.price_npc != null && <><dt>O NPC paga</dt><dd className="num">{num(s.price_npc)} de ouro</dd></>}
       </dl>
       <div className="dex-section"><h3>Tipos</h3><Matchups s={s} rules={rules} /></div>
-      <div className="dex-section"><h3>Stats base</h3><StatBars base={s.base} /></div>
+      <div className="dex-section"><h3>Stats base</h3><StatRadar base={s.base} /><details className="stat-table"><summary>Ver os números</summary><StatBars base={s.base} /></details></div>
       <div className="dex-section"><h3>No PvP</h3><PvpRange base={s.base} /></div>
       <div className="dex-section"><h3>Golpes</h3><Moves attacks={s.attacks} /></div>
     </>

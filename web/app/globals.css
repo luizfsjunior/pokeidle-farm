@@ -667,12 +667,18 @@ body:has(.login) { overflow: auto; }
 .statbars thead th, .moves thead th { font-size: .74rem; color: var(--text-muted); font-weight: 500; }
 .statbars tbody th { font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
 .statbars td { white-space: nowrap; }
-.statbars td .num { display: inline-block; min-width: 2.2em; text-align: right; }
-.statbar { display: inline-block; vertical-align: middle; width: 70px; height: 6px; border-radius: 3px; background: var(--surface-3); margin-right: .4rem; overflow: hidden; }
-.statbar > span { display: block; height: 100%; background: var(--text-secondary); border-radius: 3px; }
-.statbar.iv > span { background: var(--series-1); }
-.statbar.iv.hi > span { background: var(--good); }
-.statbar.iv.lo > span { background: var(--warning); }
+/* barras dos stats: 8px, ponta arredondada, quadradas na base; o trilho é um tom claro da mesma cor */
+.meter { display: inline-block; vertical-align: middle; width: 76px; height: 8px; border-radius: 0 4px 4px 0;
+  background: color-mix(in srgb, var(--series-1) 14%, var(--surface-2)); margin-right: .45rem; }
+.meter > span { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--series-1); }
+.statbars tbody tr:hover th, .statbars tbody tr:hover td { background: var(--surface-2); }
+.statbars tfoot th, .statbars tfoot td { border-bottom: 0; padding-top: .35rem; font-size: .8rem; color: var(--text-secondary); }
+.sb-val { display: inline-block; min-width: 2.4em; text-align: right; }
+.sb-total { color: var(--text-primary); }
+.sb-perfect { color: var(--text-secondary); font-size: .75rem; }
+.statbars.species-only .meter { width: 140px; }
+@media (max-width: 420px) { .meter { width: 52px; } .statbars.species-only .meter { width: 110px; } }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .moves tr.muted td { color: var(--text-muted); }
 .moves .type-chip { margin: 0; }
 
@@ -714,3 +720,34 @@ body:has(.login) { overflow: auto; }
 .dex-desc { font-size: .88rem; color: var(--text-secondary); margin: .2rem 0 .6rem; }
 .good-text { color: var(--good); }
 .statbars th, .moves th { background: none; }
+.statbars tfoot td { text-align: right; }
+.statbars tfoot td:last-child, .statbars td.num.muted { text-align: right; }
+.statbars thead th:last-child { text-align: right; }
+
+/* radar dos stats (o hexágono da ficha do jogo); cores validadas no fundo escuro (dataviz) */
+.radar { margin: 0; --radar-stats: #2f8fd6; --radar-iv: #cf7a1f; --radar-base: #2f8fd6; }
+.radar svg { display: block; width: 100%; max-width: 380px; margin: 0 auto; }
+.radar-ring { fill: none; stroke: var(--grid); stroke-width: 1; }
+.radar-ring:last-of-type { stroke: var(--border); }
+.radar-axis { stroke: var(--grid); stroke-width: 1; }
+.radar-shape { stroke-width: 2; stroke-linejoin: round; }
+.radar-shape.stats { fill: color-mix(in srgb, var(--radar-stats) 16%, transparent); stroke: var(--radar-stats); }
+.radar-shape.iv { fill: color-mix(in srgb, var(--radar-iv) 12%, transparent); stroke: var(--radar-iv); }
+.radar-shape.base { fill: color-mix(in srgb, var(--radar-base) 16%, transparent); stroke: var(--radar-base); }
+.radar-dot { stroke: var(--surface-1); stroke-width: 2; }
+.radar-dot.stats, .radar-dot.base { fill: var(--radar-stats); }
+.radar-dot.iv { fill: var(--radar-iv); }
+.radar-hit { fill: transparent; }
+.radar-label text { font-size: 10.5px; fill: var(--text-primary); }
+.radar-name { fill: var(--text-muted); }
+.radar-val { font-weight: 650; font-variant-numeric: tabular-nums; }
+.radar-sub { font-size: 9.5px; fill: var(--text-secondary) !important; }
+.radar-label:hover .radar-name { fill: var(--text-primary); }
+.radar-legend { display: flex; justify-content: center; gap: 1rem; font-size: .78rem; color: var(--text-secondary); margin-top: .2rem; }
+.radar-legend span { display: inline-flex; align-items: center; gap: .35rem; }
+.radar-key { display: inline-block; width: 12px; height: 3px; border-radius: 2px; }
+.radar-key.stats { background: var(--radar-stats); }
+.radar-key.iv { background: var(--radar-iv); }
+.stat-table { margin-top: .5rem; }
+.stat-table summary { cursor: pointer; font-size: .82rem; color: var(--link); }
+.stat-table[open] summary { margin-bottom: .4rem; }

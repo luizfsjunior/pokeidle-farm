@@ -43,6 +43,8 @@ POKEMON_FIELDS = {
     "heldItemId": "held_item_id",
     "caughtBy": "caught_by",
     "levelGinasio": "gym_level",
+    "nota": "grade",  # a nota que o jogo calcula (0 a 10)
+    "pisoNivel": "min_level",
 }
 # dicionários pequenos guardados como vieram (IV por stat; stats de combate, se o jogo mandar)
 POKEMON_DICTS = {"ivs": "ivs", "stats": "stats"}
