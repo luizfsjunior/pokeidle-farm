@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { Sprite } from "@/components/Sprite";
-import { Matchups, Moves, PvpRange, StatBars, TypeChips } from "@/components/SpeciesFacts";
+import { Matchups, Moves, PvpRange, StatBars, StatRadar, TypeChips } from "@/components/SpeciesFacts";
 import { dateTime, num } from "@/lib/format";
 import {
   BAND_PT, RARITY_PT, bandOf, gradeWithLineage, isLegendary, loadAncestors, loadGameRules, loadSpeciesInfo,
@@ -47,7 +47,8 @@ export function MonSheet({ mon, atlas, looktypes, active, onClose, children }: {
 
   const ivs = (mon.ivs ?? undefined) as Partial<Record<Stat, number>> | undefined;
   const legendary = isLegendary(s?.rarity ?? null);
-  const g = s?.base && ivs && mon.quality != null
+  // a nota que o jogo manda vale mais; o cálculo próprio fica para perfis antigos
+  const g = typeof mon.grade === "number" ? mon.grade : s?.base && ivs && mon.quality != null
     ? gradeWithLineage({ ivs, quality: mon.quality, potency: mon.potency ?? 1, shiny: !!mon.shiny }, s.base, anc.data ?? [], rules?.evoGain ?? null)
     : null;
   const band = g != null && rules ? bandOf(rules.bands, g) : null;
@@ -92,7 +93,7 @@ export function MonSheet({ mon, atlas, looktypes, active, onClose, children }: {
             <Fig label="IV" value={mon.iv_sum != null ? `${mon.iv_sum}/192` : "—"} />
             <Fig label="Poder" value={num(mon.power ?? null, { compact: true })} />
             {mon.max_hp != null && <Fig label="HP" value={`${num(mon.hp ?? null, { compact: true })}/${num(mon.max_hp, { compact: true })}`} />}
-            {mon.refine != null && Number(mon.refine) > 0 && <Fig label="Refino" value={`+${num(Number(mon.refine))}`} />}
+            {(mon.refine_total ?? 0) > 0 && <Fig label="Refino" value={`+${num(mon.refine_total ?? 0)}`} />}
           </div>
 
           {xpPct != null && (
@@ -107,7 +108,13 @@ export function MonSheet({ mon, atlas, looktypes, active, onClose, children }: {
           <section>
             <h3>Stats</h3>
             {sp.isLoading ? <p className="muted small">Carregando a espécie…</p> : (
-              <StatBars base={s?.base ?? null} ivs={ivs} stats={mon.stats ?? undefined} />
+              <>
+                <StatRadar base={s?.base ?? null} ivs={ivs} stats={mon.stats ?? undefined} />
+                <details className="stat-table">
+                  <summary>Ver os números</summary>
+                  <StatBars base={s?.base ?? null} ivs={ivs} stats={mon.stats ?? undefined} refine={refineOf(mon.refine)} />
+                </details>
+              </>
             )}
             {!ivs && <p className="muted small">O IV por stat aparece depois que o worker gravar o perfil de novo (até 2 minutos).</p>}
           </section>
@@ -136,13 +143,18 @@ export function MonSheet({ mon, atlas, looktypes, active, onClose, children }: {
           <dl className="dex-facts">
             {s?.rarity && <><dt>Raridade</dt><dd>{RARITY_PT[s.rarity] ?? s.rarity}</dd></>}
             {caught && <><dt>Capturado em</dt><dd>{caught}</dd></>}
-            {mon.caught_by && <><dt>Capturado por</dt><dd>{String(mon.caught_by)}</dd></>}
+            {typeof mon.caught_by === "string" && <><dt>Capturado por</dt><dd>{mon.caught_by}</dd></>}
+            {mon.caught_by === true && <><dt>Capturado por</dt><dd>esta conta</dd></>}
             <dt>ID</dt><dd className="num muted">{mon.id}</dd>
           </dl>
         </div>
       </aside>
     </>
   );
+}
+
+function refineOf(v: unknown): Record<string, number> | undefined {
+  return v && typeof v === "object" ? (v as Record<string, number>) : undefined;
 }
 
 function Fig({ label, value }: { label: string; value: string }) {

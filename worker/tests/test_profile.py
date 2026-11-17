@@ -41,6 +41,7 @@ ESTADO = {
             "ivs": {"hp": 10, "atk": 20},
             "xp": 4000,
             "apelido": "Kabu",
+            "nota": 3.18,
             "shiny": False,
             "segredo": "x",
         },
@@ -69,6 +70,7 @@ def test_snapshot_summary():
     assert s["team"][0]["iv_sum"] == 30 and "segredo" not in s["team"][0]
     assert s["team"][0]["ivs"] == {"hp": 10, "atk": 20}
     assert s["team"][0]["xp"] == 4000 and s["team"][0]["nickname"] == "Kabu"
+    assert s["team"][0]["grade"] == 3.18
     assert "segredo" in s["extra"]["pokemon_keys"]
     assert s["pokemon_count"] == 3 and s["shiny_count"] == 1
     assert s["dex_seen"] == 2 and s["dex_caught"] == 1

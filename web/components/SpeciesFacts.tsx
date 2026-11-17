@@ -43,44 +43,159 @@ export function Matchups({ s, rules }: { s: Pick<SpeciesInfo, "type1" | "type2">
   );
 }
 
-/** Stats base da espécie e, para um pokémon seu, o IV de cada stat (1 a 32). */
-export function StatBars({ base, ivs, stats }: {
+// escala fixa dos stats base: o mesmo comprimento quer dizer o mesmo número em qualquer espécie
+// (quase nenhum base passa de 180; quem passa enche a barra)
+const BASE_SCALE = 180;
+
+function Meter({ value, max, label }: { value: number | null | undefined; max: number; label: string }) {
+  const w = value == null || max <= 0 ? 0 : Math.min(100, (value / max) * 100);
+  return (
+    <span className="meter" role="img" aria-label={label}>
+      <span style={{ width: `${w}%` }} />
+    </span>
+  );
+}
+
+/**
+ * Stats de um pokémon: o valor atual (quando o jogo manda), o IV de 1 a 32 e o base da espécie.
+ * Cada coluna tem a sua escala e o seu título; sem `stats` nem `ivs`, só o base, em escala fixa.
+ */
+export function StatBars({ base, ivs, stats, refine }: {
   base: Record<Stat, number> | null;
   ivs?: Partial<Record<Stat, number>>;
-  stats?: Partial<Record<string, number>>; // os stats de combate, quando o jogo manda
+  stats?: Partial<Record<string, number>>; // stats de combate que o jogo calcula
+  refine?: Partial<Record<string, number>>;
 }) {
-  if (!base && !ivs) return null;
-  const maxBase = 160;
+  if (!base && !ivs && !stats) return null;
+  const hasStats = !!stats && STATS.some((k) => stats[k] != null);
+  const maxStat = hasStats ? Math.max(...STATS.map((k) => stats![k] ?? 0)) : 0;
+  const sum = (f: (k: Stat) => number | undefined) => STATS.reduce((t, k) => t + (f(k) ?? 0), 0);
+  const speciesOnly = !hasStats && !ivs;
   return (
-    <table className="statbars">
+    <table className={`statbars ${speciesOnly ? "species-only" : ""}`}>
       <thead>
-        <tr><th scope="col">Stat</th><th scope="col">Base</th>{ivs && <th scope="col">IV</th>}{stats && <th scope="col">Atual</th>}</tr>
+        <tr>
+          <th scope="col"><span className="sr-only">Stat</span></th>
+          {hasStats && <th scope="col">Atual</th>}
+          {ivs && <th scope="col">IV <span className="muted">de {IV_MAX_STAT}</span></th>}
+          <th scope="col">{speciesOnly ? "Base" : <span className="muted">Base</span>}</th>
+        </tr>
       </thead>
       <tbody>
         {STATS.map((k) => {
           const b = base?.[k];
           const iv = ivs?.[k];
+          const cur = stats?.[k];
+          const ref = refine?.[k] ?? 0;
+          const tip = [
+            STAT_LABEL[k],
+            hasStats ? `atual ${num(cur ?? null)}${ref ? ` (refino +${ref})` : ""}` : null,
+            ivs ? `IV ${iv ?? "—"} de ${IV_MAX_STAT}` : null,
+            `base ${b ?? "—"}`,
+          ].filter(Boolean).join(" · ");
           return (
-            <tr key={k}>
+            <tr key={k} title={tip}>
               <th scope="row">{STAT_LABEL[k]}</th>
-              <td>
-                <span className="statbar"><span style={{ width: `${Math.min(100, ((b ?? 0) / maxBase) * 100)}%` }} /></span>
-                <span className="num">{b ?? "—"}</span>
-              </td>
-              {ivs && (
-                <td>
-                  <span className={`statbar iv ${iv != null && iv >= 28 ? "hi" : iv != null && iv <= 8 ? "lo" : ""}`}>
-                    <span style={{ width: `${((iv ?? 0) / IV_MAX_STAT) * 100}%` }} />
-                  </span>
-                  <span className="num">{iv ?? "—"}</span>
+              {hasStats && (
+                <td className="sb-cell">
+                  <Meter value={cur} max={maxStat} label={`${STAT_LABEL[k]} ${num(cur ?? null)}`} />
+                  <span className="num sb-val">{num(cur ?? null)}</span>
+                  {ref > 0 && <span className="small muted"> +{ref}</span>}
                 </td>
               )}
-              {stats && <td className="num">{num(stats[k] ?? null)}</td>}
+              {ivs && (
+                <td className="sb-cell">
+                  <Meter value={iv} max={IV_MAX_STAT} label={`IV ${iv ?? "—"} de ${IV_MAX_STAT}`} />
+                  <span className="num sb-val">{iv ?? "—"}</span>
+                  {iv === IV_MAX_STAT && <span className="sb-perfect" title="IV máximo"> ★</span>}
+                </td>
+              )}
+              {speciesOnly ? (
+                <td className="sb-cell">
+                  <Meter value={b} max={BASE_SCALE} label={`${STAT_LABEL[k]} base ${b ?? "—"}`} />
+                  <span className="num sb-val">{b ?? "—"}</span>
+                </td>
+              ) : (
+                <td className="num muted">{b ?? "—"}</td>
+              )}
             </tr>
           );
         })}
       </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row">Total</th>
+          {hasStats && <td className="num sb-total">{num(sum((k) => stats![k]))}</td>}
+          {ivs && <td className="num sb-total">{sum((k) => ivs[k])} <span className="muted">de {IV_MAX_STAT * 6}</span></td>}
+          <td className={`num ${speciesOnly ? "sb-total" : "muted"}`}>{base ? sum((k) => base[k]) : "—"}</td>
+        </tr>
+      </tfoot>
     </table>
+  );
+}
+
+// a ordem do radar do jogo (ORDEM_RADAR no app.js): HP no topo, sentido horário
+const RADAR_ORDER: Stat[] = ["hp", "atk", "def", "speed", "spDef", "spAtk"];
+const RADAR_SHORT: Record<Stat, string> = { hp: "HP", atk: "Atq", def: "Def", speed: "Vel", spDef: "Sp.Def", spAtk: "Sp.Atk" };
+const R = 84;
+const pt = (i: number, v: number): [number, number] => {
+  const a = ((-90 + i * 60) * Math.PI) / 180;
+  return [Math.cos(a) * R * v, Math.sin(a) * R * v];
+};
+const poly = (f: (k: Stat) => number) => RADAR_ORDER.map((k, i) => pt(i, f(k)).map((n) => n.toFixed(1)).join(",")).join(" ");
+const clamp = (v: number) => Math.max(0.04, Math.min(1, v));
+
+/**
+ * O hexágono dos stats, como na ficha do jogo. Pokémon seu: os stats atuais (em relação ao maior
+ * deles) e o IV (de 32) sobrepostos. Espécie: o base (de 200). Os números ficam nas pontas.
+ */
+export function StatRadar({ base, ivs, stats }: {
+  base: Record<Stat, number> | null;
+  ivs?: Partial<Record<Stat, number>>;
+  stats?: Partial<Record<string, number>>;
+}) {
+  const hasStats = !!stats && STATS.some((k) => stats[k] != null);
+  const maxStat = hasStats ? Math.max(1, ...STATS.map((k) => stats![k] ?? 0)) : 1;
+  const series: { key: string; label: string; v: (k: Stat) => number }[] = [];
+  if (hasStats) series.push({ key: "stats", label: "Stats atuais", v: (k) => (stats![k] ?? 0) / maxStat });
+  if (ivs) series.push({ key: "iv", label: `IV (de ${IV_MAX_STAT})`, v: (k) => (ivs[k] ?? 0) / IV_MAX_STAT });
+  if (!series.length && base) series.push({ key: "base", label: "Base", v: (k) => base[k] / 200 });
+  if (!series.length) return null;
+  const tip = (k: Stat) => [STAT_LABEL[k], hasStats ? `atual ${num(stats![k] ?? null)}` : null, ivs ? `IV ${ivs[k] ?? "—"} de ${IV_MAX_STAT}` : null, base ? `base ${base[k]}` : null].filter(Boolean).join(" · ");
+  return (
+    <figure className="radar">
+      <svg viewBox="-160 -130 320 258" role="img" aria-label={`Stats: ${STATS.map(tip).join("; ")}`}>
+        {[0.25, 0.5, 0.75, 1].map((v) => <polygon key={v} className="radar-ring" points={poly(() => v)} />)}
+        {RADAR_ORDER.map((k, i) => { const [x, y] = pt(i, 1); return <line key={k} className="radar-axis" x1={0} y1={0} x2={x} y2={y} />; })}
+        {series.map((s) => <polygon key={s.key} className={`radar-shape ${s.key}`} points={poly((k) => clamp(s.v(k)))} />)}
+        {series.map((s) => RADAR_ORDER.map((k, i) => {
+          const [x, y] = pt(i, clamp(s.v(k)));
+          return <circle key={`${s.key}-${k}`} className={`radar-dot ${s.key}`} cx={x} cy={y} r={3.5} />;
+        }))}
+        {RADAR_ORDER.map((k, i) => {
+          const [x, y] = pt(i, 1.27);
+          const main = hasStats ? num(stats![k] ?? null) : ivs ? String(ivs[k] ?? "—") : String(base?.[k] ?? "—");
+          const sub = hasStats && ivs ? `IV ${ivs[k] ?? "—"}` : !hasStats && ivs && base ? `base ${base[k]}` : null;
+          const anchor = Math.abs(x) < 1 ? "middle" : x > 0 ? "start" : "end";
+          return (
+            <g key={k} className="radar-label">
+              <title>{tip(k)}</title>
+              {/* área de toque maior que o texto, para o balão no celular */}
+              <circle cx={x} cy={y} r={18} className="radar-hit" />
+              <text x={x} y={y - (sub ? 6 : 0)} textAnchor={anchor} dominantBaseline="middle">
+                <tspan className="radar-name">{RADAR_SHORT[k]} </tspan><tspan className="radar-val">{main}</tspan>
+              </text>
+              {sub && <text x={x} y={y + 8} textAnchor={anchor} dominantBaseline="middle" className="radar-sub">{sub}{ivs?.[k] === IV_MAX_STAT ? " ★" : ""}</text>}
+            </g>
+          );
+        })}
+      </svg>
+      {series.length > 1 && (
+        <figcaption className="radar-legend">
+          {series.map((s) => <span key={s.key}><i className={`radar-key ${s.key}`} aria-hidden />{s.label}</span>)}
+        </figcaption>
+      )}
+    </figure>
   );
 }
 
