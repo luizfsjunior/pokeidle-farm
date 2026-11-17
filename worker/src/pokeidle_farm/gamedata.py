@@ -546,6 +546,8 @@ GAME_BASE_URL = "https://pokeidle.io"
 # então o conteúdo do jogo não vai para o git).
 GAME_FILES = (
     "pokepedia.mjs",
+    # o cliente: as mensagens que o navegador manda (trocar o ativo, evoluir, comprar...)
+    "app.js",
     "shared/loot-pedras.mjs",
     "shared/pedras-evolucao.mjs",
     "shared/taxa-mercado.mjs",
