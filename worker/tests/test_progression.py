@@ -304,3 +304,42 @@ async def test_missing_stone():
         "Leaf Stone",
         12,
     )
+
+
+# --- plugin evolve: evolução em qualquer foco -----------------------------------------
+
+
+async def test_evolve_plugin_works_without_the_xp_focus():
+    from pokeidle_farm.events import Event
+    from pokeidle_farm.plugins.evolve import EvolveConfig, EvolvePlugin
+
+    sent: list[dict[str, Any]] = []
+    ctx = _ctx(12, {"76": 1}, sent)
+    ctx.config = EvolveConfig()
+    plugin = EvolvePlugin()
+    plugin.now = lambda: NOW
+    await plugin.start(ctx)
+    ev = Event(account_id=uuid4(), session_id=uuid4(), type="kill", data={})
+    await plugin.on_event(ev)
+    await plugin.on_event(ev)
+    assert sent == [{"t": "pokemon.evoluir", "pokemonId": 7, "alvoId": 2}]
+
+
+async def test_evolve_plugin_waits_for_species_and_can_be_off():
+    from pokeidle_farm.events import Event
+    from pokeidle_farm.plugins.evolve import EvolveConfig, EvolvePlugin
+
+    ev = Event(account_id=uuid4(), session_id=uuid4(), type="state.patch", data={})
+    sent: list[dict[str, Any]] = []
+    ctx = _ctx(12, {"76": 1}, sent)
+    ctx.config = EvolveConfig(active=False)
+    off = EvolvePlugin()
+    await off.start(ctx)
+    await off.on_event(ev)
+    ctx2 = _ctx(12, {"76": 1}, sent)
+    ctx2.config = EvolveConfig()
+    ctx2.species = None  # a Pokedex ainda não carregou
+    early = EvolvePlugin()
+    await early.start(ctx2)
+    await early.on_event(ev)
+    assert sent == []

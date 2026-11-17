@@ -21,7 +21,7 @@ pedras/h(hunt) = abates/h projetados do ativo × chance da pedra pelo estágio d
 Só entram hunts liberadas cujo selvagem tem o tipo da pedra (Leaf Stone: Grama). Empate: a de mais XP/h. A troca ignora
 a folga de 15% do foco XP. Sem nenhuma hunt que dropa a pedra, segue a rota de XP normal.
 
-Quando a pedra cai (`state.patch` com o item na bolsa), o plugin grava `progress.stone_found`, tenta evoluir na hora
+Quando a pedra cai (`state.patch` com o item na bolsa), o plugin grava `progress.stone_found`, o plugin `evolve` evolui
 (se o ativo já está no nível) e refaz o plano, voltando para a hunt de XP. Se a pedra caiu antes do nível (por causa da
 antecedência), ela fica guardada e o `maybe_evolve` evolui ao chegar no nível, como antes.
 
