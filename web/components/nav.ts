@@ -8,6 +8,7 @@ export const NAV_GROUPS: { title: string | null; items: NavItem[] }[] = [
     items: [
       { href: "/pokedex", label: "Pokédex", icon: "dex" },
       { href: "/hunts", label: "Hunts", icon: "map" },
+      { href: "/bosses", label: "Bosses", icon: "crown" },
       { href: "/objetivos", label: "Objetivos", icon: "target" },
       { href: "/metricas", label: "Métricas", icon: "chart" },
     ],
