@@ -39,6 +39,9 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 - A conta aparece como `offline` no painel com o worker jogando no `vps1` (abates às 00:14 UTC de 17/11): conferir
   quando o worker grava o `status`.
 - Lint: dois B008 em `model/combat.py` (de 15/11).
+- Fase 5, contas 2 e 3: o jogo só aceita Gmail, Live e Yahoo e normaliza `+alias` e pontos; o Google barrou o celular
+  por excesso de verificações. Esperar uns dias e criar dois Gmail (ou Yahoo); depois: nicks no Supabase, plugins,
+  `set-token` no VPS e `docker compose restart worker` (o worker só carrega contas novas ao reiniciar).
 
 ## 2026-11-15
 

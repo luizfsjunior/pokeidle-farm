@@ -17,6 +17,10 @@ Automação que descumpre isso leva a suspensão de 48 h, que pode virar banimen
 - Cada rede: até 4 contas criadas e até 4 conectadas ao mesmo tempo.
 - A detecção usa a rede e um identificador do navegador guardado no localStorage.
 - Mais de 4 contas: banimento permanente de todas e saques de Gemas travados.
+- Cadastro por e-mail (testado em 16/11): só aceita `@gmail.com`, `@live.com`, `@yahoo.com` e `@yahoo.com.br`, e
+  normaliza o endereço (`+alias` e pontos do Gmail contam como o mesmo e-mail). Cada conta precisa de uma caixa de
+  verdade. O Google limita quantas contas um celular verifica ("dispositivo usado muitas vezes"): espere uns dias ou
+  use Yahoo.
 
 ## Login e sessão (seções 4, 8 e 9)
 
