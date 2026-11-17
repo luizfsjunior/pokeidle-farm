@@ -121,8 +121,13 @@ export async function loadAncestors(sb: SupabaseClient, id: number): Promise<Rec
 // --- regras --------------------------------------------------------------------------------------
 
 export type NotaBand = { id: string; ate: number };
+export type CaptureRules = { base: number; floor: number; ceiling: number; byStep: Record<string, number>; rarityDiv: number };
+export type Ball = { id: number; name: string; catchRate: number; price: number | null };
 export type GameRules = {
   types: Record<string, Record<string, number>>; // atacante -> defensor -> multiplicador
+  capture: CaptureRules | null; // game_catalog.captura
+  balls: Ball[]; // game_catalog.catalogoBolas
+  shinyChance: number | null; // regras.chanceShiny (1 em 24 mil)
   bands: NotaBand[]; // FAIXAS_NOTA (vazio enquanto o worker não sincronizou nota-pokemon.mjs)
   evoGain: number | null; // GANHO_MIN_EVOLUCAO
   legendaryMult: number | null;
@@ -141,12 +146,24 @@ export function parseNotaModule(src: string | null): Pick<GameRules, "bands" | "
 }
 
 export async function loadGameRules(sb: SupabaseClient): Promise<GameRules> {
-  const [regras, nota] = await Promise.all([
+  const [regras, nota, cap, balls] = await Promise.all([
     sb.from("game_catalog").select("data").eq("key", "regras").maybeSingle(),
     sb.from("game_files").select("content").eq("path", "shared/nota-pokemon.mjs").maybeSingle(),
+    sb.from("game_catalog").select("data").eq("key", "captura").maybeSingle(),
+    sb.from("game_catalog").select("data").eq("key", "catalogoBolas").maybeSingle(),
   ]);
-  const types = ((regras.data?.data as Obj | undefined)?.tabelaTipos ?? {}) as GameRules["types"];
-  return { types, ...parseNotaModule((nota.data?.content as string) ?? null) };
+  const r = (regras.data?.data as Obj | undefined) ?? {};
+  const types = (r.tabelaTipos ?? {}) as GameRules["types"];
+  const c = cap.data?.data as Obj | undefined;
+  const capture: CaptureRules | null = c && num(c.base) != null
+    ? { base: num(c.base)!, floor: num(c.piso) ?? 0, ceiling: num(c.teto) ?? 1, byStep: (c.porDegrau ?? {}) as Record<string, number>, rarityDiv: num(c.raridadeDiv) ?? 17 }
+    : null;
+  const ballList = (Array.isArray(balls.data?.data) ? balls.data!.data : []) as Obj[];
+  return {
+    types, capture, shinyChance: num(r.chanceShiny),
+    balls: ballList.filter((b) => num(b.catchRate) != null).map((b) => ({ id: Number(b.id), name: String(b.nome ?? `Bola ${b.id}`), catchRate: num(b.catchRate)!, price: num(b.priceGold) })),
+    ...parseNotaModule((nota.data?.content as string) ?? null),
+  };
 }
 
 // --- tipos (shared/tipo-efetividade.mjs) ---------------------------------------------------------
@@ -305,3 +322,20 @@ export const tierIvSum = (s: number) => byCuts((s - IV_SUM_MIN) / (IV_SUM_MAX - 
 export const tierGrade = (n: number) => byCuts(n, CUTS_GRADE);
 /** IV de um stat (classeIvStat): ≤5, ≤10, ≤15, ≤24, 25+. */
 export const tierIvStat = (v: number) => (v <= 5 ? 1 : v <= 10 ? 2 : v <= 15 ? 3 : v <= 24 ? 4 : 5);
+
+// --- captura (shared/captura-degrau.mjs) ---------------------------------------------------------
+// Chance com o selvagem derrubado = base × catchRate da bola ÷ fator × 1,4, entre o piso e o teto.
+// Espécie das hunts: o fator é o do degrau da cadeia (teto de captura 20, 40 ou 100: primeira de três,
+// do meio, última ou sem evolução). Fora das hunts (Safari, ovo): o fator vem do preço da espécie.
+
+const STEP_CAP: Record<string, string> = { first_of_three: "20", middle: "40", last: "100" };
+
+export function captureFactor(rules: CaptureRules, stage: string | null, inHunt: boolean, price: number | null): number {
+  if (inHunt) return Number(rules.byStep[STEP_CAP[stage ?? "last"] ?? "100"]) || Number(rules.byStep["100"]) || 4.4681;
+  const rarity = Math.log10(Math.max(100, price ?? 0)) - 1;
+  return 1 + rarity ** 3 / rules.rarityDiv;
+}
+
+export function captureChance(rules: CaptureRules, catchRate: number, factor: number): number {
+  return Math.min(rules.ceiling, Math.max(rules.floor, (rules.base * catchRate / factor) * 1.4));
+}
