@@ -145,6 +145,9 @@ export function parseNotaModule(src: string | null): Pick<GameRules, "bands" | "
   return { bands: bands.sort((a, b) => a.ate - b.ate), evoGain: g ? Number(g[1]) : null, legendaryMult: l ? Number(l[1]) : null };
 }
 
+/** Muda quando o formato de GameRules muda: o cache guardado no navegador não serve mais. */
+export const RULES_VERSION = 2;
+
 export async function loadGameRules(sb: SupabaseClient): Promise<GameRules> {
   const [regras, nota, cap, balls] = await Promise.all([
     sb.from("game_catalog").select("data").eq("key", "regras").maybeSingle(),
