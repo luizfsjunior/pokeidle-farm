@@ -796,3 +796,11 @@ body:has(.login) { overflow: auto; }
   .boss-pick .bp-mult:nth-of-type(1) { grid-column: 2; justify-self: start; }
   .boss-pick .bp-mult:nth-of-type(2) { grid-column: 3; }
 }
+
+/* abas de conta (e outras) quebram linha no celular em vez de sumir pela direita (17/11) */
+.page-head, .page-head > *, .page-filters > * { min-width: 0; max-width: 100%; }
+@media (max-width: 760px) {
+  .tabs { flex-wrap: wrap; overflow-x: visible; width: auto; }
+  .segmented { flex-wrap: wrap; max-width: 100%; }
+  .dex-controls input { min-width: 0; flex: 1 1 10rem; }
+}
