@@ -12,18 +12,32 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   tráfego do jogo: WebSocket e downloads da Pokedex/itens; o Supabase vai direto; HTTP ou SOCKS5) e a conferência do
   IP de saída no ipapi.is antes de conectar (`EXIT_IP_CHECK`): IP de datacenter não conecta. Guia em
   [deploy.md](deploy.md), seção 3b. 293 testes passando.
+- **Worker no VPS**: droplet da DigitalOcean com o proxy (holder `vps1`), ~US$ 10/mês os dois; Ping `ready em vps1`
+  às 12:08 UTC. A evolução automática deu certo duas vezes (Bulbasaur → Ivysaur no 40, Ivysaur → Venusaur no 80).
+- **Painel (PRs #1 a #16)**: perfil, Pokédex, gráficos, Vendas, redesign de app, PWA e pré-busca.
+- **Painel com dados no navegador** ([painel-swr.md](design/painel-swr.md)): medido no celular, o `router.refresh()`
+  apagava o cache de todas as páginas e o esqueleto genérico cobria até o título. Agora as páginas são estáticas, os
+  dados vêm com o TanStack Query e ficam no `localStorage`: troca de página ~25 ms, página já vista na hora, só os
+  valores carregam. Vendas de 3–6 s para ~0,85 s (o `like "seller.%"` varria os eventos com o RLS).
+- **Painel no celular**: tabelas viram cartões, ícones dos itens corrigidos, gráfico de um dia vira número, log do
+  seller recolhido, abas da conta escondendo de verdade (o `.stack` vencia o `hidden`).
+- **Compensa?** com custo fixo mensal (`fixed_cost_usd`: VPS e proxy) somado à energia; teste SQL passando.
+
+### Problemas e soluções
+
+| Problema | Causa | Solução |
+|---|---|---|
+| Página já vista voltava com esqueleto | `router.refresh()` apaga o cache do App Router inteiro | dados no navegador com TanStack Query e cache persistido |
+| Vendas levava 3–6 s | `like "seller.%"` não usa o índice `(type, received_at)`; com o RLS varria os eventos | lista fechada de tipos (`in`) |
+| Erro de hidratação (#418) na conta | o cache do `localStorage` chegava no primeiro render, o HTML não tinha | dados só depois de hidratar (`useSyncExternalStore`) |
+| Ícones das pedras como iniciais | arquivo solto (`leaf_stone.gif`) fica em `/assets/site/assets/items/` | `itemIconUrl` com os dois formatos |
 
 ### Pendente
 
 - Guardar o print da conversa com o suporte (fora do repo).
-- VPS e proxy (escolhidos em 16/11): VM ARM grátis da **Oracle Cloud em São Paulo** (região principal permanente;
-  se der "Out of capacity", tentar outro horário; Hetzner ou o droplet de US$ 4 como alternativa) e **IPRoyal ISP,
-  Dedicated, Brasil, 1 proxy, 30 dias, fraud score Premium (IP Quality Score)**, ~US$ 5,40/mês, sem extras.
-  Nas primeiras 24 h (reembolso), no VPS:
-  `curl -s -x http://usuario:senha@host:porta https://api.ipapi.is/ | grep -E '"is_datacenter"|"is_abuser"|"type"|"name"'`
-  → esperado `is_datacenter: false`, `is_abuser: false`, tipo `isp`. Se não, reembolso ou troca. Depois, guia da
-  seção 3b do deploy.md (`WORKER_HOLDER=vps-1`, `GAME_PROXY_URL`), parar o worker de casa e conferir o Ping.
-- `/compensa`: campo de custo fixo mensal (VPS + proxy), hoje só há energia.
+- No `/compensa`, preencher o custo fixo (~US$ 10) e marcar "a máquina fica ligada de qualquer jeito".
+- A conta aparece como `offline` no painel com o worker jogando no `vps1` (abates às 00:14 UTC de 17/11): conferir
+  quando o worker grava o `status`.
 - Lint: dois B008 em `model/combat.py` (de 15/11).
 
 ## 2026-11-15

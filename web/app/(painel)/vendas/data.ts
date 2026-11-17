@@ -49,17 +49,24 @@ export async function loadSales(supabase: SupabaseClient, conta: string | null) 
   const listings = buildListings(events);
 
   // nomes e ícones do catálogo
+  // o anúncio pode vir só com o nome (sem itemId): aí o ícone sai pelo nome
+  type Item = { item_id: number; name: string; icon: string | null };
   const itemIds = [...new Set(listings.map((l) => l.itemId).filter((i): i is number => i != null))];
-  const itemsRes = itemIds.length
-    ? await supabase.from("game_items").select("item_id, name, icon").in("item_id", itemIds)
-    : { data: [] };
-  const items = new Map(((itemsRes.data ?? []) as { item_id: number; name: string; icon: string | null }[])
-    .map((r) => [r.item_id, r]));
-  const rows: SaleRow[] = listings.map((l) => ({
-    ...l,
-    label: l.name ?? (l.itemId != null ? items.get(l.itemId)?.name : null) ?? `Item #${l.itemId ?? "?"}`,
-    icon: itemIconUrl(l.itemId != null ? items.get(l.itemId)?.icon : null),
-  }));
+  const names = [...new Set(listings.filter((l) => l.itemId == null && l.name).map((l) => l.name!))];
+  const [byIdRes, byNameRes] = await Promise.all([
+    itemIds.length ? supabase.from("game_items").select("item_id, name, icon").in("item_id", itemIds) : Promise.resolve({ data: [] }),
+    names.length ? supabase.from("game_items").select("item_id, name, icon").in("name", names) : Promise.resolve({ data: [] }),
+  ]);
+  const items = new Map(((byIdRes.data ?? []) as Item[]).map((r) => [r.item_id, r]));
+  const itemsByName = new Map<string, Item>();
+  for (const r of (byNameRes.data ?? []) as Item[]) {
+    const cur = itemsByName.get(r.name);
+    if (!cur || r.item_id < cur.item_id) itemsByName.set(r.name, r);
+  }
+  const rows: SaleRow[] = listings.map((l) => {
+    const it = l.itemId != null ? items.get(l.itemId) : l.name ? itemsByName.get(l.name) : undefined;
+    return { ...l, label: l.name ?? it?.name ?? `Item #${l.itemId ?? "?"}`, icon: itemIconUrl(it?.icon) };
+  });
 
   const notices = events.filter((e) => e.type === "unknown").slice(0, 30)
     .map((e) => ({ at: e.received_at, t: String(e.data?.t), text: noticeSummary(e.raw) }));

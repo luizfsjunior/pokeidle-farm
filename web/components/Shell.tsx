@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FetchBar } from "./Loading";
 import { MobileNav } from "./MobileNav";
 import { Sidebar } from "./Sidebar";
+import { TableLabels } from "./TableLabels";
 
 /**
  * Casca do app: barra lateral (desktop) e barra de baixo (celular) paradas; a barra de cima, só com o
@@ -19,6 +20,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <FetchBar />
           </header>
           <main className="content">{children}</main>
+          <TableLabels />
         </div>
       </div>
       <MobileNav />

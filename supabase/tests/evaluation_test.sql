@@ -92,6 +92,21 @@ begin
   select * into t from public.evaluation_summary(7) where kind = 'total';
   assert t.cost_usd is null, 'tarifa vazia deveria dar custo desconhecido';
 
+  -- custo fixo (VPS + proxy): sozinho vira o custo; com energia, soma; marginal zera só a energia
+  update public.evaluation_settings set fixed_cost_usd = 10;
+  select * into t from public.evaluation_summary(7) where kind = 'total';
+  assert t.cost_usd = 10, format('só o fixo: custo %s ≠ 10', t.cost_usd);
+  assert abs(t.profit_usd_as_is - (t.income_usd_as_is - 10)) < near, 'lucro com custo fixo errado';
+  update public.evaluation_settings set kwh_price_brl = 0.90;
+  select * into t from public.evaluation_summary(7) where kind = 'total';
+  assert abs(t.cost_usd - 17.776) < near, format('energia + fixo %s ≠ 17,78', t.cost_usd);
+  update public.evaluation_settings set marginal = true;
+  select * into t from public.evaluation_summary(7) where kind = 'total';
+  assert t.cost_usd = 10, format('marginal + fixo %s ≠ 10', t.cost_usd);
+  select * into x from public.evaluation_summary(7) where kind = 'three_accounts';
+  assert x.cost_usd = 10, format('3 contas: custo %s ≠ 10', x.cost_usd);
+  update public.evaluation_settings set marginal = false, kwh_price_brl = null, fixed_cost_usd = null;
+
   -- caso 7: liquidez (20 dropados na semana contra 100 vendidos = 20%; contra 1.000 = 2%)
   select * into x from public.evaluation_liquidity(7) where name = 'Aval Pedra';
   assert abs(x.share - 0.20) < near and x.flagged, format('Pedra share %s', x.share);

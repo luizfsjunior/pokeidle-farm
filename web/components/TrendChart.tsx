@@ -28,6 +28,17 @@ export function TrendChart({ title, points, tone, compact = false }: {
       </figure>
     );
   }
+  if (data.length === 1) {
+    // um ponto só não é gráfico: o número e quando começa a linha
+    return (
+      <figure className={`trend trend-${tone} trend-single`}>
+        <figcaption className="trend-head">
+          <span>{title}</span>
+          <span className="trend-value num">{num(data[0].value, { compact })}<span className="muted small"> hoje</span></span>
+        </figcaption>
+      </figure>
+    );
+  }
   const vals = data.map((d) => d.value);
   let lo = Math.min(...vals), hi = Math.max(...vals);
   if (lo === hi) { lo -= 1; hi += 1; }

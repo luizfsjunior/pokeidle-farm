@@ -7,7 +7,7 @@ import { AccountTabs, ErrorNote, Explain, Kpi, PageHeader, Panel } from "@/compo
 import { ago, dateTime, num } from "@/lib/format";
 import { useAccounts, usePanel } from "@/lib/query/hooks";
 import { MARKET_FEE, STATUS_LABEL } from "@/lib/sales";
-import { DAYS, loadSales, type SaleRow, type Stone } from "./data";
+import { DAYS, loadSales, type Activity, type SaleRow, type Stone } from "./data";
 
 /** Anúncios das contas no Mercado: abertos, vendidos e cancelados, e o que o seller fez (docs/design/pagina-vendas.md). */
 export function SalesView() {
@@ -98,7 +98,7 @@ export function SalesView() {
           </Panel>
         )}
 
-        <Panel title="O que o worker fez" meta="últimas 60 ações">
+        <Panel title="O que o worker fez" meta={d ? `${num(d.activity.length)} ações em ${DAYS} dias` : undefined}>
           {!d ? (
             <ul className="activity" aria-hidden>
               {[0, 1, 2, 3].map((i) => <li key={i}><Ld w="12ch" /><Ld w="24ch" /></li>)}
@@ -106,14 +106,15 @@ export function SalesView() {
           ) : d.activity.length === 0 ? (
             <p className="muted small" style={{ margin: 0 }}>Nenhuma ação de Mercado no período.</p>
           ) : (
-            <ul className="activity">
-              {d.activity.map((a, i) => (
-                <li key={i} className={a.tone}>
-                  <span className="muted num">{dateTime(a.at)}</span>
-                  <span>{!conta && <>{nicks.get(a.accountId)}: </>}{a.text}</span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ActivityList items={d.activity.slice(0, 6)} nicks={conta ? null : nicks} />
+              {d.activity.length > 6 && (
+                <details className="more">
+                  <summary>Ver as outras {num(d.activity.length - 6)}</summary>
+                  <ActivityList items={d.activity.slice(6)} nicks={conta ? null : nicks} />
+                </details>
+              )}
+            </>
           )}
         </Panel>
 
@@ -127,6 +128,20 @@ export function SalesView() {
         </Explain>
       </div>
     </>
+  );
+}
+
+/** Ações do worker no Mercado; as sondas e leituras de rotina ficam apagadas (tone "muted"). */
+function ActivityList({ items, nicks }: { items: Activity[]; nicks: Map<string, string> | null }) {
+  return (
+    <ul className="activity">
+      {items.map((a, i) => (
+        <li key={i} className={a.tone}>
+          <span className="muted num">{dateTime(a.at)}</span>
+          <span>{nicks && <>{nicks.get(a.accountId)}: </>}{a.text}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

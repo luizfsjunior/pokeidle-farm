@@ -44,11 +44,16 @@ export async function speciesLooktypes(supabase: SupabaseClient, ids: number[]):
   return out;
 }
 
-/** URL absoluta de um ícone de item do jogo (`items/x.png` → https://pokeidle.io/assets/items/x.png). */
+/**
+ * URL absoluta de um ícone de item do jogo. O catálogo traz dois formatos (conferidos em 16/11):
+ * caminho a partir da raiz (`/img/itens/x.png`) ou só o arquivo (`leaf_stone.gif`), que fica em
+ * /assets/site/assets/items/.
+ */
 export function itemIconUrl(icon: string | null | undefined): string | null {
   if (!icon) return null;
   if (icon.startsWith("http")) return icon;
-  return GAME_SITE + (icon.startsWith("/") ? icon : `/assets/${icon}`);
+  if (icon.startsWith("/")) return GAME_SITE + icon;
+  return GAME_SITE + (icon.includes("/") ? `/assets/${icon}` : `/assets/site/assets/items/${icon}`);
 }
 
 /** Ícones das bolas da loja (não vêm no catálogo de itens). */

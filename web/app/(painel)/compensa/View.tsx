@@ -41,9 +41,9 @@ const usd = (v: number | null | undefined) =>
 
 async function loadEvaluation(supabase: SupabaseClient) {
   const settingsRes = await supabase.from("evaluation_settings")
-    .select("machine_watts, marginal, kwh_price_brl, usd_brl, window_days").maybeSingle<EvalSettings>();
+    .select("machine_watts, marginal, kwh_price_brl, usd_brl, fixed_cost_usd, window_days").maybeSingle<EvalSettings>();
   const settings: EvalSettings = settingsRes.data ?? {
-    machine_watts: null, marginal: false, kwh_price_brl: null, usd_brl: null, window_days: 7,
+    machine_watts: null, marginal: false, kwh_price_brl: null, usd_brl: null, fixed_cost_usd: null, window_days: 7,
   };
   const days = settings.window_days;
   const [sumRes, liqRes, potRes] = await Promise.all([
@@ -82,7 +82,7 @@ export function EvaluationView() {
 
   return (
     <>
-      <PageHeader title="Compensa?" subtitle={`O farm paga a energia? Últimos ${days} dias, contando a partir do primeiro preço do Mercado.`} />
+      <PageHeader title="Compensa?" subtitle={`O farm paga o que custa (VPS, proxy, energia)? Últimos ${days} dias, contando a partir do primeiro preço do Mercado.`} />
       <ErrorNote message={d?.err} />
       <div className="stack">
         <Explain>
@@ -102,13 +102,13 @@ export function EvaluationView() {
                 Lucro projetado (como está): <strong>{usd(profit)}</strong> por mês
                 {" · "}com o worker 24 h/dia: <strong>{usd(total.profit_usd_24h)}</strong>
               </p>
-              {!costKnown && <p className="small error" style={{ margin: 0 }}>Custo de energia não informado: o lucro está sem ele.</p>}
+              {!costKnown && <p className="small error" style={{ margin: 0 }}>Custo do mês não informado: o lucro está sem ele.</p>}
               {!enoughData && <p className="small muted" style={{ margin: 0 }}>Com menos de {days} dias de dado, a projeção ainda é fraca.</p>}
               <div className="stats">
                 <Stat label="Gemas por dia" value={num(total.gems_per_day)} />
                 <Stat label="Gemas no mês (como está)" value={num(total.month_gems_as_is)} />
                 <Stat label="Renda (como está)" value={usd(total.income_usd_as_is)} />
-                <Stat label="Custo de energia" value={costKnown ? usd(total.cost_usd) : "não informado"} />
+                <Stat label="Custo por mês" value={costKnown ? usd(total.cost_usd) : "não informado"} />
                 <Stat label="Gemas no mês (24 h/dia)" value={num(total.month_gems_24h)} />
                 <Stat label="Renda (24 h/dia)" value={usd(total.income_usd_24h)} />
                 {d?.three && <Stat label="Lucro com 3 contas (como está)" value={usd(d.three!.profit_usd_as_is)} />}

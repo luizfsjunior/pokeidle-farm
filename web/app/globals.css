@@ -350,6 +350,7 @@ img.sprite { object-fit: contain; transform: scale(1.35); } /* o sprite nacional
 .trend-cross { stroke: var(--text-muted); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .trend-tick { font-size: 10px; fill: var(--text-muted); }
 .trend-foot { display: flex; justify-content: space-between; gap: .5rem; align-items: start; }
+.trend-single { align-content: start; }
 .trend-table { font-size: .8rem; max-height: 12rem; display: block; overflow-y: auto; }
 
 /* --- Pokédex ------------------------------------------------------------------------- */
@@ -422,6 +423,8 @@ img.sprite { object-fit: contain; transform: scale(1.35); } /* o sprite nacional
 .activity li { display: grid; grid-template-columns: 8.5rem 1fr; gap: .75rem; }
 .activity li.muted { color: var(--text-muted); }
 .activity li.error { color: var(--critical); }
+.more { margin-top: .6rem; }
+.more summary { cursor: pointer; font-size: .85rem; color: var(--link); margin-bottom: .5rem; }
 .hunt-cell { white-space: nowrap; }
 .hunt-cell .sprite { vertical-align: middle; margin-right: .45rem; }
 .hunt-open { background: none; border: 0; padding: 0; min-height: 0; color: var(--text-primary); font-weight: 600; display: inline-flex; align-items: center; gap: .45rem; }
@@ -520,7 +523,33 @@ body:has(.login) { overflow: auto; }
   .dex-close { display: block; }
   .dex-summary { grid-template-columns: repeat(3, auto); }
   .dex-progress { grid-column: 1 / -1; }
-  .dex-controls input { min-width: 0; flex: 1; }
+  .dex-controls input { min-width: 0; flex: 1 1 8rem; }
+  .dex-controls .segmented { width: 100%; display: flex; overflow-x: auto; scrollbar-width: none; }
+  .dex-controls .segmented button { flex: 1 0 auto; white-space: nowrap; }
+
+  /* tabelas viram cartões: o nome da coluna vem do data-label (components/TableLabels.tsx) */
+  table.rt, table.rt tbody, table.rt tr, table.rt td { display: block; width: 100%; }
+  table.rt thead { display: none; }
+  table.rt tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem .9rem; padding: .75rem .95rem;
+    border-bottom: 1px solid var(--grid); }
+  table.rt tr:last-child { border-bottom: 0; }
+  .panel-flush table.rt td, table.rt td { padding: 0; border: 0; text-align: left; min-width: 0; overflow-wrap: anywhere; }
+  table.rt td::before { content: attr(data-label); display: block; font-size: .7rem; font-weight: 600; color: var(--text-muted);
+    text-transform: none; margin-bottom: .05rem; }
+  table.rt td:first-child { grid-column: 1 / -1; font-weight: 600; font-size: .95rem; }
+  table.rt td:first-child::before { display: none; }
+  table.rt td[data-label=""]::before { display: none; }
+  table.rt td:empty { display: none; }
+  .table-scroll, .panel-flush { overflow-x: visible; }
+
+  /* quantidade ímpar de KPIs: o último ocupa a linha toda */
+  .kpis > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .extras { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem 1rem; }
+  .extra-value { font-size: 1.1rem; }
+  .spread { flex-wrap: wrap; }
+  .section-tabs-bar { display: grid; grid-template-columns: repeat(4, auto); justify-content: stretch; }
+  .section-tabs-bar .tab { justify-content: center; padding: .35rem .4rem; font-size: .84rem; }
+  .page-actions { width: 100%; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .sheet:not([hidden]) { animation: sheet-in .16s ease-out; }

@@ -6,13 +6,14 @@ import { STATUS_LABEL, type Account } from "@/lib/types";
 import { Sprite } from "./Sprite";
 
 /** Cartão de treinador: o ativo em destaque, nick, nível, moedas e a equipe. */
-export function TrainerCard({ account, profile, atlas, looktypes, href, wide = false, children }: {
+export function TrainerCard({ account, profile, atlas, looktypes, href, wide = false, hideNick = false, children }: {
   account: Account;
   profile: Profile | undefined;
   atlas: Atlas | null;
   looktypes: Map<number, number>;
   href?: string;
   wide?: boolean;
+  hideNick?: boolean; // a página da conta já tem o nick no título
   children?: React.ReactNode;
 }) {
   const active = activeMon(profile);
@@ -30,7 +31,7 @@ export function TrainerCard({ account, profile, atlas, looktypes, href, wide = f
         </div>
         <div className="trainer-id">
           <div className="trainer-title">
-            {href ? <Link href={href}>{nick}</Link> : nick}
+            {hideNick ? null : href ? <Link href={href}>{nick}</Link> : nick}
             <span className={`badge ${account.status}`}>{STATUS_LABEL[account.status] ?? account.status}</span>
           </div>
           <div className="trainer-level">
