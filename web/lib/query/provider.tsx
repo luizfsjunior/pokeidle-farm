@@ -12,6 +12,9 @@ import { RealtimeSync } from "./realtime";
  * localStorage, então sobrevive a fechar e abrir o app.
  */
 export const CACHE_KEY = "pf-cache-v1";
+// cada deploy apaga o cache guardado: um carregador novo não lê dado no formato antigo (17/11, a
+// seção Captura sumia porque as regras do jogo vinham do cache de antes do deploy)
+const BUSTER = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "1";
 const DAY = 86_400_000;
 
 // o JSON não guarda Map nem Set, que os carregadores usam bastante: viram { __map } / { __set }
@@ -66,7 +69,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
   return (
     // buster: muda quando o formato dos dados guardados muda. O cache é apagado ao entrar e ao sair
     // (login/page.tsx e o botão Sair), para não mostrar dados de outro usuário no mesmo aparelho.
-    <PersistQueryClientProvider client={client} persistOptions={{ persister, maxAge: DAY, buster: "1" }}>
+    <PersistQueryClientProvider client={client} persistOptions={{ persister, maxAge: DAY, buster: BUSTER }}>
       <RealtimeSync />
       {children}
     </PersistQueryClientProvider>

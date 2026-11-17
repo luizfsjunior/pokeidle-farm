@@ -6,8 +6,7 @@ import { Matchups, Moves, PvpRange, StatBars, StatRadar, TypeChips } from "@/com
 import { dateTime, num } from "@/lib/format";
 import {
   BAND_PT, RARITY_PT, bandOf, qualityPercentile, tierIvSum, tierPotency, tierQuality, gradeWithLineage, isLegendary, loadAncestors, loadGameRules, loadSpeciesInfo,
-  type Stat,
-} from "@/lib/pokemon";
+  type Stat, RULES_VERSION } from "@/lib/pokemon";
 import type { Mon } from "@/lib/profile";
 import { usePanel } from "@/lib/query/hooks";
 import type { Atlas } from "@/lib/sprites";
@@ -34,7 +33,7 @@ export function MonSheet({ mon, atlas, looktypes, active, onClose, children }: {
   children?: React.ReactNode; // ações (tornar ativo, pôr na equipe)
 }) {
   const sid = mon.species_id ?? null;
-  const { data: rules } = usePanel(["game-rules"], loadGameRules, { staleTime: 30 * 60_000 });
+  const { data: rules } = usePanel(["game-rules", RULES_VERSION], loadGameRules, { staleTime: 30 * 60_000 });
   const sp = usePanel(["species-info", sid], (sb) => loadSpeciesInfo(sb, sid!), { enabled: sid != null, staleTime: 30 * 60_000 });
   const anc = usePanel(["species-ancestors", sid], (sb) => loadAncestors(sb, sid!), { enabled: sid != null, staleTime: 30 * 60_000 });
   const s = sp.data ?? null;

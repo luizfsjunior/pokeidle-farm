@@ -5,7 +5,7 @@ import { CaptureForm, CaptureStatus, type ActiveCapture } from "@/components/Cap
 import { commandSummary } from "@/components/CommandButtons";
 import { Matchups, Moves, PvpRange, StatBars, StatRadar } from "@/components/SpeciesFacts";
 import { Sprite } from "@/components/Sprite";
-import { RARITY_PT, captureChance, captureFactor, loadGameRules, loadSpeciesInfo } from "@/lib/pokemon";
+import { RARITY_PT, captureChance, captureFactor, loadGameRules, loadSpeciesInfo, RULES_VERSION } from "@/lib/pokemon";
 import { usePanel } from "@/lib/query/hooks";
 import { useCommand } from "@/lib/useCommand";
 import { dateTime, num } from "@/lib/format";
@@ -359,7 +359,7 @@ function OtherForms({ sel, species, huntsBySpecies, accountId, onPick }: {
 
 /** Tipos (fraquezas e forças), stats base, alcance no PvP e golpes da espécie, lidos quando ela é aberta. */
 function SpeciesExtra({ id, stage, inHunt }: { id: number; stage: string; inHunt: boolean }) {
-  const { data: rules } = usePanel(["game-rules"], loadGameRules, { staleTime: 30 * 60_000 });
+  const { data: rules } = usePanel(["game-rules", RULES_VERSION], loadGameRules, { staleTime: 30 * 60_000 });
   const { data: s, isLoading } = usePanel(["species-info", id], (sb) => loadSpeciesInfo(sb, id), { staleTime: 30 * 60_000 });
   if (isLoading) return <p className="muted small">Carregando a ficha…</p>;
   if (!s) return null;

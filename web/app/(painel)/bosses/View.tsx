@@ -12,7 +12,7 @@ import {
   type BossSpecies, type Candidate,
 } from "@/lib/bosses";
 import { dateTime, num, pct } from "@/lib/format";
-import { loadGameRules, loadSpeciesInfo, type GameRules } from "@/lib/pokemon";
+import { loadGameRules, loadSpeciesInfo, type GameRules, RULES_VERSION } from "@/lib/pokemon";
 import { loadProfiles, type Mon, type Profile } from "@/lib/profile";
 import { useAccounts, useAtlas, usePanel } from "@/lib/query/hooks";
 import type { Atlas } from "@/lib/sprites";
@@ -32,7 +32,7 @@ export function BossesView() {
     ?? [...accounts].sort((a, b) => (profiles?.get(b.id)?.level ?? 0) - (profiles?.get(a.id)?.level ?? 0))[0] ?? null;
   const profile = chosen ? profiles?.get(chosen.id) : undefined;
   const species = usePanel(["boss-species"], loadBossSpecies, { staleTime: 30 * 60_000 });
-  const { data: rules } = usePanel(["game-rules"], loadGameRules, { staleTime: 30 * 60_000 });
+  const { data: rules } = usePanel(["game-rules", RULES_VERSION], loadGameRules, { staleTime: 30 * 60_000 });
   const { data: atlas = null } = useAtlas();
 
   const mons = useMemo(() => {
