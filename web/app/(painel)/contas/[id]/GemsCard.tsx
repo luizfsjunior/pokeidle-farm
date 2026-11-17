@@ -47,7 +47,6 @@ export type ProgressPlanData = {
   phases: ProgressPhase[];
   evolutions: { level: number; to: number; to_name?: string | null; stone: string; farm_hours?: number }[];
 };
-export type GemsPotentialData = { at: string; trainer_level: number; prices: number; options: GemOption[] };
 
 const KPH_SOURCE: Record<GemOption["kph_source"], string> = {
   measured: "medido",
@@ -66,16 +65,14 @@ const usdMonth = (gemsPerHour: number) => gemsPerHour * 24 * 30 * 0.85 * 0.009;
  */
 export function GemsCard({
   plan,
-  potential,
   progress = null,
 }: {
   plan: GemsPlanData | null;
-  potential: GemsPotentialData | null;
   progress?: ProgressPlanData | null;
 }) {
   if (plan?.objective === "xp") return <XpCard plan={plan} progress={progress} />;
-  if (!plan && !potential) return null;
-  const list = plan?.options ?? potential?.options ?? [];
+  if (!plan) return null;
+  const list = plan.options ?? [];
   const maxGems = Math.max(0, ...list.slice(0, 5).map((o) => o.capped_gems_per_hour));
   return (
     <section className="card stack">
@@ -85,7 +82,7 @@ export function GemsCard({
           média de 7 dias e o menor anúncio, até 10% do que o Mercado vende dela por semana. US$ com 15% de comissão e saque a
           US$ 0,009 por gema.
         </Hint></div>
-        <span className="muted small">{plan ? `plano ${ago(plan.at)}` : potential ? `potencial ${ago(potential.at)}` : ""}</span>
+        <span className="muted small">plano {ago(plan.at)}</span>
       </div>
       {plan && (
         <p className="small" style={{ margin: 0 }}>

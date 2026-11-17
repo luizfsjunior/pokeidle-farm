@@ -5,7 +5,7 @@ import { Ld, LdBlock, LdRows } from "@/components/Loading";
 import { Bar, ErrorNote, PageHeader, Panel } from "@/components/Page";
 import { num } from "@/lib/format";
 import { usePanel } from "@/lib/query/hooks";
-import { GemsCard, type GemsPotentialData } from "../contas/[id]/GemsCard";
+import { OutlandCard, type OutlandPotentialData } from "../contas/[id]/OutlandCard";
 import { SettingsForm, type EvalSettings } from "./SettingsForm";
 
 type Summary = {
@@ -49,11 +49,11 @@ async function loadEvaluation(supabase: SupabaseClient) {
   const [sumRes, liqRes, potRes] = await Promise.all([
     supabase.rpc("evaluation_summary", { p_days: days }),
     supabase.rpc("evaluation_liquidity", { p_days: days }),
-    supabase.from("events").select("received_at, data").eq("type", "gems.potential")
+    supabase.from("events").select("received_at, data").eq("type", "outland.potential")
       .order("received_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
-  const potential: GemsPotentialData | null = potRes.data
-    ? { at: potRes.data.received_at as string, ...(potRes.data.data as Omit<GemsPotentialData, "at">) }
+  const potential: OutlandPotentialData | null = potRes.data
+    ? { at: potRes.data.received_at as string, ...(potRes.data.data as Omit<OutlandPotentialData, "at">) }
     : null;
   const rows = (sumRes.data ?? []) as Summary[];
   return {
@@ -126,9 +126,9 @@ export function EvaluationView() {
         {d?.potential && (
           <div>
             <p className="muted small" style={{ margin: "0 0 .5rem" }}>
-              Potencial no foco gemas, nas melhores hunts alcançáveis:
+              O que deve render quando uma conta chegar na Outland:
             </p>
-            <GemsCard plan={null} potential={d.potential} />
+            <OutlandCard data={d.potential} />
           </div>
         )}
 
