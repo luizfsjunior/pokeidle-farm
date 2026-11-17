@@ -39,6 +39,8 @@ ESTADO = {
             "poder": 900,
             "looktype": 140,
             "ivs": {"hp": 10, "atk": 20},
+            "xp": 4000,
+            "apelido": "Kabu",
             "shiny": False,
             "segredo": "x",
         },
@@ -65,6 +67,9 @@ def test_snapshot_summary():
     assert s["vip_until"].startswith("2027-01-15")
     assert [t["name"] for t in s["team"]] == ["Kabuto", "Caterpie"]
     assert s["team"][0]["iv_sum"] == 30 and "segredo" not in s["team"][0]
+    assert s["team"][0]["ivs"] == {"hp": 10, "atk": 20}
+    assert s["team"][0]["xp"] == 4000 and s["team"][0]["nickname"] == "Kabu"
+    assert "segredo" in s["extra"]["pokemon_keys"]
     assert s["pokemon_count"] == 3 and s["shiny_count"] == 1
     assert s["dex_seen"] == 2 and s["dex_caught"] == 1
     assert s["items"] == {"200": 5} and s["balls"] == {"1": 56}

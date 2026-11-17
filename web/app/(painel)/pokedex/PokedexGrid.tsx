@@ -3,9 +3,12 @@
 import { Fragment, useMemo, useState } from "react";
 import { CaptureForm, CaptureStatus, type ActiveCapture } from "@/components/Capture";
 import { commandSummary } from "@/components/CommandButtons";
+import { Matchups, Moves, PvpRange, StatBars } from "@/components/SpeciesFacts";
 import { Sprite } from "@/components/Sprite";
+import { RARITY_PT, loadGameRules, loadSpeciesInfo } from "@/lib/pokemon";
+import { usePanel } from "@/lib/query/hooks";
 import { useCommand } from "@/lib/useCommand";
-import { num } from "@/lib/format";
+import { dateTime, num } from "@/lib/format";
 import type { Atlas } from "@/lib/sprites";
 
 export type DexSpecies = {
@@ -39,7 +42,9 @@ function kills(e: Entry | undefined): number | null {
   return e != null && typeof e === "object" && typeof e.k === "number" ? e.k : null;
 }
 
-export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId, capture, balls }: {
+export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId, capture, balls, together, updatedAt }: {
+  together?: boolean; // as contas juntas (capturas e abates somados)
+  updatedAt?: string | null;
   species: DexSpecies[];
   hunts: DexHunt[];
   dex: Record<string, Entry>;
@@ -102,6 +107,12 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
         </div>
       </div>
       {!hasProfile && <p className="muted small">Sem perfil da conta ainda: todas aparecem como faltando.</p>}
+      {hasProfile && (
+        <p className="muted small" style={{ margin: 0 }}>
+          {together ? "Todas as contas juntas: capturas e abates somados. " : "A Pokédex é de cada conta, como no jogo. "}
+          Atualizada {dateTime(updatedAt)}; a página busca de novo a cada minuto.
+        </p>
+      )}
 
       <div className="dex-controls">
         <div className="segmented" role="radiogroup" aria-label="Mostrar">
@@ -181,6 +192,7 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
                     </>
                   )
               )}
+              <SpeciesExtra id={sel.species_id} />
               <h3>Onde aparece</h3>
               {(huntsBySpecies.get(sel.species_id) ?? []).length === 0 ? (
                 <p className="muted small">Nenhuma hunt tem esta espécie como principal.</p>
@@ -201,6 +213,28 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
         </aside>
       </div>
     </div>
+  );
+}
+
+/** Tipos (fraquezas e forças), stats base, alcance no PvP e golpes da espécie, lidos quando ela é aberta. */
+function SpeciesExtra({ id }: { id: number }) {
+  const { data: rules } = usePanel(["game-rules"], loadGameRules, { staleTime: 30 * 60_000 });
+  const { data: s, isLoading } = usePanel(["species-info", id], (sb) => loadSpeciesInfo(sb, id), { staleTime: 30 * 60_000 });
+  if (isLoading) return <p className="muted small">Carregando a ficha…</p>;
+  if (!s) return null;
+  return (
+    <>
+      {s.description && <p className="dex-desc">{s.description}</p>}
+      <dl className="dex-facts">
+        {s.rarity && <><dt>Raridade</dt><dd>{RARITY_PT[s.rarity] ?? s.rarity}</dd></>}
+        {s.experience != null && <><dt>XP por derrota</dt><dd className="num">{num(s.experience)}</dd></>}
+        {s.price_npc != null && <><dt>O NPC paga</dt><dd className="num">{num(s.price_npc)} de ouro</dd></>}
+      </dl>
+      <div className="dex-section"><h3>Tipos</h3><Matchups s={s} rules={rules} /></div>
+      <div className="dex-section"><h3>Stats base</h3><StatBars base={s.base} /></div>
+      <div className="dex-section"><h3>No PvP</h3><PvpRange base={s.base} /></div>
+      <div className="dex-section"><h3>Golpes</h3><Moves attacks={s.attacks} /></div>
+    </>
   );
 }
 
