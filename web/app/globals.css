@@ -241,7 +241,11 @@ code { font-size: .85em; background: var(--surface-2); border-radius: 5px; paddi
 label { display: grid; gap: .3rem; font-size: .84rem; color: var(--text-secondary); font-weight: 550; }
 input, select, button, textarea { font: inherit; color: inherit; }
 input, select { background: var(--surface-0); color: var(--text-primary); border: 1px solid var(--border); border-radius: 8px; padding: .45rem .65rem; min-width: 0; height: 2.3rem; }
-input[type="checkbox"], input[type="radio"] { height: auto; accent-color: var(--accent); }
+input[type="checkbox"], input[type="radio"] {
+  height: 1.05rem; width: 1.05rem; padding: 0; margin: 0; flex: none; vertical-align: middle; accent-color: var(--accent);
+}
+/* caixa e texto na mesma linha, centrados (no mobile a caixa herdava o padding do input e subia) */
+label:has(> input[type="checkbox"]), label:has(> input[type="radio"]) { display: inline-flex; align-items: center; gap: .45rem; }
 input:hover, select:hover { border-color: var(--edge-hi, #3d4466); }
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #ffcc3355; outline-offset: 0; border-color: var(--accent); }
 input::placeholder { color: var(--text-muted); }
