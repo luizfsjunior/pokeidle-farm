@@ -3,12 +3,14 @@ import { Sprite } from "@/components/Sprite";
 import { num } from "@/lib/format";
 import { gameDay, type Mon, type Profile } from "@/lib/profile";
 import { BALL_ICONS, BALL_NAMES, GAME_SITE, itemIconUrl, type Atlas } from "@/lib/sprites";
+import { MonActions } from "./TeamControls";
 
 export type ItemInfo = { name: string; category: string | null; icon: string | null };
 
 /** Equipe, coleção e mochila da conta, do `account_profile`. */
-export function ProfileSections({ profile, atlas, looktypes, items, part = "all" }: {
+export function ProfileSections({ profile, atlas, looktypes, items, part = "all", accountId }: {
   part?: "all" | "status" | "collection";
+  accountId?: string; // com ele, os botões de equipe (tornar ativo, pôr e tirar)
   profile: Profile;
   atlas: Atlas | null;
   looktypes: Map<number, number>;
@@ -54,7 +56,9 @@ export function ProfileSections({ profile, atlas, looktypes, items, part = "all"
         ) : (
           <div className="mons">
             {profile.team.map((m) => (
-              <MonTile key={m.id} mon={m} atlas={atlas} looktypes={looktypes} active={m.id === profile.active_pokemon_id} />
+              <MonTile key={m.id} mon={m} atlas={atlas} looktypes={looktypes} active={m.id === profile.active_pokemon_id}>
+                {accountId && <MonActions accountId={accountId} mon={m} team={profile.team} isActive={m.id === profile.active_pokemon_id} />}
+              </MonTile>
             ))}
           </div>
         )}
@@ -72,7 +76,11 @@ export function ProfileSections({ profile, atlas, looktypes, items, part = "all"
           <>
             <h3>Mais fortes fora da equipe</h3>
             <div className="mons mons-small">
-              {highlights.map((m) => <MonTile key={m.id} mon={m} atlas={atlas} looktypes={looktypes} small />)}
+              {highlights.map((m) => (
+                <MonTile key={m.id} mon={m} atlas={atlas} looktypes={looktypes} small>
+                  {accountId && <MonActions accountId={accountId} mon={m} team={profile.team} isActive={false} />}
+                </MonTile>
+              ))}
             </div>
           </>
         )}
@@ -118,7 +126,8 @@ export function ProfileSections({ profile, atlas, looktypes, items, part = "all"
   );
 }
 
-function MonTile({ mon, atlas, looktypes, active, small }: {
+function MonTile({ mon, atlas, looktypes, active, small, children }: {
+  children?: React.ReactNode;
   mon: Mon;
   atlas: Atlas | null;
   looktypes: Map<number, number>;
@@ -146,6 +155,7 @@ function MonTile({ mon, atlas, looktypes, active, small }: {
           <span style={{ width: `${hp * 100}%` }} className={hp < 0.3 ? "low" : undefined} />
         </div>
       )}
+      {children}
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { activeMon } from "@/lib/profile";
 import { useAccounts, useAtlas, usePanel } from "@/lib/query/hooks";
 import { loadAccount } from "./data";
 import { FocusCard } from "./FocusCard";
+import { TeamTrainCard } from "./TeamControls";
 import { GemsCard } from "./GemsCard";
 import { OutlandCard } from "./OutlandCard";
 import { NewPlugin } from "./NewPlugin";
@@ -78,7 +79,7 @@ export function AccountView() {
         {/* Equipe e coleção */}
         <>
           {!d ? loading : profile
-            ? <ProfileSections part="collection" profile={profile} atlas={atlas} looktypes={d.looktypes} items={d.items} />
+            ? <ProfileSections part="collection" profile={profile} atlas={atlas} looktypes={d.looktypes} items={d.items} accountId={d.account.id} />
             : <p className="muted">Sem perfil ainda: ele aparece uns segundos depois de o worker conectar a conta.</p>}
         </>
 
@@ -97,6 +98,7 @@ export function AccountView() {
             </Panel>
           )}
           {d && <FocusCard accountId={d.account.id} plugins={d.plugins} />}
+          {d && <TeamTrainCard accountId={d.account.id} plugins={d.plugins} team={profile?.team ?? []} />}
           {d?.rank && (
             <>
               <AutoRefresh active ms={30_000} queryKey={["account", id]} />

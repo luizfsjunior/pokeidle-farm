@@ -364,6 +364,8 @@ img.sprite { object-fit: contain; transform: scale(1.35); } /* o sprite nacional
 .mon.is-shiny { border-color: #ffcc3388; background: linear-gradient(#ffcc3312, var(--surface-0) 60%); }
 .mon-name { font-weight: 650; font-size: .9rem; }
 .mon-meta { font-size: .76rem; color: var(--text-secondary); }
+.mon-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .3rem; margin-top: .35rem; }
+.mon-actions [role="status"] { flex-basis: 100%; }
 .hpbar { width: 80%; height: 5px; border-radius: 3px; background: #0006; overflow: hidden; margin-top: .3rem; }
 .hpbar > span { display: block; height: 100%; background: var(--good); }
 .hpbar > span.low { background: var(--critical); }

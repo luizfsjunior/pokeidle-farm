@@ -302,3 +302,37 @@ async def test_focus_set_gems(rig):
     c = await rig.cmd(acc, "focus.set", focus="capture")
     assert rig.store.configs[acc.id]["gems"][0] is False
     assert "potions_uncapped" not in rig.store.configs[acc.id]["restock"][1]
+
+
+async def test_team_commands_send_through_the_session(rig):
+    from pokeidle_farm.actions import ActionBlocked
+
+    acc = farm(rig.store, "farm1")
+    await rig.boot()
+    c = await rig.cmd(acc, "team.active", pokemon_id=7)
+    assert c["status"] == "failed" and "não está conectada" in c["error"]
+
+    sent: list[dict[str, Any]] = []
+
+    class Gateway:
+        block = False
+
+        async def submit(self, action, *, source):  # type: ignore[no-untyped-def]
+            if self.block:
+                raise ActionBlocked(action.name, "rate_limit", wait_s=12)
+            assert source == "panel"
+            sent.append(action.to_wire())
+
+    gw = Gateway()
+    rig.sessions[0].gateway = gw  # type: ignore[attr-defined]
+    c = await rig.cmd(acc, "team.active", pokemon_id=7)
+    assert c["status"] == "done" and sent[-1] == {"t": "team.active", "pokemonId": 7}
+    c = await rig.cmd(acc, "team.move", pokemon_id=8, slot=2)
+    assert sent[-1] == {"t": "team.move", "pokemonId": 8, "slot": 2}
+    c = await rig.cmd(acc, "team.move", pokemon_id=8, slot=None)
+    assert sent[-1] == {"t": "team.move", "pokemonId": 8, "slot": None}
+    c = await rig.cmd(acc, "team.move", pokemon_id=8, slot=9)
+    assert c["status"] == "failed" and "params inválidos" in c["error"]
+    gw.block = True
+    c = await rig.cmd(acc, "team.active", pokemon_id=7)
+    assert c["status"] == "failed" and "tente em 12 s" in c["error"]

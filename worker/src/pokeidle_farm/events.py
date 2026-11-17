@@ -395,6 +395,7 @@ class Translator:
                 break
         self._track_progress(src)
         changed = self._track_pokemon(src.get("pkMud"))
+        self._drop_pokemon(src.get("pkFora"))
         if self.active_id is None and len(changed) == 1:
             self.active_id = changed[0]  # quem ganha XP a cada abate é o ativo
         data = {ours: src[theirs] for theirs, ours in PATCH_FIELDS.items() if theirs in src}
@@ -416,7 +417,31 @@ class Translator:
                 self.pokemon_species[p["id"]] = p["speciesId"]
             prof = self.pokemon_profiles.setdefault(p["id"], {})
             prof.update({k: p[k] for k in PROFILE_FIELDS if p.get(k) is not None})
+            if "slot" in p:  # None = saiu da equipe
+                prof["slot"] = p["slot"]
         return ids
+
+    def _drop_pokemon(self, removed: Any) -> None:
+        for pid in removed or []:
+            self.pokemon_profiles.pop(pid, None)
+            self.pokemon_levels.pop(pid, None)
+
+    def team(self) -> list[dict[str, Any]]:
+        """A equipe por slot: [{id, speciesId, level, slot}] (para o team_train)."""
+        out = []
+        for pid, prof in self.pokemon_profiles.items():
+            slot = prof.get("slot")
+            if not isinstance(slot, int):
+                continue
+            out.append(
+                {
+                    "id": pid,
+                    "speciesId": prof.get("speciesId"),
+                    "level": self.pokemon_levels.get(pid, prof.get("level")),
+                    "slot": slot,
+                }
+            )
+        return sorted(out, key=lambda p: p["slot"])
 
     def _track_progress(self, src: dict[str, Any]) -> None:
         if isinstance(src.get("xp"), int | float):
