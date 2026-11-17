@@ -146,6 +146,26 @@ async def test_game_files_sync():
     assert calls[-1] == ("shared/pedras-evolucao.mjs", '"shared/pedras-evolucao.mjs"')
 
 
+async def test_game_files_sync_skips_a_missing_file():
+    store = MemoryStore()
+    files = {
+        "shared/loot-pedras.mjs": LOOT_JS,
+        "shared/sumiu.mjs": None,
+        "shared/pedras-evolucao.mjs": STONES_JS,
+    }
+
+    async def http_get(url: str, etag: str | None):
+        path = url.removeprefix("https://pokeidle.io/")
+        if files[path] is None:
+            return 404, None, b""
+        return 200, f'"{path}"', files[path].encode()
+
+    sync = GameFilesSync(store, http_get, files=tuple(files))
+    assert await sync.run_once() == "saved"  # o 404 não derruba os outros
+    assert "shared/sumiu.mjs" not in store.game_files
+    assert store.game_catalog["loot_stones"]["data"]["chance_by_position"] == [0.002, 0.0035, 0.005]
+
+
 # --- plugin gems -----------------------------------------------------------------------
 
 
