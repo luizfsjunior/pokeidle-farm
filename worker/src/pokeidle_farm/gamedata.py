@@ -553,6 +553,19 @@ GAME_FILES = (
     "shared/sell-value.mjs",
     "shared/tipo-efetividade.mjs",
     "shared/captura-degrau.mjs",
+    # bosses e o que eles pagam (docs/design/foco-outland.md, 17/11)
+    "shared/bosses-lendarios.mjs",
+    "shared/raid.mjs",
+    "shared/raid-reserva.mjs",
+    "shared/megas.mjs",
+    "shared/safari.mjs",
+    "shared/mistico.mjs",
+    "shared/tm-elemental.mjs",
+    # drops raros da Outland e o que se fabrica com eles
+    "shared/outland-tiers.mjs",
+    "shared/sacrificio.mjs",
+    "shared/ovo-shiny.mjs",
+    "shared/casas.mjs",
 )
 
 
@@ -604,6 +617,9 @@ class GameFilesSync:
                     self._etags.get(path) if path in self._content else None,
                 )
                 if status == 304 and path in self._content:
+                    continue
+                if status == 404:  # arquivo que o jogo tirou ou renomeou: não derruba os outros
+                    log.warning("game_files: %s não existe mais (404)", path)
                     continue
                 if status != 200:
                     raise ConnectionError(f"{path}: HTTP {status}")
