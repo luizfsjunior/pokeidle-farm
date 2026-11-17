@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 Handler = Callable[[Event], Awaitable[None]]
 ErrorCallback = Callable[[str, BaseException], None]
-Unsubscribe = Callable[[], Awaitable[None]]
+Unsubscribe = Callable[..., Awaitable[None]]  # unsubscribe(drain_s=None)
 
 
 @dataclass
@@ -65,10 +65,12 @@ class EventBus:
         sub.task = asyncio.create_task(self._pump(sub), name=f"bus:{name}")
         self._subs.append(sub)
 
-        async def unsubscribe() -> None:
+        async def unsubscribe(drain_s: float | None = None) -> None:
+            """Para de receber e espera a fila esvaziar; com `drain_s`, descarta o que sobrar
+            depois desse prazo (reinício de plugin não pode travar o comando do painel)."""
             if sub in self._subs:
                 self._subs.remove(sub)
-            await self._drain_and_stop(sub)
+            await self._drain_and_stop(sub, drain_s)
 
         return unsubscribe
 
@@ -94,8 +96,15 @@ class EventBus:
         subs, self._subs = self._subs, []
         await asyncio.gather(*(self._drain_and_stop(s) for s in subs))
 
-    async def _drain_and_stop(self, sub: _Subscriber) -> None:
-        await sub.queue.join()
+    async def _drain_and_stop(self, sub: _Subscriber, drain_s: float | None = None) -> None:
+        if drain_s is None:
+            await sub.queue.join()
+        else:
+            try:
+                await asyncio.wait_for(sub.queue.join(), drain_s)
+            except TimeoutError:
+                left = sub.queue.qsize()
+                log.warning("bus: %s parou com %d evento(s) na fila, descartados", sub.name, left)
         if sub.task:
             sub.task.cancel()
             with contextlib.suppress(asyncio.CancelledError):

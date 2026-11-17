@@ -170,6 +170,7 @@ class AccountSession:
         (aí a config nova vale na próxima conexão)."""
         if self.state != State.READY:
             return False
+        log.info("[%s] reiniciando plugin %s", self.account.nick, name)
         configs = await self.store.plugin_configs(self.account.id)
         await self.plugins.stop_one(name)
         await self.plugins.start_all(self.bus, configs, self._make_ctx)
