@@ -178,6 +178,7 @@ async def test_busy_lease_keeps_status_of_the_holder(fake_game, make_session, st
     Em 17/11 um worker antigo (PC de casa) subiu junto com o do VPS e, a cada minuto, gravava
     `offline` por cima do `ready` do outro.
     """
+
     async def script(ws, hello, n):
         await ws.send(welcome())
         await keep_open(ws)

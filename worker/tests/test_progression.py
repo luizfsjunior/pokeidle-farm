@@ -255,3 +255,52 @@ def test_xp_first_spends_gold_while_it_lasts():
     assert rich.phases[-1].gold_end < 10_000_000
     acc.gold = 5_000  # na reserva: não dá para gastar
     assert plan_to(12, acc, fire, RAW, RULES, NOW, n_kills=30).stuck_at == 10
+
+
+# --- busca da pedra (docs/design/foco-xp-pedra.md) ---------------------------------
+
+RAW_GRASS = {**RAW, 43: _raw(43, "GRASS", (45, 50, 55, 75, 65, 30))}  # Oddish: dropa Leaf Stone
+
+
+def test_plan_farms_the_missing_stone_then_evolves():
+    hunts = [*HUNTS, HuntRef("grass1", 1, 43)]
+    plan = plan_to(20, _account(level=10), hunts, RAW_GRASS, RULES, NOW, n_kills=30)
+    assert plan.stuck_at is None
+    (ev,) = plan.evolutions
+    assert ev["stone"] == "Leaf Stone" and ev["level"] >= 12 and ev["farm_hours"] > 0
+    farm = [p for p in plan.phases if p.stone == "Leaf Stone"]
+    assert farm and {p.hunt for p in farm} == {"grass1"}
+    # depois da pedra, volta para a hunt de XP
+    assert plan.phases[-1].hunt != "grass1" and plan.phases[-1].species_id == 2
+
+
+def test_plan_starts_the_search_before_the_level_with_lead():
+    hunts = [*HUNTS, HuntRef("grass1", 1, 43)]
+    acc = _account(level=8)
+    acc.stone_lead = 3  # busca a partir do 9
+    plan = plan_to(20, acc, hunts, RAW_GRASS, RULES, NOW, n_kills=30)
+    first_farm = next(p for p in plan.phases if p.stone)
+    assert first_farm.from_level == 9
+    assert plan.evolutions[0]["level"] == 12  # a pedra já estava na bolsa no 12
+
+
+def test_plan_without_a_stone_hunt_keeps_the_xp_route():
+    plan = plan_to(20, _account(level=10), HUNTS, RAW, RULES, NOW, n_kills=30)
+    assert plan.evolutions == [] and all(p.stone is None for p in plan.phases)
+
+
+async def test_missing_stone():
+    sent: list[dict[str, Any]] = []
+    assert await Progress(_ctx(12, {}, sent), source="g", now=lambda: NOW).missing_stone() == (
+        "Leaf Stone",
+        12,
+    )
+    assert (
+        await Progress(_ctx(12, {"76": 1}, sent), source="g", now=lambda: NOW).missing_stone()
+        is None
+    )
+    assert await Progress(_ctx(10, {}, sent), source="g", now=lambda: NOW).missing_stone() is None
+    assert await Progress(_ctx(10, {}, sent), source="g", now=lambda: NOW).missing_stone(2) == (
+        "Leaf Stone",
+        12,
+    )

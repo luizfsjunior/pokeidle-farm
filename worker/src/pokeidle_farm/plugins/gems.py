@@ -27,6 +27,7 @@ from ..gems_model import (
     StonePrice,
     option_dict,
     rank_options,
+    stone_chance,
 )
 from ..hunt_switch import HuntSwitcher
 from ..model.predict import ModelRates, season_adjust
@@ -48,6 +49,10 @@ class GemsConfig(BaseModel):
     plan_goal: int = Field(150, ge=2)
     plan_every_min: float = Field(60.0, ge=5)
     auto_evolve: bool = True
+    # sem a pedra da próxima evolução, vai para a hunt que mais a dropa até cair uma, a partir de
+    # `stone_lead_levels` níveis antes do de evoluir (docs/design/foco-xp-pedra.md)
+    farm_stone: bool = True
+    stone_lead_levels: int = Field(2, ge=0, le=20)
     interval_min: float = Field(15.0, ge=1)
     max_market_share: float = Field(0.10, gt=0, le=1)
     hysteresis: float = Field(0.15, ge=0)
@@ -115,6 +120,8 @@ class GemsPlugin(Plugin):
             goal=self.cfg.plan_goal,
             plan_every_min=self.cfg.plan_every_min,
         )
+        self.progress.stone_lead = self.cfg.stone_lead_levels if self.cfg.farm_stone else 0
+        self._seeking: str | None = None  # pedra que o foco XP está buscando
         if self._acting:
             await self._check_rank()
         await self._load()
@@ -234,6 +241,15 @@ class GemsPlugin(Plugin):
                 getattr(self, "_species_now", None) is not None and species_now != self._species_now
             )
             self._species_now = species_now
+            if self._seeking and (await self.progress.stones()).get(self._seeking, 0) > 0:
+                await self.ctx.actions.note(
+                    "progress.stone_found", {"stone": self._seeking, "hunt": self.switch.current}
+                )
+                self._seeking = None
+                if self._acting and self.cfg.auto_evolve:
+                    await self.progress.maybe_evolve()
+                await self._plan("stone_found")
+                self.progress.maybe_plan("evolved")
             if level > self._level:
                 self._level = level
                 await self._plan("level_up")
@@ -353,7 +369,10 @@ class GemsPlugin(Plugin):
             return {}
 
     async def _plan_xp(self, reason: str, cat: Any, rate: dict[str, tuple[float, str]]) -> None:
-        """Foco XP: a hunt de maior XP/h projetada (ritmo pelo nível do ativo × XP por abate)."""
+        """Foco XP: a hunt de maior XP/h projetada (ritmo pelo nível do ativo × XP por abate).
+
+        Perto do nível de evoluir e sem a pedra do tipo, a hunt que mais dropa essa pedra por hora
+        (abates/h × chance pelo estágio do selvagem), até a pedra cair."""
         options = xp_options(cat, self._level, rate, self._xp)
         best = options[0] if options and options[0].xp_per_hour > 0 else None
         current = self.switch.current
@@ -366,6 +385,14 @@ class GemsPlugin(Plugin):
             and best.xp_per_hour <= here.xp_per_hour * (1 + self.cfg.hysteresis)
         ):
             target = here
+        stone_plan = await self._stone_target(cat, options)
+        if stone_plan is not None:
+            target = stone_plan[0]
+        stone_data = stone_plan[1] if stone_plan else None
+        if (stone_data or {}).get("stone") != self._seeking:
+            self._seeking = (stone_data or {}).get("stone")
+            if self._seeking:
+                await self.ctx.actions.note("progress.stone_hunt", stone_data or {})
         await self.ctx.actions.note(
             "gems.plan",
             {
@@ -379,10 +406,49 @@ class GemsPlugin(Plugin):
                 "target": xp_option_dict(target) if target else None,
                 "here": xp_option_dict(here) if here and here is not target else None,
                 "options": [xp_option_dict(o) for o in options[: self.cfg.preview]],
+                "stone_hunt": stone_data,
                 "degraded": list(self._degraded),
             },
         )
         await self._go(target.slug if target else None, current, reason)
+
+    async def _stone_target(
+        self, cat: Any, options: list[Any]
+    ) -> tuple[Any, dict[str, Any]] | None:
+        """(opção, dados) da busca da pedra de evolução, ou None se não precisa ou não há hunt."""
+        if not (self.cfg.farm_stone and self.cfg.auto_evolve):
+            return None
+        missing = await self.progress.missing_stone(self.cfg.stone_lead_levels)
+        if missing is None or self.ctx.species is None:
+            return None
+        stone, evo_lv = missing
+        scored = []
+        for o in options:
+            h = cat.hunts.get(o.slug)
+            if h is None:
+                continue
+            ch = stone_chance(self.ctx.species, h.species_id, stone, self._chances, self._by_type)
+            if ch > 0:
+                scored.append((o.kills_per_hour * ch, o.xp_per_hour, o, ch))
+        if not scored:
+            return None
+        scored.sort(key=lambda x: (-x[0], -x[1], x[2].slug))
+        sph, _, opt, ch = scored[0]
+        data = {
+            "stone": stone,
+            "evolve_level": evo_lv,
+            "active_level": self.ctx.state.active_level,
+            "hunt": opt.slug,
+            "name": opt.name,
+            "chance": ch,
+            "stones_per_hour": round(sph, 3),
+            "hours_expected": round(1 / sph, 2),
+            "options": [
+                {"slug": o.slug, "name": o.name, "stones_per_hour": round(s, 3)}
+                for s, _, o, _c in scored[:3]
+            ],
+        }
+        return opt, data
 
     async def _go(self, slug: str | None, current: str | None, reason: str) -> None:
         if slug is None or slug == current:
