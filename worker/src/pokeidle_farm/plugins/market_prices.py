@@ -27,7 +27,7 @@ from ..actions import (
     MarketListPokemon,
 )
 from ..events import Event
-from ..outland_model import DROPS, GOAL_LEVEL, outland_dict, outland_options, tier_mults
+from ..outland_model import DROPS, GOAL_LEVEL, outland_dict, outland_options, tier_mult_at
 from .base import Plugin, PluginContext
 
 
@@ -222,14 +222,18 @@ async def compute_outland(
         if r and r.get("median"):
             prices[name] = float(r["median"])
     raw = getattr(species, "raw", {}) or {}
-    proj, options = await asyncio.to_thread(outland_options, hunts, prof, raw, cat.rules, prices)
-    _low, top = tier_mults(cat.rules)
+    trainer = ctx.state.level
+    proj, options = await asyncio.to_thread(
+        lambda: outland_options(hunts, prof, raw, cat.rules, prices, top_level=trainer)
+    )
+    top, top_label = tier_mult_at(cat.rules, max(GOAL_LEVEL, trainer or 0))
     return {
         "trainer_level": ctx.state.level,
         "goal_level": GOAL_LEVEL,
         "active_species_id": proj.get("speciesId"),
         "active_name": (raw.get(proj.get("speciesId")) or {}).get("name"),
         "top_tier_mult": top,
+        "top_tier_label": top_label,
         "prices": {
             name: {"gems": prices.get(name), "chance": chance, "tier_scaled": scaled}
             for name, chance, scaled in DROPS
