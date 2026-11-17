@@ -63,10 +63,10 @@ class State(StrEnum):
     REJECTED = "rejected"
 
 
-# estado da sessão → accounts.status no banco
+# estado da sessão → accounts.status no banco. LEASE_BUSY não grava: a conta é de outro worker, e é ele
+# quem diz o status (em 17/11 um worker antigo gravava "offline" por cima do "ready" do VPS a cada minuto)
 DB_STATUS: dict[State, str] = {
     State.DISCONNECTED: "offline",
-    State.LEASE_BUSY: "offline",
     State.CONNECTING: "connecting",
     State.HANDSHAKING: "connecting",
     State.READY: "ready",
@@ -445,8 +445,10 @@ class AccountSession:
             log.info("[%s] estado=%s (%s)", self.account.nick, state.name, reason)
         else:
             log.info("[%s] estado=%s", self.account.nick, state.name)
-        with contextlib.suppress(Exception):
-            await self.store.set_status(self.account.id, DB_STATUS[state])
+        status = DB_STATUS.get(state)
+        if status is not None:
+            with contextlib.suppress(Exception):
+                await self.store.set_status(self.account.id, status)
         if state in (State.NEEDS_LOGIN, State.REJECTED):
             await self.bus.publish(
                 self._translator.system(

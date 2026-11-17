@@ -36,8 +36,11 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 - Guardar o print da conversa com o suporte (fora do repo).
 - No `/compensa`, preencher o custo fixo (~US$ 10) e marcar "a máquina fica ligada de qualquer jeito".
-- A conta aparece como `offline` no painel com o worker jogando no `vps1` (abates às 00:14 UTC de 17/11): conferir
-  quando o worker grava o `status`.
+- **`offline` com a conta jogando (resolvido)**: o Docker Desktop do PC foi aberto para os testes SQL e o worker antigo
+  (`restart: unless-stopped`) subiu junto. Ele não pegava o lease (é do `vps1`), mas o estado `LEASE_BUSY` gravava
+  `offline` por cima do `ready` a cada minuto. Agora o `LEASE_BUSY` não grava status (teste novo; 316 passando). No
+  PC: `docker compose down` na pasta do projeto, para o worker de casa não voltar com o Docker. No VPS: `git pull` e
+  `docker compose up -d --build` para levar a correção.
 - Lint: dois B008 em `model/combat.py` (de 15/11).
 - Fase 5, contas 2 e 3: o jogo só aceita Gmail, Live e Yahoo e normaliza `+alias` e pontos; o Google barrou o celular
   por excesso de verificações. Esperar uns dias e criar dois Gmail (ou Yahoo); depois: nicks no Supabase, plugins,
