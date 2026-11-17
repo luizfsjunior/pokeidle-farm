@@ -5,7 +5,7 @@ import { CaptureForm, CaptureStatus, type ActiveCapture } from "@/components/Cap
 import { commandSummary } from "@/components/CommandButtons";
 import { Matchups, Moves, PvpRange, StatBars, StatRadar } from "@/components/SpeciesFacts";
 import { Sprite } from "@/components/Sprite";
-import { RARITY_PT, loadGameRules, loadSpeciesInfo } from "@/lib/pokemon";
+import { RARITY_PT, captureChance, captureFactor, loadGameRules, loadSpeciesInfo } from "@/lib/pokemon";
 import { usePanel } from "@/lib/query/hooks";
 import { useCommand } from "@/lib/useCommand";
 import { dateTime, num } from "@/lib/format";
@@ -89,6 +89,13 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
     for (const h of hunts) if (h.region && !m.has(h.species_id)) m.set(h.species_id, h.region);
     return m;
   }, [hunts]);
+  // nível da hunt de verdade (game_hunts). O `hunt_level` da espécie é o "Nível ao capturar" do jogo
+  // (o nível com que ela nasce ao ser capturada), não o nível de uma hunt.
+  const huntLvOf = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const h of hunts) if (!m.has(h.species_id) || h.level < m.get(h.species_id)!) m.set(h.species_id, h.level);
+    return m;
+  }, [hunts]);
   const regions = useMemo(() => {
     const first = new Map<string, number>();
     for (const h of hunts) if (h.region && !first.has(h.region)) first.set(h.region, h.level);
@@ -120,7 +127,7 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
   }, [species, dex, filter, type, query, region, regionOf]);
   // por nível de hunt: as espécies sem hunt vão para o fim; empate, pelo número
   const sorted = useMemo(() => order === "numero" ? shown : [...shown].sort((a, b) =>
-    (a.hunt_level ?? Infinity) - (b.hunt_level ?? Infinity) || a.species_id - b.species_id), [shown, order]);
+    (huntLvOf.get(a.species_id) ?? Infinity) - (huntLvOf.get(b.species_id) ?? Infinity) || a.species_id - b.species_id), [shown, order, huntLvOf]);
 
   // formas do mesmo pokémon com números diferentes (Aron #304 de Kanto e #13304 de Hoenn): um card só
   const formsOf = useMemo(() => {
@@ -214,7 +221,7 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
             const hide = !full && st === "missing";
             const ids = forms.map((f) => f.species_id);
             const isSel = selected != null && ids.includes(selected);
-            const lv = Math.min(...forms.map((f) => f.hunt_level ?? Infinity));
+            const lv = Math.min(...forms.map((f) => huntLvOf.get(f.species_id) ?? Infinity));
             return (
               <li key={s.species_id}>
                 <button type="button" className={`dex-cell dex-${st} ${full ? "dex-full" : ""} ${isSel ? "is-selected" : ""}`}
@@ -259,7 +266,8 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
               <dl className="dex-facts">
                 <dt>Capturas</dt><dd className="num">{num(caught(selEntry))}</dd>
                 <dt>Abates</dt><dd className="num">{kills(selEntry) != null ? num(kills(selEntry)) : "—"}</dd>
-                {sel.hunt_level != null && <><dt>Nível da hunt</dt><dd className="num">{num(sel.hunt_level)}</dd></>}
+                {huntLvOf.has(sel.species_id) && <><dt>Nível da hunt</dt><dd className="num">{num(huntLvOf.get(sel.species_id)!)}</dd></>}
+                {sel.hunt_level != null && <><dt title="O nível com que ela nasce quando você captura">Nível ao capturar</dt><dd className="num">{num(sel.hunt_level)}</dd></>}
                 {sel.evolves_to != null && (
                   <>
                     <dt>Evolui para</dt>
@@ -289,7 +297,8 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
                     </>
                   )
               )}
-              <SpeciesExtra id={sel.species_id} />
+              <SpeciesExtra id={sel.species_id} stage={sel.stage}
+                inHunt={(formsOf.get(keyOf(sel)) ?? [sel]).some((f) => (huntsBySpecies.get(f.species_id) ?? []).length > 0)} />
               <h3>Onde aparece</h3>
               {(huntsBySpecies.get(sel.species_id) ?? []).length === 0 ? (
                 <OtherForms sel={sel} species={species} huntsBySpecies={huntsBySpecies} accountId={accountId} onPick={setSelected} />
@@ -349,7 +358,7 @@ function OtherForms({ sel, species, huntsBySpecies, accountId, onPick }: {
 }
 
 /** Tipos (fraquezas e forças), stats base, alcance no PvP e golpes da espécie, lidos quando ela é aberta. */
-function SpeciesExtra({ id }: { id: number }) {
+function SpeciesExtra({ id, stage, inHunt }: { id: number; stage: string; inHunt: boolean }) {
   const { data: rules } = usePanel(["game-rules"], loadGameRules, { staleTime: 30 * 60_000 });
   const { data: s, isLoading } = usePanel(["species-info", id], (sb) => loadSpeciesInfo(sb, id), { staleTime: 30 * 60_000 });
   if (isLoading) return <p className="muted small">Carregando a ficha…</p>;
@@ -362,10 +371,49 @@ function SpeciesExtra({ id }: { id: number }) {
         {s.experience != null && <><dt>XP por derrota</dt><dd className="num">{num(s.experience)}</dd></>}
         {s.price_npc != null && <><dt>O NPC paga</dt><dd className="num">{num(s.price_npc)} de ouro</dd></>}
       </dl>
+      {rules?.capture && (
+        <div className="dex-section">
+          <h3>Captura</h3>
+          <CaptureTable rules={rules} factor={captureFactor(rules.capture, stage, inHunt, s.price_npc)} estimated={!inHunt} />
+        </div>
+      )}
       <div className="dex-section"><h3>Tipos</h3><Matchups s={s} rules={rules} /></div>
       <div className="dex-section"><h3>Stats base</h3><StatRadar base={s.base} /><details className="stat-table"><summary>Ver os números</summary><StatBars base={s.base} /></details></div>
       <div className="dex-section"><h3>No PvP</h3><PvpRange base={s.base} /></div>
       <div className="dex-section"><h3>Golpes</h3><Moves attacks={s.attacks} /></div>
+    </>
+  );
+}
+
+const pctFmt = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 2 });
+
+/** Chance por bola com o selvagem derrubado, quantos abates por captura e o ouro em bolas; e o shiny. */
+function CaptureTable({ rules, factor, estimated }: { rules: NonNullable<Awaited<ReturnType<typeof loadGameRules>>>; factor: number; estimated: boolean }) {
+  const cap = rules.capture!;
+  return (
+    <>
+      <table className="moves">
+        <thead><tr><th scope="col">Bola</th><th scope="col">Chance</th><th scope="col">Abates por captura</th><th scope="col">Ouro por captura</th></tr></thead>
+        <tbody>
+          {rules.balls.map((b) => {
+            const c = captureChance(cap, b.catchRate, factor);
+            return (
+              <tr key={b.id}>
+                <td>{b.name}</td>
+                <td className="num">{pctFmt.format(c)}</td>
+                <td className="num">{num(Math.round(1 / c))}</td>
+                <td className="num">{b.price != null ? num(Math.round(b.price / c), { compact: true }) : <span className="muted">não se compra</span>}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className="small muted" style={{ margin: ".4rem 0 0" }}>
+        Uma bola por corpo derrubado. {estimated
+          ? "Sem hunt própria, o jogo usa o preço da espécie no fator; aqui vai o preço do NPC, então é uma estimativa."
+          : `Fator do degrau da cadeia: ${num(Math.round(factor * 100) / 100)}.`}
+        {rules.shinyChance ? ` Shiny: 1 em ${num(Math.round(1 / rules.shinyChance))} por nascimento, sem bônus (Shiny Secret Lure, live e Safari multiplicam).` : ""}
+      </p>
     </>
   );
 }
