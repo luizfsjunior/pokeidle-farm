@@ -13,7 +13,7 @@ export function TypeChip({ type, mult: m }: { type: string; mult?: number }) {
   return (
     <span className="type-chip" data-type={type.toUpperCase()}>
       {TYPE_PT[type.toUpperCase()] ?? type}
-      {m != null && m !== 2 && m !== 0.5 && <b className="type-mult"> ×{mult.format(m)}</b>}
+      {m != null && <b className="type-mult"> ×{mult.format(m)}</b>}
     </span>
   );
 }
@@ -36,8 +36,8 @@ export function Matchups({ s, rules }: { s: Pick<SpeciesInfo, "type1" | "type2">
     <dl className="matchups">
       {row("Fraco contra", "Golpes desses tipos tiram ×2 (ou ×4) dele", m.weak.map(([t, x]) => <TypeChip key={t} type={t} mult={x} />))}
       {row("Resiste a", "Golpes desses tipos tiram ×0,5 (ou ×0,25)", m.resist.map(([t, x]) => <TypeChip key={t} type={t} mult={x} />))}
-      {m.immune.length > 0 && row("Imune a", "Golpes desses tipos não tiram nada", m.immune.map((t) => <TypeChip key={t} type={t} />))}
-      {row("Forte contra", "Com os golpes do tipo dele, bate ×2 nesses tipos", m.strong.map((t) => <TypeChip key={t} type={t} />))}
+      {m.immune.length > 0 && row("Imune a", "Golpes desses tipos não tiram nada", m.immune.map((t) => <TypeChip key={t} type={t} mult={0} />))}
+      {row("Forte contra", "Com os golpes do tipo dele, bate ×2 nesses tipos", m.strong.map((t) => <TypeChip key={t} type={t} mult={2} />))}
       {row("Bate fraco em", "Nem o melhor dos tipos dele passa de ×0,5 nesses", m.feeble.map(([t, x]) => <TypeChip key={t} type={t} mult={x} />))}
     </dl>
   );
