@@ -4,7 +4,9 @@ Usado pelo plugin gems com `objective: "xp"`:
 - `maybe_plan`: roda a camada 2 (`model/progression.plan_to`) numa thread, no máximo a cada
   `plan_every_min` (e sempre na subida e ao evoluir), e grava `progress.plan` (fases, horas, ETA);
 - `maybe_evolve`: quando o ativo chega no nível de evoluir e a pedra do tipo está na bolsa, manda
-  `pokemon.evoluir` (uma tentativa por pokémon e espécie a cada `evolve_retry_min`).
+  `pokemon.evoluir` (uma tentativa por pokémon e espécie a cada `evolve_retry_min`);
+- `missing_stone`: a pedra que falta para a próxima evolução (o plugin vai buscá-la numa hunt que a
+  dropa; docs/design/foco-xp-pedra.md).
 """
 
 from __future__ import annotations
@@ -73,6 +75,7 @@ class Progress:
         self.evolving: tuple[Any, int, int, datetime] | None = None
         self.evolve_confirm = timedelta(minutes=2)
         self._stone_names: dict[int, str] | None = None
+        self.stone_lead = 0  # o plugin ajusta (GemsConfig.stone_lead_levels)
 
     async def stones(self) -> dict[str, int]:
         """Pedras na bolsa por nome (o catálogo de pedras é lido uma vez)."""
@@ -109,6 +112,25 @@ class Progress:
                 "progress.evolve_failed",
                 {"pokemon_id": pid, "from": src, "to": to, "species_now": prof.get("speciesId")},
             )
+
+    async def missing_stone(self, lead_levels: int = 0) -> tuple[str, int] | None:
+        """(pedra, nível de evoluir) quando o ativo está a `lead_levels` ou menos do nível de
+        evoluir e a pedra do tipo não está na bolsa; senão None."""
+        prof = self.ctx.state.active_pokemon
+        species = self.ctx.species
+        if not prof or species is None:
+            return None
+        sid, level = prof.get("speciesId"), prof.get("level")
+        raw = (getattr(species, "raw", {}) or {}).get(sid) or {}
+        to, evo_lv = raw.get("evolvesToId"), int(raw.get("evolveLevel") or 0)
+        if not to or to == sid or not evo_lv or not isinstance(level, int):
+            return None
+        if level < evo_lv - max(0, lead_levels):
+            return None
+        stone = STONE_BY_TYPE.get(str(raw.get("type1") or "").upper())
+        if not stone or (await self.stones()).get(stone, 0) > 0:
+            return None
+        return stone, evo_lv
 
     async def maybe_evolve(self) -> None:
         await self.check_evolution()
@@ -184,6 +206,7 @@ class Progress:
             active=prof,
             active_xp=float(prof.get("xp") or 0),
             stones=await self.stones(),
+            stone_lead=self.stone_lead,
             bonuses=bonuses_from_state(st.xp_bonus),
             farm_pct=farm_pct_from_event(st.xp_event, now),
             gold=float(st.gold) if st.gold is not None else None,

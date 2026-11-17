@@ -423,3 +423,57 @@ async def test_season_kills_stay_out_of_the_measured_pace():
     await p.on_event(kill({"hunt_slug": "caterpie", **bug}))
     await p.on_event(kill({"hunt_slug": "caterpie", "season": "FIRE"}))
     assert added == ["caterpie"]  # só o abate de dia normal entra no ritmo
+
+
+# --- foco XP: busca da pedra de evolução (docs/design/foco-xp-pedra.md) ----------------
+
+
+def _water_stone(h: Harness, qty: int) -> None:
+    h.store.game_items[777] = {"item_id": 777, "name": "Water Stone", "category": "stone"}
+    h.ctx.state.items = {"777": qty} if qty else {}
+
+
+async def test_xp_focus_goes_to_the_stone_hunt_when_the_stone_is_missing():
+    h = Harness(dry_run=False, objective="xp", hunt_slug="caterpie")
+    h.ctx.state.active_pokemon = {"id": 7, "speciesId": 129, "level": 10}  # Magikarp evolui no 10
+    _water_stone(h, 0)
+    await h.start()
+    plan = h.events("gems.plan")[-1]
+    assert plan["stone_hunt"]["stone"] == "Water Stone"
+    assert plan["stone_hunt"]["hunt"] == "magikarp"
+    assert plan["target"]["slug"] == "magikarp" and h.selects() == ["magikarp"]
+    (started,) = h.events("progress.stone_hunt")
+    assert started["hours_expected"] > 0
+
+    # a pedra cai: avisa, tenta evoluir e volta ao XP
+    await h.plugin.on_event(
+        Event(
+            account_id=uuid4(), session_id=uuid4(), type="hunt.changed", data={"slug": "magikarp"}
+        )
+    )
+    h.ctx.state.items = {"777": 1}
+    await h.plugin.on_event(
+        Event(account_id=uuid4(), session_id=uuid4(), type="state.patch", data={})
+    )
+    assert h.events("progress.stone_found") == [{"stone": "Water Stone", "hunt": "magikarp"}]
+    assert {"t": "pokemon.evoluir", "pokemonId": 7, "alvoId": 130} in h.sent
+    last = h.events("gems.plan")[-1]
+    assert last["reason"] == "stone_found" and last["stone_hunt"] is None
+    assert last["target"]["slug"] != "magikarp"
+
+
+async def test_xp_focus_with_the_stone_in_the_bag_stays_on_xp():
+    h = Harness(dry_run=False, objective="xp", hunt_slug="caterpie")
+    h.ctx.state.active_pokemon = {"id": 7, "speciesId": 129, "level": 10}
+    _water_stone(h, 1)
+    await h.start()
+    plan = h.events("gems.plan")[-1]
+    assert plan["stone_hunt"] is None and plan["target"]["slug"] != "magikarp"
+
+
+async def test_stone_search_can_be_turned_off():
+    h = Harness(dry_run=False, objective="xp", hunt_slug="caterpie", farm_stone=False)
+    h.ctx.state.active_pokemon = {"id": 7, "speciesId": 129, "level": 10}
+    _water_stone(h, 0)
+    await h.start()
+    assert h.events("gems.plan")[-1]["stone_hunt"] is None

@@ -29,15 +29,23 @@ export type GemsPlanData = {
   options: GemOption[];
   month_gems_24h: number;
   degraded?: string[]; // o plano "sem_catalogo" vem sem
+  /** Foco XP: buscando a pedra da próxima evolução (docs/design/foco-xp-pedra.md). */
+  stone_hunt?: StoneHunt | null;
+};
+export type StoneHunt = {
+  stone: string; evolve_level: number; active_level: number | null; hunt: string; name: string | null;
+  chance: number; stones_per_hour: number; hours_expected: number;
 };
 export type ProgressPhase = {
   from_level: number; to_level: number; hunt: string; species_id: number; species: string | null; hours: number;
   kills_per_hour: number; xp_per_hour: number; potions_per_hour: number; net_gold_per_hour: number;
+  stone?: string | null; // fase de busca da pedra de evolução
 };
 /** Evento `progress.plan` (docs/design/simulador-2-progressao.md): plano até o marco no foco XP. */
 export type ProgressPlanData = {
   at: string; goal: number; hours: number; eta?: string; stuck_at: number | null; trainer_level: number;
-  phases: ProgressPhase[]; evolutions: { level: number; to: number; to_name?: string | null; stone: string }[];
+  phases: ProgressPhase[];
+  evolutions: { level: number; to: number; to_name?: string | null; stone: string; farm_hours?: number }[];
 };
 export type GemsPotentialData = { at: string; trainer_level: number; prices: number; options: GemOption[] };
 
@@ -132,6 +140,13 @@ function XpCard({ plan, progress }: { plan: GemsPlanData; progress: ProgressPlan
         {target ? `${target.name ?? target.slug} (~${num(target.xp_per_hour, { compact: true })} XP/h)` : "nenhum"}
         {(plan.degraded?.length ?? 0) > 0 && <span className="error"> · {plan.degraded?.join(", ")}</span>}
       </p>
+      {plan.stone_hunt && (
+        <p className="small" style={{ margin: 0 }}>
+          <strong>Buscando {plan.stone_hunt.stone}</strong> para evoluir no {plan.stone_hunt.evolve_level}:{" "}
+          {plan.stone_hunt.name ?? plan.stone_hunt.hunt}, ~{hours1(plan.stone_hunt.stones_per_hour)}{" "}
+          por hora (~{hours1(plan.stone_hunt.hours_expected)} h para cair uma). Quando cair, evolui e volta para a hunt de XP.
+        </p>
+      )}
       <div className="table-scroll">
         <table>
           <thead><tr><th>Hunt</th><th>Nível</th><th>Abates/h</th><th>XP/abate</th><th>XP/h</th></tr></thead>
@@ -164,7 +179,7 @@ function ProgressPlan({ progress }: { progress: ProgressPlanData }) {
       <div className="spread">
         <div className="with-hint"><h3 style={{ margin: 0 }}>Até o nível {progress.goal}</h3><Hint>
           Simulação nível a nível: a melhor hunt que se paga em ouro (abates − poções), com os bônus de XP até expirarem e as
-          evoluções quando há pedra. Não conta idas ao Centro nem o tempo das trocas.
+          evoluções. Sem a pedra, conta o tempo esperado numa hunt que a dropa. Não conta idas ao Centro.
         </Hint></div>
         <span className="muted small">plano {ago(progress.at)}</span>
       </div>
@@ -176,7 +191,9 @@ function ProgressPlan({ progress }: { progress: ProgressPlanData }) {
             <strong>~{hours1(progress.hours)} h</strong> de farm
             {progress.eta ? ` · previsão ${fmtEta(progress.eta)}` : ""}
             {progress.evolutions.length > 0 &&
-              ` · evolui ${progress.evolutions.map((e) => `${e.to_name ?? e.to} no ${e.level}`).join(", ")}`}
+              ` · evolui ${progress.evolutions
+                .map((e) => `${e.to_name ?? e.to} no ${e.level}${e.farm_hours ? ` (~${hours1(e.farm_hours)} h buscando ${e.stone})` : ""}`)
+                .join(", ")}`}
           </>
         )}
       </p>
@@ -190,9 +207,9 @@ function ProgressPlan({ progress }: { progress: ProgressPlanData }) {
           </thead>
           <tbody>
             {progress.phases.map((p) => (
-              <tr key={`${p.from_level}-${p.hunt}`}>
+              <tr key={`${p.from_level}-${p.hunt}-${p.stone ?? ""}`}>
                 <td>{p.from_level}–{p.to_level}</td>
-                <td>{p.hunt}</td>
+                <td>{p.hunt}{p.stone ? <span className="muted"> · busca {p.stone}</span> : null}</td>
                 <td>{p.species ?? p.species_id}</td>
                 <td>{hours1(p.hours)}</td>
                 <td>{num(p.xp_per_hour, { compact: true })}</td>
@@ -216,7 +233,7 @@ function PhaseStrip({ progress }: { progress: ProgressPlanData }) {
     <div className="stack" style={{ gap: ".3rem" }}>
       <div className="phases" role="img" aria-label={`${progress.phases.length} fases até o nível ${progress.goal}`}>
         {progress.phases.map((p) => (
-          <span key={`${p.from_level}-${p.hunt}`} style={{ flexGrow: (p.hours / total) * 100, flexBasis: 0 }}
+          <span key={`${p.from_level}-${p.hunt}-${p.stone ?? ""}`} style={{ flexGrow: (p.hours / total) * 100, flexBasis: 0 }}
             title={`${p.from_level}–${p.to_level}: ${p.hunt}, ${hours1(p.hours)} h`}>
             {p.hours / total > 0.12 ? p.hunt : ""}
           </span>

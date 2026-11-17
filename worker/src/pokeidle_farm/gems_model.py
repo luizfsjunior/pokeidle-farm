@@ -114,6 +114,54 @@ def stones_of(
     return out
 
 
+def stone_chance(
+    species: SpeciesCatalog,
+    species_id: int,
+    stone: str,
+    chances: tuple[float, float, float] = STONE_CHANCE_BY_POSITION,
+    by_type: dict[str, str] | None = None,
+) -> float:
+    """Chance por abate de um selvagem dessa espécie dropar essa pedra (0 se não dropa)."""
+    if stone not in stones_of(species, species_id, by_type):
+        return 0.0
+    return chances[chain_position(species, species_id)]
+
+
+def raw_chain_position(raw: dict[int, dict[str, Any]], species_id: int) -> int:
+    """`chain_position` sobre a Pokedex crua (`evolvesToId`), para o simulador."""
+    sp = raw.get(species_id)
+    if sp is None:
+        return 2
+    parents = {
+        int(v["evolvesToId"]): k
+        for k, v in raw.items()
+        if v.get("evolvesToId") and v.get("evolvesToId") != k
+    }
+    depth, cur, seen = 0, species_id, set()
+    while cur in parents and cur not in seen:
+        seen.add(cur)
+        cur = parents[cur]
+        depth += 1
+    if depth == 0 and not sp.get("evolvesToId"):
+        return 2
+    return min(depth, 2)
+
+
+def raw_stone_chance(
+    raw: dict[int, dict[str, Any]],
+    species_id: int,
+    stone: str,
+    chances: tuple[float, float, float] = STONE_CHANCE_BY_POSITION,
+    by_type: dict[str, str] | None = None,
+) -> float:
+    sp = raw.get(species_id) or {}
+    table = by_type or STONE_BY_TYPE
+    types = {str(sp.get(k) or "").upper() for k in ("type1", "type2")}
+    if stone not in {table.get(t) for t in types if t}:
+        return 0.0
+    return chances[raw_chain_position(raw, species_id)]
+
+
 def rank_options(
     hunts: HuntCatalog,
     species: SpeciesCatalog,
