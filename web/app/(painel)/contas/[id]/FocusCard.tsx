@@ -16,6 +16,9 @@ const FOCUS_LABEL: Record<Focus, string> = {
   gems: "Gemas (pedras)",
   xp: "XP (subir de nível)",
 };
+// Gemas por pedra saiu da lista (17/11): as pedras vendem a 2 gemas com filas de semanas
+// (docs/design/outland-potencial.md). Só aparece para a conta que ainda está nele.
+const OFFERED: Focus[] = ["xp", "gold_xp_drop", "capture", "rank"];
 // mesma ordem dos padrões do RankConfig (Ultra, Super, Great, Poke)
 const BALLS: { id: number; name: string }[] = [
   { id: 4, name: "Ultra" },
@@ -40,8 +43,8 @@ export function currentFocus(plugins: PluginRow[]): { focus: Focus; label: strin
     const ok = rankOn && !rankDry;
     return { focus: "rank", label: FOCUS_LABEL.rank + (ok ? "" : " · plugin rank desligado ou em ensaio") };
   }
-  // conta sem nada configurado: o padrão do app é gemas (ainda precisa salvar para ligar)
-  if (!restock && !gems && !rank) return { focus: "gems", label: `${FOCUS_LABEL.gems} · padrão, ainda não aplicado` };
+  // conta sem nada configurado: o padrão sugerido é XP (ainda precisa salvar para ligar)
+  if (!restock && !gems && !rank) return { focus: "xp", label: `${FOCUS_LABEL.xp} · sugerido, ainda não aplicado` };
   const focus: Focus = restockFocus === "capture" ? "capture" : "gold_xp_drop";
   return { focus, label: FOCUS_LABEL[focus] + (rankOn && rankDry ? " · rank em ensaio" : "") };
 }
@@ -52,7 +55,7 @@ export function FocusCard({ accountId, plugins }: { accountId: string; plugins: 
   const restockCfg = plugins.find((p) => p.plugin === "restock")?.config ?? {};
   const rankCfg = plugins.find((p) => p.plugin === "rank")?.config ?? {};
 
-  const [focus, setFocus] = useState<Focus>(now.focus);
+  const [focus, setFocus] = useState<Focus>(now.focus === "gems" ? "xp" : now.focus);
   const [balls, setBalls] = useState<number[]>(
     Array.isArray(rankCfg.rank_balls) ? (rankCfg.rank_balls as number[]) : [4, 3, 2, 1],
   );
@@ -91,13 +94,20 @@ export function FocusCard({ accountId, plugins }: { accountId: string; plugins: 
       <div className="spread">
         <div className="with-hint"><h2 style={{ margin: 0 }}>Foco</h2><Hint>
           <p><strong>XP</strong>: a hunt de mais XP por hora para o nível do pokémon ativo.</p>
-          <p><strong>Gemas</strong>: a hunt que mais rende pedras de evolução, sem passar de 10% do que o Mercado vende por semana.</p>
-          <p>Nos dois, as bolas ficam desligadas. Salvar grava o <code>restock</code>, o <code>rank</code> e o <code>gems</code> juntos (<code>focus.set</code>).</p>
+          <p><strong>Ouro, XP e drop</strong>: não escolhe hunt; fica na atual, só com poções e sem bolas.</p>
+          <p>O foco por pedras saiu: elas vendem a 2 gemas e esperam semanas na fila. As pedras que caem continuam sendo vendidas pelo <code>seller</code>.</p>
+          <p>No XP, as bolas ficam desligadas. Salvar grava o <code>restock</code>, o <code>rank</code> e o <code>gems</code> juntos (<code>focus.set</code>).</p>
         </Hint></div>
         <span className="muted small">agora: {now.label}</span>
       </div>
+      {now.focus === "gems" && (
+        <p className="small" style={{ margin: 0 }}>
+          Esta conta está no foco por pedras, que rende quase nada (as pedras vendem a 2 gemas com filas de semanas).
+          Salve outro foco; o sugerido é <strong>XP</strong>, até a Outland.
+        </p>
+      )}
       <div className="row">
-        {(Object.keys(FOCUS_LABEL) as Focus[]).map((f) => (
+        {OFFERED.map((f) => (
           <label key={f} className="row" style={{ gap: ".35rem" }}>
             <input type="radio" name="focus" checked={focus === f} onChange={() => setFocus(f)} /> {FOCUS_LABEL[f]}
           </label>
