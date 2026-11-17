@@ -1,4 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import { ItemIcon } from "@/components/ItemIcon";
+import { MonSheet } from "@/components/MonSheet";
 import { Sprite } from "@/components/Sprite";
 import { num } from "@/lib/format";
 import { gameDay, type Mon, type Profile } from "@/lib/profile";
@@ -22,6 +26,10 @@ export function ProfileSections({ profile, atlas, looktypes, items, part = "all"
   const balls = Object.entries(profile.balls).sort(([a], [b]) => Number(a) - Number(b));
   const highlights = profile.top_pokemon.filter((m) => !profile.team.some((t) => t.id === m.id)).slice(0, 12);
 
+  const [open, setOpen] = useState<Mon | null>(null);
+  // a ficha lê a versão mais nova do pokémon (o perfil recarrega a cada minuto)
+  const all = [...profile.team, ...profile.top_pokemon, ...profile.shinies];
+  const sheetMon = open ? all.find((m) => m.id === open.id) ?? open : null;
   const pass = profile.extra?.passe;
   const ex = profile.extra ?? {};
   return (
@@ -56,7 +64,7 @@ export function ProfileSections({ profile, atlas, looktypes, items, part = "all"
         ) : (
           <div className="mons">
             {profile.team.map((m) => (
-              <MonTile key={m.id} mon={m} atlas={atlas} looktypes={looktypes} active={m.id === profile.active_pokemon_id}>
+              <MonTile key={m.id} mon={m} atlas={atlas} looktypes={looktypes} active={m.id === profile.active_pokemon_id} onOpen={setOpen}>
                 {accountId && <MonActions accountId={accountId} mon={m} team={profile.team} isActive={m.id === profile.active_pokemon_id} />}
               </MonTile>
             ))}
@@ -77,7 +85,7 @@ export function ProfileSections({ profile, atlas, looktypes, items, part = "all"
             <h3>Mais fortes fora da equipe</h3>
             <div className="mons mons-small">
               {highlights.map((m) => (
-                <MonTile key={m.id} mon={m} atlas={atlas} looktypes={looktypes} small>
+                <MonTile key={m.id} mon={m} atlas={atlas} looktypes={looktypes} small onOpen={setOpen}>
                   {accountId && <MonActions accountId={accountId} mon={m} team={profile.team} isActive={false} />}
                 </MonTile>
               ))}
@@ -88,7 +96,7 @@ export function ProfileSections({ profile, atlas, looktypes, items, part = "all"
           <>
             <h3>Shinies</h3>
             <div className="mons mons-small">
-              {profile.shinies.map((m) => <MonTile key={m.id} mon={m} atlas={atlas} looktypes={looktypes} small />)}
+              {profile.shinies.map((m) => <MonTile key={m.id} mon={m} atlas={atlas} looktypes={looktypes} small onOpen={setOpen} />)}
             </div>
           </>
         )}
@@ -122,12 +130,20 @@ export function ProfileSections({ profile, atlas, looktypes, items, part = "all"
         )}
       </section>
       </>)}
+      {sheetMon && (
+        <MonSheet mon={sheetMon} atlas={atlas} looktypes={looktypes} active={sheetMon.id === profile.active_pokemon_id} onClose={() => setOpen(null)}>
+          {accountId && (
+            <MonActions accountId={accountId} mon={sheetMon} team={profile.team} isActive={sheetMon.id === profile.active_pokemon_id} />
+          )}
+        </MonSheet>
+      )}
     </>
   );
 }
 
-function MonTile({ mon, atlas, looktypes, active, small, children }: {
+function MonTile({ mon, atlas, looktypes, active, small, children, onOpen }: {
   children?: React.ReactNode;
+  onOpen?: (m: Mon) => void;
   mon: Mon;
   atlas: Atlas | null;
   looktypes: Map<number, number>;
@@ -137,19 +153,22 @@ function MonTile({ mon, atlas, looktypes, active, small, children }: {
   const hp = mon.hp != null && mon.max_hp ? Math.max(0, Math.min(1, mon.hp / mon.max_hp)) : null;
   return (
     <div className={`mon ${active ? "is-active" : ""} ${mon.shiny ? "is-shiny" : ""}`}>
-      <Sprite mon={mon} atlas={atlas} looktypes={looktypes} size={small ? 48 : 72} />
-      <div className="mon-name">
-        {mon.name ?? `#${mon.species_id ?? "?"}`}
-        {mon.shiny && <span aria-label="shiny" title="Shiny"> ✨</span>}
-      </div>
-      <div className="mon-meta num">nv {mon.level ?? "?"}{mon.power != null && <> · poder {num(mon.power, { compact: true })}</>}</div>
-      {!small && (
-        <div className="mon-meta num muted">
-          {mon.iv_sum != null && <>IV {mon.iv_sum}</>}
-          {mon.quality != null && <> · nota {num(mon.quality)}</>}
-          {active && <> · ativo</>}
-        </div>
-      )}
+      <button type="button" className="mon-open" onClick={() => onOpen?.(mon)} aria-label={`Ver a ficha de ${mon.name ?? "pokémon"}`}>
+        <Sprite mon={mon} atlas={atlas} looktypes={looktypes} size={small ? 48 : 72} />
+        <span className="mon-name">
+          {mon.name ?? `#${mon.species_id ?? "?"}`}
+          {mon.shiny && <span aria-label="shiny" title="Shiny"> ✨</span>}
+        </span>
+        <span className="mon-meta num">nv {mon.level ?? "?"}{mon.power != null && <> · poder {num(mon.power, { compact: true })}</>}</span>
+        {!small && (
+          <span className="mon-meta num muted">
+            {mon.potency != null && <>P{mon.potency} · </>}
+            {mon.iv_sum != null && <>IV {mon.iv_sum}</>}
+            {mon.quality != null && <> · Q {num(mon.quality)}</>}
+            {active && <> · ativo</>}
+          </span>
+        )}
+      </button>
       {!small && hp != null && (
         <div className="hpbar" aria-label={`HP ${Math.round(hp * 100)}%`}>
           <span style={{ width: `${hp * 100}%` }} className={hp < 0.3 ? "low" : undefined} />

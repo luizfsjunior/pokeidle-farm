@@ -29,7 +29,23 @@ POKEMON_FIELDS = {
     "hp": "hp",
     "maxHp": "max_hp",
     "caughtAt": "caught_at",
+    # para a ficha do pokémon no painel (nomes vistos no app.js do jogo, 17/11)
+    "xp": "xp",
+    "xpNivel": "xp_level",
+    "xpProximo": "xp_next",
+    "apelido": "nickname",
+    "skin": "skin",
+    "refino": "refine",
+    "refinoTotal": "refine_total",
+    "tmElemental": "tm_elemental",
+    "tmFisico": "tm_physical",
+    "tmAoe": "tm_aoe",
+    "heldItemId": "held_item_id",
+    "caughtBy": "caught_by",
+    "levelGinasio": "gym_level",
 }
+# dicionários pequenos guardados como vieram (IV por stat; stats de combate, se o jogo mandar)
+POKEMON_DICTS = {"ivs": "ivs", "stats": "stats"}
 MERGED_MAPS = ("items", "balls")
 # campos do estado guardados como vieram, para o painel (passe, ginásios, guild...). Um campo maior
 # que EXTRA_MAX_BYTES em JSON fica de fora (não deixa a linha crescer sem controle).
@@ -153,13 +169,28 @@ class ProfileState:
             value = self.estado.get(key)
             if value is not None and len(json.dumps(value, default=str)) <= EXTRA_MAX_BYTES:
                 out[key] = value
+        # os nomes dos campos dos pokémons, para descobrir o que mais dá para mostrar na ficha
+        keys: set[str] = set()
+        for p in self.pokemons.values():
+            keys.update(str(k) for k in p)
+        out["pokemon_keys"] = sorted(keys)
         loja = _dict(self.estado.get("loja"))
         out["loja"] = {k: loja[k] for k in LOJA_KEYS if k in loja}
         return out
 
 
 def compact_pokemon(p: dict[str, Any]) -> dict[str, Any]:
-    out = {dst: p[src] for src, dst in POKEMON_FIELDS.items() if p.get(src) is not None}
+    out = {
+        dst: p[src]
+        for src, dst in POKEMON_FIELDS.items()
+        if p.get(src) is not None
+        and not isinstance(p[src], list)
+        and (not isinstance(p[src], dict) or len(p[src]) <= 12)
+    }
+    for src, dst in POKEMON_DICTS.items():
+        value = p.get(src)
+        if isinstance(value, dict) and all(isinstance(v, int | float) for v in value.values()):
+            out[dst] = dict(value)
     ivs = p.get("ivs")
     if isinstance(ivs, dict):
         out["iv_sum"] = sum(v for v in ivs.values() if isinstance(v, int | float))

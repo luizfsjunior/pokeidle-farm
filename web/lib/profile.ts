@@ -15,6 +15,22 @@ export type Mon = {
   hp?: number;
   max_hp?: number;
   iv_sum?: number;
+  ivs?: Record<string, number>;
+  stats?: Record<string, number>; // stats de combate, se o jogo mandar
+  caught_at?: number | string;
+  xp?: number;
+  xp_level?: number;
+  xp_next?: number;
+  nickname?: string;
+  skin?: unknown;
+  refine?: number;
+  refine_total?: number;
+  tm_elemental?: unknown;
+  tm_physical?: unknown;
+  tm_aoe?: unknown;
+  held_item_id?: number;
+  caught_by?: string;
+  gym_level?: number;
 };
 
 /** Linha de `account_profile` (docs/design/painel-perfil.md). */

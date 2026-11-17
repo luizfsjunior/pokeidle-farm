@@ -568,6 +568,10 @@ GAME_FILES = (
     "shared/sacrificio.mjs",
     "shared/ovo-shiny.mjs",
     "shared/casas.mjs",
+    # a ficha do pokémon no painel: a nota (faixas e cores) e o alcance no PvP
+    "shared/nota-pokemon.mjs",
+    "shared/pvp-tabuleiro.mjs",
+    "shared/starter.mjs",
 )
 
 
