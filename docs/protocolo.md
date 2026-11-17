@@ -154,6 +154,7 @@ Também aparecem `aviso`, `marketComprado` e `mktSorteio`, relacionados ao Merca
 | `market.criar` | `tipo` (`item`), `itemId`, `pokemonId`, `casaId`, `bicicletaId` (null para item), `qtd`, `preco`, `moeda` (`orb`/`gold`), `dias` (null para item) | anuncia. Resposta `market` aba `criado` `{anuncio: {id, qtd, preco, moeda, estado: "aberto", itemId, ficha, vendedor, criadoEm, compravelEm (+2 min: retenção), editavelEm (+30 min: só depois dá para mudar o preço), expiraEm: null}}`, e um `estado` com o item saindo do inventário. Item não expira | ✅ (worker, 15/11) |
 | `market.cancelar` | `id` | cancela um anúncio próprio: funciona a qualquer momento (antes do `editavelEm` também), sem resposta própria; o item volta ao inventário pelo `estado` | ✅ (worker, 15/11) |
 | `market.comprar` | `id`, `qtd`, `preco`, `moeda` | comprar um anúncio | ⬜ |
+| `pokemon.evoluir` | `pokemonId`, `alvoId` (espécie de destino) | evolui o pokémon: o servidor confere o nível e gasta a pedra do tipo. A espécie nova chega pelo `estado`. ✅ Enviado pelo worker em 17/11/2026 (plugin `evolve`): Charmander → Charmeleon no nível 55, com Fire Stone | ✅ (worker) |
 | `orbs.painel` | — | carteira de Gemas (somente leitura) | ⬜ |
 
 ## Regras que o worker tem que respeitar

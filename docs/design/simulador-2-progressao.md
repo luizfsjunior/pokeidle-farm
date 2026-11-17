@@ -96,8 +96,7 @@ Small) passam a compensar quando o HP máximo cresce. Fica para depois (restock)
   O plano usa a mesma escolha (`Phase.potion_id`).
 - **Trocas de hunt**: +2 min por troca no plano (trava, pedido engolido, primeira onda).
 - **Verificação da evolução**: depois de `progress.evolve`, o worker grava `progress.evolved` quando a espécie do
-  ativo muda ou `progress.evolve_failed` se 2 min passam sem mudar. **Pendente**: conferir na conta de teste no nível
-  40 (primeira evolução de verdade).
+  ativo muda ou `progress.evolve_failed` se 2 min passam sem mudar. Conferido em 17/11: Charmander → Charmeleon no 55 (`progress.evolved`).
 - **Teto do restock**: o `max_gold_per_hour` (50 mil) ficava abaixo do gasto em poção previsto do nível ~41 em
   diante (90 a 190 mil/h). No foco XP as poções e revives não contam mais no teto (`potions_uncapped`, ligado pelo
   `focus.set` "xp"); a reserva de ouro continua valendo.
