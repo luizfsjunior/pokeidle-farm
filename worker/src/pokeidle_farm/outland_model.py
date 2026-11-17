@@ -9,8 +9,11 @@ das vendas reais × 0,85 de comissão)
 
 - abates/h: o simulador de combate (camada 1) com o ativo no nível 150, já evoluído pela cadeia
   (o foco XP busca as pedras no caminho);
-- chances (análise de 15/11, código público do jogo): cada fragmento 1 em 200 mil abates, ×1,25 a ×8
-  nos tiers 2 a 8; Boss Token 0,05% por abate (sem multiplicador de tier);
+- chances (wiki do jogo, `pokepedia.mjs`, 17/11): Key, Shiny Stone e Bicycle Fragment 1 em 250 mil
+  abates cada, Bronze Boss Token 1 em 10 mil; o tier da Outland multiplica os cinco drops raros
+  (inclusive o Osso do Sacrifício, que fica de fora por não sabermos a chance). O tier depende do nível
+  do treinador (`outlandTiers` nas regras: ×1 no 150, ×1,1 no 500, ×2 no 2.250, ×20 no 65.000); o
+  selvagem é o mesmo em todos (mesmo mapa, nível 150);
 - preço: a mediana das vendas reais (`market_reference`), sem anúncios inflados.
 
 Puro (sem rede).
@@ -26,16 +29,15 @@ from .model.predict import fighter_from_profile
 
 GOAL_LEVEL = 150
 COMMISSION = 0.15
-FRAGMENT_CHANCE = 1 / 200_000
-TOKEN_CHANCE = 0.0005
-# (nome no Mercado, chance por abate no tier 1, escala com o tier)
+FRAGMENT_CHANCE = 0.000004  # 1 em 250 mil (padrão da wiki: casas, shinyStone, bicicletas)
+TOKEN_CHANCE = 0.0001  # 1 em 10 mil (chanceBossToken)
+# (nome no Mercado, chance por abate na Outland 1, escala com o tier)
 DROPS: tuple[tuple[str, float, bool], ...] = (
     ("Key Fragment", FRAGMENT_CHANCE, True),
     ("Shiny Stone Fragment", FRAGMENT_CHANCE, True),
     ("Bicycle Fragment", FRAGMENT_CHANCE, True),
-    ("Bronze Boss Token", TOKEN_CHANCE, False),
+    ("Bronze Boss Token", TOKEN_CHANCE, True),
 )
-TOP_TIER_MULT = 8.0
 
 
 @dataclass(frozen=True)
@@ -44,8 +46,8 @@ class OutlandOption:
     name: str | None
     level: int
     kills_per_hour: float
-    gems_per_hour: float  # tier 1
-    gems_per_hour_top: float  # tier 8
+    gems_per_hour: float  # Outland 1
+    gems_per_hour_top: float  # o maior tier liberado no nível do treinador (×1 até o 500)
     drops_per_day: float  # itens por dia a 24 h, tier 1
 
 
@@ -67,27 +69,24 @@ def final_form(
     return out
 
 
-def tier_mults(rules: dict[str, Any]) -> tuple[float, float]:
-    """(tier 1, tier mais alto). Lê `outlandTiers` quando tem um multiplicador de drop reconhecível;
-    senão 1 e 8 (o que a análise do código do jogo mostrou)."""
+def tier_mult_at(rules: dict[str, Any], level: int | None) -> tuple[float, str | None]:
+    """(multiplicador, rótulo) do maior tier da Outland liberado nesse nível do treinador.
+    Sem `outlandTiers` legível: ×1."""
     tiers = rules.get("outlandTiers")
-    vals: list[float] = []
-    if isinstance(tiers, list):
-        for t in tiers:
-            if isinstance(t, int | float) and not isinstance(t, bool):
-                vals.append(float(t))
-            elif isinstance(t, dict):
-                for k, v in t.items():
-                    lk = str(k).lower()
-                    if isinstance(v, int | float) and (
-                        "drop" in lk or "loot" in lk or "mult" in lk
-                    ):
-                        vals.append(float(v))
-                        break
-    vals = [v for v in vals if v > 0]
-    if len(vals) >= 2 and min(vals) >= 1:
-        return min(vals), max(vals)
-    return 1.0, TOP_TIER_MULT
+    best: tuple[float, str | None] = (1.0, None)
+    if not isinstance(tiers, list) or level is None:
+        return best
+    top = -1
+    for t in tiers:
+        if not isinstance(t, dict):
+            continue
+        lv, mult = t.get("nivel"), t.get("mult")
+        if not isinstance(lv, int | float) or not isinstance(mult, int | float):
+            continue
+        if lv <= level and lv > top:
+            top = lv
+            best = (float(mult), str(t.get("rotulo") or "") or None)
+    return best
 
 
 def item_value(prices: dict[str, float], mult: float) -> tuple[float, float]:
@@ -110,6 +109,7 @@ def outland_options(
     prices: dict[str, float],
     *,
     level: int = GOAL_LEVEL,
+    top_level: int | None = None,  # nível do treinador para o tier "seu" (o maior liberado)
     n_kills: int = 30,
 ) -> tuple[dict[str, Any], list[OutlandOption]]:
     """(o ativo projetado, as hunts da Outland por gemas/h no tier 1)."""
@@ -118,8 +118,8 @@ def outland_options(
     if fighter is None or not rules_raw.get("tabelaTipos"):
         return proj, []
     rules = Rules.from_welcome(rules_raw)
-    low, top = tier_mults(rules_raw)
-    per_kill, items_kill = item_value(prices, low)
+    top, _label = tier_mult_at(rules_raw, max(level, top_level or level))
+    per_kill, items_kill = item_value(prices, 1.0)
     per_kill_top, _ = item_value(prices, top)
     out: list[OutlandOption] = []
     for slug, name, lv, sid in hunts:

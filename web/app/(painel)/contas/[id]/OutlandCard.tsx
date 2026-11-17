@@ -14,6 +14,7 @@ export type OutlandPotentialData = {
   active_species_id: number | null;
   active_name: string | null;
   top_tier_mult: number;
+  top_tier_label?: string | null;
   prices: Record<string, { gems: number | null; chance: number; tier_scaled: boolean }>;
   hunts: number;
   options: OutlandOption[];
@@ -40,8 +41,9 @@ export function OutlandCard({ data, progress = null }: { data: OutlandPotentialD
       <div className="spread">
         <div className="with-hint"><h2 style={{ margin: 0 }}>Outland</h2><Hint>
           Antes do 150 não há gema de verdade: as pedras ficam a 2 gemas com filas de semanas. Na Outland caem os fragmentos
-          (Key, Shiny Stone, Bicycle; 1 em 200 mil abates cada, até ×{num(data.top_tier_mult)} nos tiers altos) e o Bronze
-          Boss Token (0,05%). Abates/h previstos pelo simulador com {data.active_name ?? "o ativo"} no {data.goal_level};
+          (Key, Shiny Stone e Bicycle, 1 em 250 mil abates cada) e o Bronze Boss Token (1 em 10 mil). O tier da Outland
+          multiplica esses drops e sobe com o nível do treinador: ×1 até o 499, ×1,1 no 500, ×2 no 2.250. O selvagem é o
+          mesmo em todos. Abates/h previstos pelo simulador com {data.active_name ?? "o ativo"} no {data.goal_level};
           preço = mediana das vendas reais, menos 15% de comissão; US$ 0,009 por gema.
         </Hint></div>
         <span className="muted small">estimativa {ago(data.at)}</span>
@@ -61,8 +63,10 @@ export function OutlandCard({ data, progress = null }: { data: OutlandPotentialD
         {best ? (
           <>
             {" "}Lá, na melhor hunt ({best.name ?? best.slug}): <strong>~{num(best.gems_per_hour, { compact: true })} gemas/h</strong>{" "}
-            ({money(usdDay(best.gems_per_hour))}/dia), até ~{num(best.gems_per_hour_top, { compact: true })} gemas/h no tier mais
-            alto ({money(usdDay(best.gems_per_hour_top))}/dia).
+            ({money(usdDay(best.gems_per_hour))}/dia)
+            {data.top_tier_mult > 1
+              ? `; no seu tier (${data.top_tier_label ?? "atual"}, ×${num(data.top_tier_mult)}), ~${num(best.gems_per_hour_top, { compact: true })} gemas/h (${money(usdDay(best.gems_per_hour_top))}/dia)`
+              : ""}.
           </>
         ) : (
           " Ainda sem previsão de abates para a Outland."
@@ -73,7 +77,7 @@ export function OutlandCard({ data, progress = null }: { data: OutlandPotentialD
         <div className="table-scroll">
           <table>
             <thead>
-              <tr><th>Hunt</th><th>Abates/h</th><th>Itens/dia</th><th>Gemas/h (tier 1)</th><th>Tier alto</th></tr>
+              <tr><th>Hunt</th><th>Abates/h</th><th>Itens/dia</th><th>Gemas/h (Outland 1)</th><th>No seu tier</th></tr>
             </thead>
             <tbody>
               {data.options.map((o) => (

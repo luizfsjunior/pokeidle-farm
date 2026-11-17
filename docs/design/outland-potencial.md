@@ -1,6 +1,6 @@
 # Estimativa da Outland (no lugar do potencial em pedras)
 
-Status: **implementado** (17/11/2026).
+Status: **implementado** (17/11/2026; chances e tiers corrigidos pela wiki no mesmo dia).
 
 ## Por quê
 
@@ -18,9 +18,9 @@ gemas/h(hunt, tier) = abates/h × Σ (chance × mult. do tier × mediana das ven
 
 - **Abates/h**: simulador de combate (camada 1) com o ativo no nível 150, evoluído pela cadeia até onde o 150 alcança
   (o foco XP busca as pedras no caminho, [foco-xp-pedra.md](foco-xp-pedra.md)), contra cada hunt de área `outland`.
-- **Chances** (código público do jogo, análise de 15/11): Key, Shiny Stone e Bicycle Fragment 1 em 200 mil abates cada,
-  multiplicados pelo tier (1 a 8); Bronze Boss Token 0,05% por abate, sem multiplicador. O multiplicador do tier alto
-  vem de `outlandTiers` nas regras quando dá para ler; senão ×8.
+- **Chances** (wiki do jogo, 17/11; ver [foco-outland.md](foco-outland.md)): Key, Shiny Stone e Bicycle Fragment 1 em 250 mil abates cada,
+  e Bronze Boss Token 1 em 10 mil, todos multiplicados pelo tier da Outland. O tier é o maior liberado pelo nível do
+  treinador (`outlandTiers`: ×1 até o 499, ×1,1 no 500, ×2 no 2.250); o card mostra a Outland 1 e "o seu tier".
 - **Preço**: a mediana das vendas reais (`market_reference`), não a média nem o anúncio. Item sem venda não conta.
 - **Sem shiny**: não há shiny nas hunts da Outland.
 

@@ -17,7 +17,7 @@ from pokeidle_farm.outland_model import (
     final_form,
     item_value,
     outland_options,
-    tier_mults,
+    tier_mult_at,
 )
 from pokeidle_farm.plugins.base import AccountStateView, PluginContext
 from pokeidle_farm.plugins.market_prices import compute_outland
@@ -52,19 +52,27 @@ def test_item_value_per_kill():
     frag = FRAGMENT_CHANCE * (222 + 89 + 178)
     assert gems == pytest.approx((frag + TOKEN_CHANCE * 3) * (1 - COMMISSION))
     assert items == pytest.approx(3 * FRAGMENT_CHANCE + TOKEN_CHANCE)
-    top, _ = item_value(PRICES, 8.0)  # só os fragmentos escalam com o tier
-    assert top == pytest.approx((8 * frag + TOKEN_CHANCE * 3) * (1 - COMMISSION))
+    top, _ = item_value(PRICES, 2.0)  # o tier multiplica todos os raros, inclusive o token
+    assert top == pytest.approx(2 * gems)
     assert item_value({}, 1.0)[0] == 0  # sem preço não conta
 
 
-def test_tier_mults_from_rules_or_default():
-    assert tier_mults({}) == (1.0, 8.0)
-    assert tier_mults({"outlandTiers": [{"n": 1, "multDrop": 1}, {"n": 8, "multDrop": 8}]}) == (
-        1.0,
-        8.0,
-    )
-    assert tier_mults({"outlandTiers": [1, 1.25, 3]}) == (1.0, 3.0)
-    assert tier_mults({"outlandTiers": "?"}) == (1.0, 8.0)
+TIERS = {
+    "outlandTiers": [
+        {"mult": 1, "nivel": 150, "rotulo": "Outland 1"},
+        {"mult": 1.1, "nivel": 500, "rotulo": "Outland 2"},
+        {"mult": 2, "nivel": 2250, "rotulo": "Outland 9"},
+    ]
+}
+
+
+def test_tier_mult_by_trainer_level():
+    assert tier_mult_at(TIERS, 150) == (1.0, "Outland 1")
+    assert tier_mult_at(TIERS, 499) == (1.0, "Outland 1")
+    assert tier_mult_at(TIERS, 600) == (1.1, "Outland 2")
+    assert tier_mult_at(TIERS, 99999) == (2.0, "Outland 9")
+    assert tier_mult_at({}, 600) == (1.0, None)
+    assert tier_mult_at(TIERS, None) == (1.0, None)
 
 
 def test_outland_options_rank_by_gems():
@@ -73,7 +81,7 @@ def test_outland_options_rank_by_gems():
     assert opts[0].slug == "out_water"  # Grama contra Água: mais abates por hora
     o = opts[0]
     assert o.gems_per_hour == pytest.approx(o.kills_per_hour * item_value(PRICES, 1.0)[0])
-    assert o.gems_per_hour_top > o.gems_per_hour
+    assert o.gems_per_hour_top == pytest.approx(o.gems_per_hour)  # sem tiers nas regras: ×1
 
 
 async def test_compute_outland_uses_real_sale_medians():
@@ -134,4 +142,4 @@ async def test_compute_outland_uses_real_sale_medians():
     assert pot["prices"]["Key Fragment"]["gems"] == 222.0
     assert pot["prices"]["Shiny Stone Fragment"]["gems"] == 89.0
     assert pot["prices"]["Bicycle Fragment"]["gems"] is None
-    assert pot["active_species_id"] == 2 and pot["top_tier_mult"] == 8.0
+    assert pot["active_species_id"] == 2 and pot["top_tier_mult"] == 1.0
