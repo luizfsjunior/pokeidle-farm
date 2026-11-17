@@ -61,7 +61,10 @@ export function TeamTrainCard({ accountId, plugins, team }: { accountId: string;
   const row = plugins.find((p) => p.plugin === "team_train");
   const on = row?.enabled === true;
   const saved = typeof row?.config.target_level === "number" ? row.config.target_level : 300;
-  const [target, setTarget] = useState<number>(saved);
+  const [targetText, setTargetText] = useState<string>(String(saved));
+  // vazio ou inválido enquanto digita: vale o salvo; fora do campo, o texto volta ao número usado
+  const parsed = Math.round(Number(targetText));
+  const target = targetText.trim() && Number.isFinite(parsed) ? Math.min(100_000, Math.max(2, parsed)) : saved;
   const done = team.filter((m) => (m.level ?? 0) >= saved).length;
 
   function apply(enabled: boolean) {
@@ -81,8 +84,8 @@ export function TeamTrainCard({ accountId, plugins, team }: { accountId: string;
       <div className="row">
         <label className="row" style={{ gap: ".4rem" }}>
           Nível alvo
-          <input type="number" min={2} max={100000} value={target} style={{ width: "7rem" }}
-            onChange={(e) => setTarget(Math.max(2, Number(e.target.value) || 2))} />
+          <input type="number" inputMode="numeric" min={2} max={100000} value={targetText} style={{ width: "7rem" }}
+            onChange={(e) => setTargetText(e.target.value)} onBlur={() => setTargetText(String(target))} />
         </label>
         <button type="button" disabled={busy || team.length === 0} onClick={() => apply(true)}>
           {on ? "Salvar" : "Ligar"}

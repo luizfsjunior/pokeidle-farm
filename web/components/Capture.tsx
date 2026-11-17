@@ -18,6 +18,14 @@ type Stop = "count" | "time" | "first" | "manual";
  * da espécie com a bola escolhida e para no que for escolhido (N capturas, tempo, o que vier primeiro, ou
  * só pelo botão Parar).
  */
+/** Texto do campo → número dentro dos limites (vazio ou inválido volta ao padrão). */
+function clamp(text: string, min: number, max: number, fallback: number, int: boolean): number {
+  const n = Number(text.replace(",", "."));
+  if (!text.trim() || !Number.isFinite(n)) return fallback;
+  const v = Math.min(max, Math.max(min, n));
+  return int ? Math.round(v) : v;
+}
+
 export function CaptureForm({ accountId, speciesId, speciesName, hunts, balls }: {
   accountId: string;
   speciesId: number;
@@ -29,8 +37,12 @@ export function CaptureForm({ accountId, speciesId, speciesName, hunts, balls }:
   const [hunt, setHunt] = useState(hunts[0]?.slug ?? "");
   const [ball, setBall] = useState(4);
   const [stop, setStop] = useState<Stop>("first");
-  const [count, setCount] = useState(5);
-  const [hours, setHours] = useState(2);
+  // o texto do campo fica livre enquanto você digita (dá para apagar tudo); o número é ajustado ao sair
+  // do campo e ao enviar
+  const [countText, setCountText] = useState("5");
+  const [hoursText, setHoursText] = useState("2");
+  const count = clamp(countText, 1, 10_000, 5, true);
+  const hours = clamp(hoursText, 0.25, 72, 2, false);
 
   if (hunts.length === 0) {
     return <p className="small muted" style={{ margin: 0 }}>Nenhuma hunt tem esta espécie como principal, então não dá para mirar nela.</p>;
@@ -69,10 +81,12 @@ export function CaptureForm({ accountId, speciesId, speciesName, hunts, balls }:
       {(stop === "count" || stop === "first" || stop === "time") && (
         <div className="row">
           {(stop === "count" || stop === "first") && (
-            <label>Capturas<input type="number" min={1} max={10000} value={count} onChange={(e) => setCount(Math.max(1, Number(e.target.value) || 1))} /></label>
+            <label>Capturas<input type="number" inputMode="numeric" min={1} max={10000} value={countText}
+              onChange={(e) => setCountText(e.target.value)} onBlur={() => setCountText(String(count))} /></label>
           )}
           {(stop === "time" || stop === "first") && (
-            <label>Horas<input type="number" min={0.25} max={72} step={0.25} value={hours} onChange={(e) => setHours(Math.min(72, Math.max(0.25, Number(e.target.value) || 1)))} /></label>
+            <label>Horas<input type="number" inputMode="decimal" min={0.25} max={72} step={0.25} value={hoursText}
+              onChange={(e) => setHoursText(e.target.value)} onBlur={() => setHoursText(String(hours))} /></label>
           )}
         </div>
       )}
