@@ -33,7 +33,6 @@ export function PluginEditor({ accountId, plugin, enabled, config }: {
       {(parseError || error) && <p className="error">{parseError ?? error}</p>}
       {cmd && <p className={`small ${cmd.status === "failed" ? "error" : "muted"}`}>{commandSummary(cmd)}</p>}
       <div><button type="submit" disabled={busy}>{busy ? "Enviando…" : "Salvar e aplicar"}</button></div>
-      <p className="muted small" style={{ margin: 0 }}>O worker valida a config antes de gravar. Se a sessão estiver conectada, o plugin reinicia na hora.</p>
     </form>
   );
 }

@@ -42,7 +42,7 @@ export function PokedexView() {
 
   return (
     <>
-      <PageHeader title="Pokédex" subtitle="Todas as espécies do jogo e o que a conta já viu e capturou.">
+      <PageHeader title="Pokédex">
         <AccountTabs all={false} accounts={accounts} chosen={chosen?.id ?? null} href={(id) => `/pokedex?conta=${id}`} />
       </PageHeader>
       <ErrorNote message={catalog?.err ?? accountsQ.error?.message} />

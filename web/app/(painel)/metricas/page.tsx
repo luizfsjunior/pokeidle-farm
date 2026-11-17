@@ -27,7 +27,7 @@ export default function MetricsPage() {
   const { data: d } = usePanel(["metric-options"], loadMetricOptions, { staleTime: 5 * 60_000 });
   return (
     <>
-      <PageHeader title="Métricas" subtitle="Escolha uma métrica, as contas e o período para ver a série." />
+      <PageHeader title="Métricas" />
       <ErrorNote message={d?.err} />
       {d ? <Explorer defs={d.defs} accounts={d.accounts} hunts={d.hunts} /> : <LdBlock h={420} />}
     </>

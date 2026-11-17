@@ -1,3 +1,4 @@
+import { Bar, Hint } from "@/components/Page";
 import { ago, num } from "@/lib/format";
 
 type Stone = { name: string; chance: number; gems: number | null; sold_week: number | null; per_week: number; counted_week: number };
@@ -67,10 +68,15 @@ export function GemsCard({
   if (plan?.objective === "xp") return <XpCard plan={plan} progress={progress} />;
   if (!plan && !potential) return null;
   const list = plan?.options ?? potential?.options ?? [];
+  const maxGems = Math.max(0, ...list.slice(0, 5).map((o) => o.capped_gems_per_hour));
   return (
     <section className="card stack">
       <div className="spread">
-        <h2 style={{ margin: 0 }}>Gemas (pedras de evolução)</h2>
+        <div className="with-hint"><h2 style={{ margin: 0 }}>Gemas</h2><Hint>
+          Chance de pedra por abate pela posição na cadeia evolutiva (0,2% / 0,35% / 0,5%); cada pedra vale o menor entre a
+          média de 7 dias e o menor anúncio, até 10% do que o Mercado vende dela por semana. US$ com 15% de comissão e saque a
+          US$ 0,009 por gema.
+        </Hint></div>
         <span className="muted small">{plan ? `plano ${ago(plan.at)}` : potential ? `potencial ${ago(potential.at)}` : ""}</span>
       </div>
       {plan && (
@@ -91,9 +97,11 @@ export function GemsCard({
                 <tr key={o.slug}>
                   <td>{o.name ?? o.slug}</td>
                   <td>{o.level}</td>
-                  <td>{num(o.kills_per_hour)} <span className="muted small">{KPH_SOURCE[o.kph_source]}</span></td>
+                  <td title={KPH_SOURCE[o.kph_source]}>{num(o.kills_per_hour)}</td>
                   <td className="small">{o.stones.map((s) => `${s.name}${s.gems == null ? " (sem preço)" : ` ${num(s.gems)}`}`).join(", ")}</td>
-                  <td>{num(o.capped_gems_per_hour)}{o.capped_gems_per_hour < o.gems_per_hour - 0.05 && <span className="muted small"> (sem teto {num(o.gems_per_hour)})</span>}</td>
+                  <td title={o.capped_gems_per_hour < o.gems_per_hour - 0.05 ? `sem teto: ${num(o.gems_per_hour)}` : undefined}>
+                    <Bar value={o.capped_gems_per_hour} max={maxGems} tone="gem" label={num(o.capped_gems_per_hour)} />
+                  </td>
                   <td>{num(usdMonth(o.capped_gems_per_hour))}</td>
                 </tr>
               ))}
@@ -101,11 +109,6 @@ export function GemsCard({
           </table>
         </div>
       )}
-      <p className="muted small" style={{ margin: 0 }}>
-        Chance de pedra por abate pela posição na cadeia evolutiva (0,2% / 0,35% / 0,5%, do código do jogo); cada pedra
-        vale o menor entre a média de 7 dias e o menor anúncio aberto, e conta até 10% do que o Mercado vende dela por
-        semana. US$ com 15% de comissão e saque a US$ 0,009 por gema.
-      </p>
     </section>
   );
 }
@@ -114,10 +117,14 @@ export function GemsCard({
 function XpCard({ plan, progress }: { plan: GemsPlanData; progress: ProgressPlanData | null }) {
   const target = plan.target as unknown as XpOption | null;
   const options = (plan.options as unknown as XpOption[]) ?? [];
+  const maxXp = Math.max(0, ...options.slice(0, 5).map((o) => o.xp_per_hour));
   return (
     <section className="card stack">
       <div className="spread">
-        <h2 style={{ margin: 0 }}>Foco XP</h2>
+        <div className="with-hint"><h2 style={{ margin: 0 }}>Foco XP</h2><Hint>
+          O ritmo é o medido na hunt, projetado para o nível do pokémon ativo; hunt nunca medida usa o simulador de combate.
+          XP por abate: a medida, ou 0,6 × nível² + 8 com o bônus da conta. Passe o dedo nos números para ver a origem.
+        </Hint></div>
         <span className="muted small">plano {ago(plan.at)}{plan.active_level ? ` · ativo nível ${plan.active_level}` : ""}</span>
       </div>
       <p className="small" style={{ margin: 0 }}>
@@ -133,18 +140,14 @@ function XpCard({ plan, progress }: { plan: GemsPlanData; progress: ProgressPlan
               <tr key={o.slug}>
                 <td>{o.name ?? o.slug}</td>
                 <td>{o.level}</td>
-                <td>{num(o.kills_per_hour)} <span className="muted small">{KPH_SOURCE[o.kph_source]}</span></td>
-                <td>{num(o.xp_per_kill)} <span className="muted small">{o.xp_source === "measured" ? "medida" : "fórmula"}</span></td>
-                <td><strong>{num(o.xp_per_hour, { compact: true })}</strong></td>
+                <td title={KPH_SOURCE[o.kph_source]}>{num(o.kills_per_hour)}</td>
+                <td title={o.xp_source === "measured" ? "medida" : "fórmula"}>{num(o.xp_per_kill)}</td>
+                <td><Bar value={o.xp_per_hour} max={maxXp} tone="link" label={<strong>{num(o.xp_per_hour, { compact: true })}</strong>} /></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="muted small" style={{ margin: 0 }}>
-        O ritmo é o medido na hunt, projetado para o nível atual do pokémon ativo; hunt nunca medida usa a previsão do
-        simulador de combate. A XP por abate é a medida na hunt, ou 0,6 × nível² + 8 com o bônus da conta.
-      </p>
       {progress && <ProgressPlan progress={progress} />}
     </section>
   );
@@ -159,7 +162,10 @@ function ProgressPlan({ progress }: { progress: ProgressPlanData }) {
   return (
     <div className="stack">
       <div className="spread">
-        <h3 style={{ margin: 0 }}>Até o nível {progress.goal}</h3>
+        <div className="with-hint"><h3 style={{ margin: 0 }}>Até o nível {progress.goal}</h3><Hint>
+          Simulação nível a nível: a melhor hunt que se paga em ouro (abates − poções), com os bônus de XP até expirarem e as
+          evoluções quando há pedra. Não conta idas ao Centro nem o tempo das trocas.
+        </Hint></div>
         <span className="muted small">plano {ago(progress.at)}</span>
       </div>
       <p className="small" style={{ margin: 0 }}>
@@ -174,6 +180,9 @@ function ProgressPlan({ progress }: { progress: ProgressPlanData }) {
           </>
         )}
       </p>
+      {progress.stuck_at == null && progress.phases.length > 0 && <PhaseStrip progress={progress} />}
+      <details className="more">
+      <summary>Ver as fases</summary>
       <div className="table-scroll">
         <table>
           <thead>
@@ -194,10 +203,26 @@ function ProgressPlan({ progress }: { progress: ProgressPlanData }) {
           </tbody>
         </table>
       </div>
-      <p className="muted small" style={{ margin: 0 }}>
-        Simulação nível a nível: a melhor hunt que se paga em ouro (abates − poções), com os bônus de XP até expirarem e
-        as evoluções quando há pedra. Não conta idas ao Centro nem o tempo das trocas de hunt.
-      </p>
+      </details>
+    </div>
+  );
+}
+
+/** As fases até o marco numa faixa: a largura é o tempo de cada uma. */
+function PhaseStrip({ progress }: { progress: ProgressPlanData }) {
+  const total = progress.phases.reduce((t, p) => t + p.hours, 0) || 1;
+  const first = progress.phases[0];
+  return (
+    <div className="stack" style={{ gap: ".3rem" }}>
+      <div className="phases" role="img" aria-label={`${progress.phases.length} fases até o nível ${progress.goal}`}>
+        {progress.phases.map((p) => (
+          <span key={`${p.from_level}-${p.hunt}`} style={{ flexGrow: (p.hours / total) * 100, flexBasis: 0 }}
+            title={`${p.from_level}–${p.to_level}: ${p.hunt}, ${hours1(p.hours)} h`}>
+            {p.hours / total > 0.12 ? p.hunt : ""}
+          </span>
+        ))}
+      </div>
+      <div className="phases-legend"><span>nível {first?.from_level}</span><span>{progress.goal}</span></div>
     </div>
   );
 }

@@ -126,6 +126,61 @@ code { font-size: .85em; background: var(--surface-2); border-radius: 5px; paddi
 .explain-body { padding: .7rem .9rem .8rem; font-size: .86rem; color: var(--text-secondary); max-width: 80ch; }
 .explain-body p { margin: 0 0 .5rem; }
 .explain-body p:last-child { margin: 0; }
+/* "ⓘ" com balão (components/Page.tsx, Hint) */
+.with-hint { position: relative; display: flex; align-items: center; gap: .4rem; min-width: 0; }
+.with-hint > h1, .with-hint > h2, .with-hint > h3 { margin: 0; }
+.hint { display: inline-flex; font-family: "Onest Variable", system-ui, sans-serif; font-size: .86rem; font-weight: 400; }
+.hint summary { list-style: none; cursor: pointer; display: inline-grid; place-items: center; width: 22px; height: 22px;
+  border-radius: 50%; color: var(--text-muted); }
+.hint summary::-webkit-details-marker { display: none; }
+.hint summary:hover, .hint[open] summary { color: var(--accent); background: var(--surface-2); }
+.hint-pop { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: min(340px, 100%); min-width: min(260px, 100%); padding: .7rem .85rem;
+  background: var(--surface-3); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+  color: var(--text-secondary); line-height: 1.45; letter-spacing: normal; text-transform: none; }
+.hint-pop p { margin: 0 0 .45rem; }
+.hint-pop p:last-child { margin: 0; }
+
+/* barrinha de comparação (Bar) */
+.bar-cell { display: grid; gap: .25rem; min-width: 4.5rem; }
+.bar { display: block; height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.bar > span { display: block; height: 100%; border-radius: 2px; background: var(--accent); }
+.bar-gem > span { background: var(--gem); }
+.bar-gold > span { background: var(--gold); }
+.bar-good > span { background: var(--good); }
+.bar-critical > span { background: var(--critical); }
+.bar-link > span { background: var(--link); }
+
+/* lucro do Compensa: número grande e renda contra custo em barras */
+.money { display: grid; grid-template-columns: auto 1fr; gap: 1.5rem; align-items: center; }
+.money > div:first-child { display: grid; gap: .1rem; }
+.money-label { font-size: .8rem; color: var(--text-muted); }
+.money-value { font-family: var(--font-pixel); font-size: 1.9rem; line-height: 1.1; }
+.tone-good { color: var(--good); }
+.tone-bad { color: var(--critical); }
+.money-bars { display: grid; gap: .7rem; }
+.money-bars .bar { height: 8px; border-radius: 4px; }
+.money-bars .bar-label { font-size: .82rem; color: var(--text-secondary); }
+@media (max-width: 760px) { .money { grid-template-columns: 1fr; gap: .9rem; } }
+
+/* faixa de fases (plano até o nível 150) */
+.phases { display: flex; height: 22px; border-radius: 6px; overflow: hidden; gap: 2px; }
+.phases > span { min-width: 3px; display: grid; place-items: center; font-size: .68rem; font-weight: 650; color: var(--on-accent);
+  background: var(--accent); white-space: nowrap; overflow: hidden; }
+.phases > span:nth-child(3n+2) { background: var(--link); }
+.phases > span:nth-child(3n) { background: var(--good); }
+.phases-legend { display: flex; justify-content: space-between; font-size: .75rem; color: var(--text-muted); }
+
+/* chips pequenos (rodapé do cartão de treinador, status) */
+.chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+.chip { display: inline-flex; align-items: center; gap: .3rem; padding: .15rem .5rem; border-radius: 999px; font-size: .75rem;
+  background: var(--surface-2); color: var(--text-secondary); }
+.chip strong { color: var(--text-primary); font-weight: 650; }
+
+/* botão de link (abrir a conta) */
+.btn-link { display: inline-flex; align-items: center; gap: .35rem; padding: .38rem .8rem; border-radius: 8px; font-size: .84rem;
+  font-weight: 650; background: var(--accent-soft); color: var(--accent); border: 1px solid #ffcc3340; }
+.btn-link:hover { text-decoration: none; background: var(--accent); color: var(--on-accent); }
+
 .alert { color: var(--critical); background: #ff6b8114; border: 1px solid #ff6b8155; border-radius: var(--radius); padding: .6rem .85rem; font-size: .88rem; }
 
 /* --- painéis e indicadores ------------------------------------------------------------------ */
@@ -167,6 +222,7 @@ code { font-size: .85em; background: var(--surface-2); border-radius: 5px; paddi
 .kpi-good .kpi-value { color: var(--good); }
 
 .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: .6rem 1rem; margin-top: .75rem; }
+.stats-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem .75rem; }
 .stat .label { font-size: .78rem; color: var(--text-muted); }
 .stat .value { font-family: var(--font-pixel); font-size: 1.15rem; }
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { Hint } from "@/components/Page";
+
 import { useState } from "react";
 import { commandSummary } from "@/components/CommandButtons";
 import { useCommand } from "@/lib/useCommand";
@@ -87,7 +89,11 @@ export function FocusCard({ accountId, plugins }: { accountId: string; plugins: 
   return (
     <form onSubmit={submit} className="card stack">
       <div className="spread">
-        <h2 style={{ margin: 0 }}>Foco</h2>
+        <div className="with-hint"><h2 style={{ margin: 0 }}>Foco</h2><Hint>
+          <p><strong>XP</strong>: a hunt de mais XP por hora para o nível do pokémon ativo.</p>
+          <p><strong>Gemas</strong>: a hunt que mais rende pedras de evolução, sem passar de 10% do que o Mercado vende por semana.</p>
+          <p>Nos dois, as bolas ficam desligadas. Salvar grava o <code>restock</code>, o <code>rank</code> e o <code>gems</code> juntos (<code>focus.set</code>).</p>
+        </Hint></div>
         <span className="muted small">agora: {now.label}</span>
       </div>
       <div className="row">
@@ -128,25 +134,9 @@ export function FocusCard({ accountId, plugins }: { accountId: string; plugins: 
           </label>
         </fieldset>
       )}
-      {focus === "xp" && (
-        <p className="muted small" style={{ margin: 0 }}>
-          Fica na hunt de mais XP por hora: o ritmo projetado para o nível do pokémon ativo × a XP por abate (medida, ou
-          0,6 × nível² + 8 com o bônus da conta). As bolas ficam desligadas (restock em ouro-xp-drop).
-        </p>
-      )}
-      {focus === "gems" && (
-        <p className="muted small" style={{ margin: 0 }}>
-          Fica na hunt que mais rende pedras de evolução em gemas (preço médio do Mercado), sem passar de 10% do que o
-          Mercado vende de cada pedra por semana. As bolas ficam desligadas (restock em ouro-xp-drop).
-        </p>
-      )}
       {(formError || error) && <p className="error">{formError ?? error}</p>}
       {cmd && <p className={`small ${cmd.status === "failed" ? "error" : "muted"}`}>{commandSummary(cmd)}</p>}
       <div><button type="submit" disabled={busy}>{busy ? "Enviando…" : "Salvar e aplicar"}</button></div>
-      <p className="muted small" style={{ margin: 0 }}>
-        Grava o <code>restock</code>, o <code>rank</code> e o <code>gems</code> juntos (comando <code>focus.set</code>). O rank só age de
-        verdade com o restock no foco rank; os outros campos continuam nos editores abaixo.
-      </p>
     </form>
   );
 }

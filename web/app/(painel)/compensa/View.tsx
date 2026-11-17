@@ -2,7 +2,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Ld, LdBlock, LdRows } from "@/components/Loading";
-import { ErrorNote, Explain, PageHeader, Panel } from "@/components/Page";
+import { Bar, ErrorNote, PageHeader, Panel } from "@/components/Page";
 import { num } from "@/lib/format";
 import { usePanel } from "@/lib/query/hooks";
 import { GemsCard, type GemsPotentialData } from "../contas/[id]/GemsCard";
@@ -82,33 +82,38 @@ export function EvaluationView() {
 
   return (
     <>
-      <PageHeader title="Compensa?" subtitle={`O farm paga o que custa (VPS, proxy, energia)? Últimos ${days} dias, contando a partir do primeiro preço do Mercado.`} />
+      <PageHeader title="Compensa?" subtitle={`Renda contra custo · últimos ${days} dias`} hint={<>
+        <p>Renda = gemas dos drops por mês × (1 − 15% de comissão) × US$ 0,009 por gema (saque).</p>
+        <p>Supõe vender tudo pelo preço de referência. O ouro não sai do jogo e não entra na renda.</p>
+        <p>Conta a partir do primeiro preço do Mercado.</p>
+      </>} />
       <ErrorNote message={d?.err} />
       <div className="stack">
-        <Explain>
-          <p>Renda = gemas dos drops por mês × (1 − 15% de comissão) × US$ 0,009 por gema (saque).</p>
-          <p>Supõe vender tudo pela média de 7 dias do Mercado. O ouro não sai do jogo e não entra na renda.</p>
-        </Explain>
 
         <section className="card stack verdict">
           <div className="spread">
             <h2 style={{ margin: 0 }}>{verdict}</h2>
-            <span className="muted small">{total ? `${num(total.data_days)} de ${days} dias de dado` : ""}</span>
+            <span className="muted small">{total ? `${num(total.data_days)}/${days} dias` : ""}</span>
           </div>
           {!d && <LdBlock h={150} />}
           {total && (
             <>
-              <p style={{ margin: 0 }}>
-                Lucro projetado (como está): <strong>{usd(profit)}</strong> por mês
-                {" · "}com o worker 24 h/dia: <strong>{usd(total.profit_usd_24h)}</strong>
-              </p>
-              {!costKnown && <p className="small error" style={{ margin: 0 }}>Custo do mês não informado: o lucro está sem ele.</p>}
-              {!enoughData && <p className="small muted" style={{ margin: 0 }}>Com menos de {days} dias de dado, a projeção ainda é fraca.</p>}
+              <div className="money">
+                <div>
+                  <span className="money-label">Lucro por mês</span>
+                  <strong className={`money-value ${(profit ?? 0) >= 0 ? "tone-good" : "tone-bad"}`}>{usd(profit)}</strong>
+                  <span className="muted small">24 h/dia: {usd(total.profit_usd_24h)}</span>
+                </div>
+                <div className="money-bars">
+                  <Bar value={total.income_usd_as_is} max={Math.max(total.income_usd_as_is ?? 0, total.cost_usd ?? 0)} tone="good"
+                    label={<>Renda <strong>{usd(total.income_usd_as_is)}</strong></>} />
+                  <Bar value={total.cost_usd} max={Math.max(total.income_usd_as_is ?? 0, total.cost_usd ?? 0)} tone="critical"
+                    label={<>Custo <strong>{costKnown ? usd(total.cost_usd) : "não informado"}</strong></>} />
+                </div>
+              </div>
               <div className="stats">
                 <Stat label="Gemas por dia" value={num(total.gems_per_day)} />
                 <Stat label="Gemas no mês (como está)" value={num(total.month_gems_as_is)} />
-                <Stat label="Renda (como está)" value={usd(total.income_usd_as_is)} />
-                <Stat label="Custo por mês" value={costKnown ? usd(total.cost_usd) : "não informado"} />
                 <Stat label="Gemas no mês (24 h/dia)" value={num(total.month_gems_24h)} />
                 <Stat label="Renda (24 h/dia)" value={usd(total.income_usd_24h)} />
                 {d?.three && <Stat label="Lucro com 3 contas (como está)" value={usd(d.three!.profit_usd_as_is)} />}
@@ -121,8 +126,7 @@ export function EvaluationView() {
         {d?.potential && (
           <div>
             <p className="muted small" style={{ margin: "0 0 .5rem" }}>
-              Potencial: o que a conta renderia no foco gemas, nas melhores hunts que ela alcança (a renda acima é a do
-              foco atual).
+              Potencial no foco gemas, nas melhores hunts alcançáveis:
             </p>
             <GemsCard plan={null} potential={d.potential} />
           </div>
@@ -158,7 +162,7 @@ export function EvaluationView() {
         )}
 
         {(!d || d.liquidity.length > 0) && (
-          <Panel title="Liquidez" meta="dropado contra vendido por semana" flush>
+          <Panel title="Liquidez" meta="por semana" flush hint="Parcela = dropado ÷ vendido no Mercado. Acima de 10%, vender tudo pela média é otimista.">
             <table>
               <thead><tr><th>Item</th><th>Dropado/semana</th><th>Vendido/semana</th><th>Parcela</th></tr></thead>
               <tbody>
@@ -168,12 +172,13 @@ export function EvaluationView() {
                     <td>{l.name}</td>
                     <td>{num(l.dropped_week)}</td>
                     <td>{l.sold_week == null ? "sem vendas" : num(l.sold_week)}</td>
-                    <td className={l.flagged ? "error" : ""}>{l.share == null ? "—" : `${num(l.share * 100)}%`}{l.flagged ? " · otimista" : ""}</td>
+                    <td className={l.flagged ? "error" : ""}>
+                      {l.share == null ? "—" : <Bar value={l.share} max={0.1} tone={l.flagged ? "critical" : "good"} label={`${num(l.share * 100)}%`} />}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p className="panel-note">Acima de 10% do vendido por semana, vender tudo pela média é otimista.</p>
           </Panel>
         )}
 

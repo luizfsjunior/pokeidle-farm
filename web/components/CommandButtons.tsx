@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Icon } from "./icons";
 import { useCommand } from "@/lib/useCommand";
 import { COMMAND_LABEL, COMMAND_STATUS_LABEL, type Account, type Command, type CommandType } from "@/lib/types";
 
@@ -29,12 +30,16 @@ export function CommandButtons({ account, compact = false }: { account: Account;
         {account.enabled
           ? <button className="ghost small" disabled={busy} onClick={go("account.disable")}>Desligar</button>
           : <button className="small" disabled={busy} onClick={go("account.enable")}>Ligar</button>}
-        {!compact && <Link href={`/contas/${account.id}`} className="small">Abrir a conta</Link>}
+        {!compact && (
+          <Link href={`/contas/${account.id}`} className="btn-link" style={{ marginLeft: "auto" }}>
+            Abrir <Icon name="arrow" size={16} />
+          </Link>
+        )}
       </div>
       {(cmd || error) && (
         <p className={`small ${error || cmd?.status === "failed" ? "error" : "muted"}`} role="status" style={{ margin: ".4rem 0 0" }}>
           {error ?? (cmd && commandSummary(cmd))}
-          {cmd?.status === "pending" && " (o worker busca a cada 5 s)"}
+
         </p>
       )}
     </div>

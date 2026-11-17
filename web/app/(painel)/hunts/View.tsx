@@ -3,7 +3,7 @@
 import Form from "next/form";
 import { useSearchParams } from "next/navigation";
 import { Ld, LdRows } from "@/components/Loading";
-import { AccountTabs, ErrorNote, LinkTabs, PageHeader, Panel } from "@/components/Page";
+import { AccountTabs, Bar, ErrorNote, LinkTabs, PageHeader, Panel } from "@/components/Page";
 import { Sprite } from "@/components/Sprite";
 import { ago, num } from "@/lib/format";
 import type { CatalogHunt } from "@/lib/hunts";
@@ -25,6 +25,8 @@ export function HuntsView() {
     { enabled: accountsQ.isSuccess });
   const { data: atlas = null } = useAtlas();
 
+  const maxGems = Math.max(0, ...(d?.visited ?? []).map((v) => perHour(v.drops_value_orb, v.active_minutes) ?? 0));
+  const maxG1000 = Math.max(0, ...(d?.reachable ?? []).map((r) => r.g1000));
   const face = (h: CatalogHunt | undefined) =>
     h ? <Sprite mon={{ id: h.species_id, species_id: h.species_id, name: h.species_name ?? undefined }} atlas={atlas} looktypes={d?.looktypes} size={32} /> : null;
   const open = (h: CatalogHunt | undefined, label: React.ReactNode, fallback: string) =>
@@ -43,7 +45,8 @@ export function HuntsView() {
 
   const body = (
     <div className="stack">
-      <Panel title="Visitadas" meta={PERIODS[period]} flush>
+      <Panel title="Visitadas" meta={PERIODS[period]} flush
+        hint="Gemas/h: os drops reais pela média do Mercado na hora de cada drop. Poucos minutos numa hunt dão números instáveis.">
         {d && d.visited.length === 0 ? (
           <p className="panel-empty">Nenhuma hunt com abates no período.</p>
         ) : (
@@ -68,7 +71,8 @@ export function HuntsView() {
                     <td>{h?.level ?? "—"}</td>
                     <td>{v.active_minutes >= 60 ? `${num(v.active_minutes / 60)} h` : `${num(v.active_minutes)} min`}</td>
                     <td>{num(perHour(v.kills, v.active_minutes))}</td>
-                    <td><strong>{num(perHour(v.drops_value_orb, v.active_minutes))}</strong></td>
+                    <td><Bar value={perHour(v.drops_value_orb, v.active_minutes)} max={maxGems} tone="gem"
+                      label={<strong>{num(perHour(v.drops_value_orb, v.active_minutes))}</strong>} /></td>
                     <td>{num(perHour(v.gold, v.active_minutes), { compact: true })}</td>
                     <td>{num(perHour(v.gold_net, v.active_minutes), { compact: true })}</td>
                     <td>{num(v.drops)}</td>
@@ -81,12 +85,13 @@ export function HuntsView() {
             </tbody>
           </table>
         )}
-        <p className="panel-note">
-          Gemas/h: o valor dos drops reais pela média do Mercado na hora de cada drop. Poucos minutos numa hunt dão números instáveis.
-        </p>
       </Panel>
 
-      <Panel title={<>Catálogo{d?.level ? ` até o nível ${d.level}` : ""}</>} flush meta={
+      <Panel title={<>Catálogo{d?.level ? ` até o nível ${d.level}` : ""}</>} flush hint={<>
+          <p>Gemas / 1.000 abates = Σ chance da pedra × preço de venda: o menor entre a média de 7 dias e o menor anúncio
+            aberto{d?.pricesAt ? ` (preços de ${ago(d.pricesAt)})` : ""}.</p>
+          <p>Pedra que vende pouco por semana não aguenta volume: o foco gemas só conta até 10% do vendido.</p>
+        </>} meta={
           <Form action="/hunts" className="row" scroll={false}>
             {conta && <input type="hidden" name="conta" value={conta} />}
             {period !== "7" && <input type="hidden" name="dias" value={period} />}
@@ -109,26 +114,20 @@ export function HuntsView() {
                 <td>{h.level}</td>
                 <td className="small">{[...new Set([h.region, h.area].filter(Boolean))].join(" · ")}</td>
                 <td className="small">{stoneText(stones)}</td>
-                <td><strong>{num(g1000)}</strong></td>
+                <td><Bar value={g1000} max={maxG1000} tone="gem" label={<strong>{num(g1000)}</strong>} /></td>
                 <td>{kph == null ? <span className="muted">—</span> : num(kph)}</td>
                 <td>{gemsHour == null ? <span className="muted">—</span> : num(gemsHour)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p className="panel-note">
-          Gemas / 1.000 abates = Σ chance da pedra × preço de venda em gemas: o menor entre a média de 7 dias e o menor
-          anúncio aberto, que é o preço de hoje (último snapshot{d ? (d.pricesAt ? ` de ${ago(d.pricesAt)}` : "") : <> <Ld w="6ch" /></>}).
-          Não depende do ritmo: multiplique pelos abates/h da hunt. Pedra que vende pouco por semana (ex.: Thunder) não
-          aguenta muito volume: o foco gemas só conta até 10% do vendido por semana, com o ritmo medido.
-        </p>
       </Panel>
     </div>
   );
 
   return (
     <>
-      <PageHeader title="Hunts" subtitle="Onde cada conta rendeu e o que cada hunt promete em gemas.">
+      <PageHeader title="Hunts">
         <AccountTabs accounts={accounts} chosen={conta} href={(id) => link({ conta: id })} />
         <LinkTabs label="Período" items={(Object.keys(PERIODS) as Period[]).map((p) => ({ key: p, href: link({ dias: p }), label: PERIODS[p], active: p === period }))} />
       </PageHeader>

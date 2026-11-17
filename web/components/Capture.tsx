@@ -82,10 +82,6 @@ export function CaptureForm({ accountId, speciesId, speciesName, hunts, balls }:
           {error ?? (cmd && commandSummary(cmd))}
         </p>
       )}
-      <p className="small muted" style={{ margin: 0 }}>
-        Enquanto durar, os plugins não trocam de hunt nem mexem nas bolas; a bola é reposta com ouro (fica uma
-        reserva de 5 mil). No fim, tudo volta ao que estava.
-      </p>
     </div>
   );
 }

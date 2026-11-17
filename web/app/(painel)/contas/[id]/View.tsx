@@ -83,14 +83,14 @@ export function AccountView() {
 
         {/* Estratégia */}
         <>
-          <Panel title="Captura" meta="escolha a espécie na Pokédex">
+          <Panel title="Captura">
             {!d ? <Ld w="20ch" /> : d.capture
               ? <CaptureStatus accountId={d.account.id} active={d.capture} />
-              : <p className="small muted" style={{ margin: 0 }}>Nenhuma captura em andamento. Na <Link href={`/pokedex?conta=${d.account.id}`}>Pokédex</Link>, abra uma espécie e use <strong>Começar a captura</strong>.</p>}
+              : <p className="small muted" style={{ margin: 0 }}>Nenhuma. <Link href={`/pokedex?conta=${d.account.id}`}>Escolher na Pokédex →</Link></p>}
           </Panel>
           {!d && loading}
           {d && d.huntOptions.length > 0 && (
-            <Panel title="Hunt" meta="os plugins gems e rank respeitam a trava até o fim do prazo">
+            <Panel title="Hunt" hint="Trocar aqui trava a hunt pelo prazo: os plugins gems e rank respeitam até o fim.">
               <HuntPicker key={`${d.hold?.slug}:${profile?.hunt_slug}`} accountId={d.account.id} hunts={d.huntOptions} current={profile?.hunt_slug ?? null} hold={d.hold}
                 level={activeMon(profile)?.level ?? null} enabled={d.account.enabled} />
             </Panel>
@@ -115,13 +115,10 @@ export function AccountView() {
               </>
             )}
           </Panel>
-          <Panel title="Plugins" meta="config em JSON, para ajuste fino">
+          <Panel title="Plugins" meta="JSON" hint={<>A telemetria e o perfil são sempre ligados. Campos: <code>restock</code> em
+            fase-3-reposicao.md (seção 7), <code>rank</code> em fase-3b-plugin-rank.md e fase-3b-rank-ligado.md. O worker valida
+            antes de gravar e reinicia o plugin na hora.</>}>
             <div className="stack">
-              <p className="muted small" style={{ margin: 0 }}>
-                A telemetria e o perfil são sempre ligados e não aparecem aqui. Os campos do <code>restock</code> estão em
-                docs/design/fase-3-reposicao.md, seção 7; os do <code>rank</code>, em docs/design/fase-3b-plugin-rank.md, seção 1,
-                e docs/design/fase-3b-rank-ligado.md, seção 8.
-              </p>
               {!d && loading}
               {d?.plugins.map((p) => (
                 <PluginEditor key={p.plugin} accountId={d.account.id} plugin={p.plugin} enabled={p.enabled} config={p.config ?? {}} />

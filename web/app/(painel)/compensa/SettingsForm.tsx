@@ -47,7 +47,7 @@ export function SettingsForm({ initial }: { initial: EvalSettings }) {
       <label className="row">Fixo, em US$ (VPS, proxy)<input value={fixed} onChange={(e) => setFixed(e.target.value)} inputMode="decimal" style={{ width: "6rem" }} /></label>
       <label className="row">
         <input type="checkbox" checked={marginal} onChange={(e) => setMarginal(e.target.checked)} />
-        A máquina fica ligada de qualquer jeito (o farm não aumenta a conta de luz)
+        Sem custo de energia (a máquina ficaria ligada de qualquer jeito)
       </label>
       {!marginal && (
         <div className="row">
@@ -56,10 +56,6 @@ export function SettingsForm({ initial }: { initial: EvalSettings }) {
           <label className="row">Câmbio (R$ por US$)<input value={usd} onChange={(e) => setUsd(e.target.value)} inputMode="decimal" style={{ width: "6rem" }} /></label>
         </div>
       )}
-      <p className="muted small" style={{ margin: 0 }}>
-        O custo do mês é o fixo mais a energia. A tarifa vem na conta de luz (total em R$ ÷ kWh do mês); com algum campo
-        da energia vazio, ela fica de fora.
-      </p>
       <div className="row">
         <button type="submit" disabled={busy}>{busy ? "Salvando…" : "Salvar"}</button>
         {msg && <span className={`small ${msg === "salvo" ? "muted" : "error"}`}>{msg}</span>}

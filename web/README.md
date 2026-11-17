@@ -49,6 +49,9 @@ Next.js 16 (App Router) + Supabase Auth. Lê as contas, as métricas da fase 4a
   e ao sair.
 - **Carregamento**: `components/Loading.tsx` (`Ld`, `LdRows`, `LdBlock`). Título, descrição, abas e cabeçalhos
   aparecem direto; só os valores mostram a animação.
+- **Pouco texto na tela**: explicações longas ficam no "ⓘ" (`Hint`, em `components/Page.tsx`; `PageHeader` e `Panel`
+  aceitam `hint`). Comparações dentro de tabelas usam a barrinha `Bar`. No celular, toda tabela com `<thead>` vira
+  cartões (`components/TableLabels.tsx` copia o cabeçalho para o `data-label` de cada célula; `data-keep` evita).
 - **Ações** (comandos, objetivos, configurações) gravam no Supabase e depois invalidam as consultas
   (`useRefreshAll`) para a tela buscar de novo.
 - **Imagens do jogo**: o atlas dos retratos é lido pelo servidor em `/api/atlas` (o site do jogo não libera CORS).

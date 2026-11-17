@@ -26,7 +26,7 @@ export default function CommandsPage() {
   const active = !!d?.commands.some((c) => c.status === "pending" || c.status === "running");
   return (
     <>
-      <PageHeader title="Comandos" subtitle="Os últimos 100. O worker busca os pendentes a cada 5 s; um comando que não é pego em 5 min expira." />
+      <PageHeader title="Comandos" subtitle="Últimos 100" hint="O worker busca os pendentes a cada 5 s; um comando que não é pego em 5 min expira." />
       <ErrorNote message={d?.err} />
       <AutoRefresh active={active} queryKey={["commands"]} />
       <Panel title="Histórico" flush>
