@@ -7,8 +7,8 @@ Pedido de 17/11: um lugar para ver os stats dos bosses e montar a equipe para el
 - **Regiões**: uma aba por região com o nível que ela pede. Kanto pede 300, Johto 650; depois disso, 300 + 350 × degrau³
   (`nivelMinimoDoPar`). Abre na região mais alta que a conta já alcança.
 - **Cada boss do trio**:
-  - tipos, nível e o **prêmio de hoje**. O prêmio gira entre TM, fragmento de Mega e tickets à meia-noite de Brasília
-    (`premioDoBossNoInstante`, rodízio a partir de 17/11/2026);
+  - tipos, nível e o **prêmio de hoje**. O prêmio gira entre TM, fragmento de Mega e tickets às 18:00 de Brasília
+    (`premioDoBossNoInstante` com o dia sazonal de `dia-sazonal.mjs`, rodízio a partir de 17/11/2026);
   - o hexágono dos stats base;
   - fraquezas e resistências;
   - golpes e chances de prêmio por vitória: TM 0,5% × (degrau + 1), fragmento de Mega 0,65% × (degrau + 1),
