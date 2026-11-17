@@ -855,3 +855,5 @@ input[type="checkbox"][role="switch"]:focus-visible { outline: 2px solid var(--a
 }
 .sprite-outfit { display: inline-grid; place-items: end center; }
 .sprite-outfit > span { display: block; background-repeat: no-repeat; image-rendering: pixelated; }
+.dex-forms { font-size: .66rem; color: var(--link); }
+.dex-form-tabs { margin: 0 2rem .6rem 0; flex-wrap: wrap; }
