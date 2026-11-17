@@ -28,7 +28,7 @@ from .store.base import AccountRecord, CommandRecord, Store
 
 log = logging.getLogger(__name__)
 
-MAX_FARM_ACCOUNTS = 3  # Termos, seção 5: 4 por pessoa, uma é a pessoal
+MAX_FARM_ACCOUNTS = 4  # Termos, seção 5: 4 por pessoa; a pessoal também roda no worker (ADR 0014)
 
 
 class SessionLike(Protocol):

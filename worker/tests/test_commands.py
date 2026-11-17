@@ -88,12 +88,12 @@ async def test_enable_and_disable(rig):
     assert c["result"]["state"] == "stopped"
 
 
-async def test_enable_respects_three_accounts(rig):
-    accs = [farm(rig.store, f"farm{i}") for i in range(3)]
-    extra = farm(rig.store, "farm4", enabled=False)
+async def test_enable_respects_four_accounts(rig):
+    accs = [farm(rig.store, f"farm{i}") for i in range(4)]
+    extra = farm(rig.store, "farm5", enabled=False)
     await rig.boot()
     c = await rig.cmd(extra, "account.enable")
-    assert c["status"] == "failed" and "máximo é 3" in c["error"]
+    assert c["status"] == "failed" and "máximo é 4" in c["error"]
     assert rig.store.accounts[extra.id].enabled is False
     c = await rig.cmd(accs[0], "account.enable")
     assert c["result"]["started"] is False  # já rodava

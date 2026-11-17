@@ -1,6 +1,6 @@
 # 0006 — 4 contas: 3 de farm + 1 pessoal
 
-- **Status:** Aceita (forma de login alterada pela [0007](0007-contas-farm-email-senha.md))
+- **Status:** Aceita (forma de login alterada pela [0007](0007-contas-farm-email-senha.md); conta pessoal no worker pela [0014](0014-conta-pessoal-no-worker.md))
 - **Data:** 2026-11-11
 
 ## Contexto
