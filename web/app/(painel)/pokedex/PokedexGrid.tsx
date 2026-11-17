@@ -23,7 +23,7 @@ export type DexSpecies = {
   stage: string;
   looktype: number | null;
 };
-export type DexHunt = { slug: string; name: string | null; level: number; species_id: number };
+export type DexHunt = { slug: string; name: string | null; level: number; species_id: number; region?: string | null };
 type Entry = { c?: number; k?: number } | number;
 type Filter = "todas" | "capturadas" | "vistas" | "faltando";
 
@@ -57,6 +57,7 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
   const [filter, setFilter] = useState<Filter>("todas");
   const [query, setQuery] = useState("");
   const [type, setType] = useState("");
+  const [region, setRegion] = useState("");
   const [order, setOrder] = useState<"numero" | "hunt">("numero");
   // Pokédex fixa: tudo à mostra (nome, sprite, nível da hunt), sem esconder o que a conta não viu.
   // A escolha fica no navegador.
@@ -82,6 +83,17 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
     for (const h of hunts) m.set(h.species_id, [...(m.get(h.species_id) ?? []), h]);
     return m;
   }, [hunts]);
+  // região da espécie: a da hunt mais baixa em que ela é a principal (as hunts vêm em ordem de nível)
+  const regionOf = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const h of hunts) if (h.region && !m.has(h.species_id)) m.set(h.species_id, h.region);
+    return m;
+  }, [hunts]);
+  const regions = useMemo(() => {
+    const first = new Map<string, number>();
+    for (const h of hunts) if (h.region && !first.has(h.region)) first.set(h.region, h.level);
+    return [...first.entries()].sort((a, b) => a[1] - b[1]).map(([r]) => r);
+  }, [hunts]);
   const byId = useMemo(() => new Map(species.map((s) => [s.species_id, s])), [species]);
 
   const counts = useMemo(() => {
@@ -101,10 +113,11 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
       const st = caught(e) > 0 ? "capturadas" : e != null ? "vistas" : "faltando";
       if (filter !== "todas" && filter !== st) return false;
       if (type && s.type1 !== type && s.type2 !== type) return false;
+      if (region && (regionOf.get(s.species_id) ?? "sem-hunt") !== region) return false;
       if (q && !(s.name ?? "").toLowerCase().includes(q) && String(s.species_id) !== q) return false;
       return true;
     });
-  }, [species, dex, filter, type, query]);
+  }, [species, dex, filter, type, query, region, regionOf]);
   // por nível de hunt: as espécies sem hunt vão para o fim; empate, pelo número
   const sorted = useMemo(() => order === "numero" ? shown : [...shown].sort((a, b) =>
     (a.hunt_level ?? Infinity) - (b.hunt_level ?? Infinity) || a.species_id - b.species_id), [shown, order]);
@@ -143,6 +156,11 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
         <select value={type} onChange={(e) => setType(e.target.value)} aria-label="Tipo">
           <option value="">Todos os tipos</option>
           {types.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={region} onChange={(e) => setRegion(e.target.value)} aria-label="Região">
+          <option value="">Todas as regiões</option>
+          {regions.map((r) => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+          <option value="sem-hunt">Sem hunt</option>
         </select>
         <select value={order} onChange={(e) => setOrder(e.target.value as "numero" | "hunt")} aria-label="Ordenar">
           <option value="numero">Ordem: número</option>

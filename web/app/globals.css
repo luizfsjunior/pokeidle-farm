@@ -853,3 +853,5 @@ input[type="checkbox"][role="switch"]:focus-visible { outline: 2px solid var(--a
   .acc-head .fold-chevron { grid-column: 2; grid-row: 1; }
   .acc-head .acc-now, .acc-head .acc-stats { grid-column: 1 / -1; justify-content: flex-start; }
 }
+.sprite-outfit { display: inline-grid; place-items: end center; }
+.sprite-outfit > span { display: block; background-repeat: no-repeat; image-rendering: pixelated; }

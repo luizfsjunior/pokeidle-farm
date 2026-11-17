@@ -15,7 +15,7 @@ async function loadDexCatalog(supabase: SupabaseClient) {
   const [p1, p2, huntsRes] = await Promise.all([
     supabase.from("game_species").select(cols).order("species_id").range(0, 999),
     supabase.from("game_species").select(cols).order("species_id").range(1000, 1999),
-    supabase.from("game_hunts").select("slug, name, level, species_id").order("level"),
+    supabase.from("game_hunts").select("slug, name, level, species_id, region").order("level"),
   ]);
   return {
     species: [...(p1.data ?? []), ...(p2.data ?? [])] as unknown as DexSpecies[],
