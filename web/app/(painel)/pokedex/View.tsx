@@ -29,7 +29,7 @@ type DexEntry = { c?: number; k?: number } | number;
 async function loadDexAccount(supabase: SupabaseClient, id: string) {
   const [profiles, capture] = await Promise.all([loadProfiles(supabase, [id]), loadActiveCapture(supabase, id)]);
   const profile = profiles.get(id) ?? null;
-  return { dex: profile?.pokedex ?? null, updated: profile?.updated_at ?? null, balls: profile?.balls, capture };
+  return { dex: profile?.pokedex ?? null, updated: profile?.updated_at ?? null, balls: profile?.balls, capture, level: profile?.level ?? null };
 }
 
 /** As Pokédex de todas as contas juntas: capturas e abates somados por espécie. */
@@ -48,7 +48,7 @@ async function loadDexAll(supabase: SupabaseClient, ids: string[]) {
       dex[k] = { c: cc + c, k: ck + kills };
     }
   }
-  return { dex: profiles.size ? dex : null, updated, balls: undefined, capture: null };
+  return { dex: profiles.size ? dex : null, updated, balls: undefined, capture: null, level: null };
 }
 
 /** Pokédex interativa: o catálogo do jogo cruzado com a Pokédex da conta (docs/design/painel-fase-2.md). */
@@ -88,6 +88,7 @@ export function PokedexView() {
           together={together}
           updatedAt={mine?.updated ?? null}
           accountId={chosen?.role === "farm" ? chosen.id : null}
+          level={mine?.level ?? null}
           capture={mine?.capture ?? null}
           balls={mine?.balls}
         />

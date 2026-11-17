@@ -207,6 +207,19 @@ class Supervisor:
             raise CommandError(f"bloqueado: {exc.reason}{wait}") from exc
         return {"sent": action.to_wire()}
 
+    def _check_hunt_level(self, acc: AccountRecord, slug: str) -> None:
+        """O jogo tranca hunt acima do nível do treinador: recusa antes de gravar a trava."""
+        live = self.live.get(acc.id)
+        session = live.session if live else None
+        catalog = getattr(session, "catalog", None)
+        view = getattr(session, "state_view", None)
+        hunt = catalog.hunts.get(slug) if catalog is not None else None
+        level = getattr(view, "level", None)
+        if hunt is not None and isinstance(level, int) and hunt.level > level:
+            raise CommandError(
+                f"a hunt {slug} pede nível {hunt.level} e a conta está no {level}: o jogo tranca"
+            )
+
     async def _team_active(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Troca o pokémon ativo (docs/design/team-train.md)."""
         try:
@@ -229,6 +242,7 @@ class Supervisor:
             p = HuntSelectParams.model_validate(params)
         except ValidationError as exc:
             raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
+        self._check_hunt_level(acc, p.slug)
         until = datetime.now(UTC) + timedelta(hours=p.hours)
         out = await self._plugin_set(
             acc,
@@ -251,6 +265,7 @@ class Supervisor:
             p = CaptureStartParams.model_validate(params)
         except ValidationError as exc:
             raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
+        self._check_hunt_level(acc, p.hunt_slug)
         now = datetime.now(UTC)
         until = now + timedelta(hours=p.hours) if p.hours else None
         config = {

@@ -336,3 +336,23 @@ async def test_team_commands_send_through_the_session(rig):
     gw.block = True
     c = await rig.cmd(acc, "team.active", pokemon_id=7)
     assert c["status"] == "failed" and "tente em 12 s" in c["error"]
+
+
+async def test_hunt_above_trainer_level_is_refused(rig):
+    from types import SimpleNamespace
+
+    acc = farm(rig.store, "farm1")
+    await rig.boot()
+    hunts = {
+        "tyranitar": SimpleNamespace(level=470),
+        "brave_tyranitar": SimpleNamespace(level=150),
+    }
+    rig.sessions[0].catalog = SimpleNamespace(hunts=hunts)  # type: ignore[attr-defined]
+    rig.sessions[0].state_view = SimpleNamespace(level=371)  # type: ignore[attr-defined]
+    c = await rig.cmd(acc, "hunt.select", slug="tyranitar", hours=2)
+    assert c["status"] == "failed" and "pede nível 470" in c["error"]
+    assert "hunt_hold" not in rig.store.configs.get(acc.id, {})
+    c = await rig.cmd(acc, "capture.start", species_id=248, hunt_slug="tyranitar", ball_id=4)
+    assert c["status"] == "failed" and "pede nível 470" in c["error"]
+    c = await rig.cmd(acc, "hunt.select", slug="brave_tyranitar", hours=2)
+    assert c["status"] == "done"
