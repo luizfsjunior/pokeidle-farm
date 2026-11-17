@@ -5,7 +5,7 @@ import { Sprite } from "@/components/Sprite";
 import { Matchups, Moves, PvpRange, StatBars, StatRadar, TypeChips } from "@/components/SpeciesFacts";
 import { dateTime, num } from "@/lib/format";
 import {
-  BAND_PT, RARITY_PT, bandOf, gradeWithLineage, isLegendary, loadAncestors, loadGameRules, loadSpeciesInfo,
+  BAND_PT, RARITY_PT, bandOf, qualityPercentile, tierIvSum, tierPotency, tierQuality, gradeWithLineage, isLegendary, loadAncestors, loadGameRules, loadSpeciesInfo,
   type Stat,
 } from "@/lib/pokemon";
 import type { Mon } from "@/lib/profile";
@@ -88,11 +88,20 @@ export function MonSheet({ mon, atlas, looktypes, active, onClose, children }: {
           </div>
 
           <div className="sheet-figures">
-            <Fig label="Potência" value={mon.potency != null ? `P${mon.potency}` : "—"} />
-            <Fig label="Qualidade" value={mon.quality != null ? two.format(mon.quality) : "—"} />
-            <Fig label="IV" value={mon.iv_sum != null ? `${mon.iv_sum}/192` : "—"} />
-            <Fig label="Poder" value={num(mon.power ?? null, { compact: true })} />
-            {mon.max_hp != null && <Fig label="HP" value={`${num(mon.hp ?? null, { compact: true })}/${num(mon.max_hp, { compact: true })}`} />}
+            <Fig label="Potência" value={mon.potency != null ? `P${mon.potency}` : "—"}
+              tier={mon.potency != null ? tierPotency(mon.potency) : null}
+              title={mon.potency != null ? `Potência ${mon.potency} de 5` : undefined} />
+            <Fig label="Qualidade" value={mon.quality != null ? two.format(mon.quality) : "—"}
+              tier={mon.quality != null ? tierQuality(mon.quality) : null}
+              title={mon.quality != null ? `Melhor que ${Math.round(qualityPercentile(mon.quality) * 100)}% dos nascimentos (vai de 0,80 a 1,80)` : undefined} />
+            <Fig label="IV" value={mon.iv_sum != null ? `${mon.iv_sum}/192` : "—"}
+              tier={mon.iv_sum != null ? tierIvSum(mon.iv_sum) : null}
+              title={mon.iv_sum != null ? `${Math.round(((mon.iv_sum - 6) / 186) * 100)}% do caminho entre o IV mínimo (6) e o máximo (192)` : undefined} />
+            <Fig label="Poder" value={num(mon.power ?? null, { compact: true })} kind="power" title="Força de luta na caça" />
+            {mon.max_hp != null && (
+              <Fig label={`HP de ${num(mon.max_hp, { compact: true })}`} value={num(mon.hp ?? null, { compact: true })}
+                kind={hpKind(mon.hp, mon.max_hp)} title={`HP ${Math.round(((mon.hp ?? 0) / mon.max_hp) * 100)}%`} />
+            )}
             {(mon.refine_total ?? 0) > 0 && <Fig label="Refino" value={`+${num(mon.refine_total ?? 0)}`} />}
           </div>
 
@@ -157,9 +166,15 @@ function refineOf(v: unknown): Record<string, number> | undefined {
   return v && typeof v === "object" ? (v as Record<string, number>) : undefined;
 }
 
-function Fig({ label, value }: { label: string; value: string }) {
+function hpKind(hp: number | undefined, max: number): string {
+  const f = (hp ?? 0) / max;
+  return f >= 0.6 ? "hp-ok" : f >= 0.3 ? "hp-mid" : "hp-low";
+}
+
+/** Um número da ficha como selo; `tier` (1–5) pinta como os degraus do jogo, do cinza ao dourado. */
+function Fig({ label, value, tier, kind, title }: { label: string; value: string; tier?: number | null; kind?: string; title?: string }) {
   return (
-    <div className="figure">
+    <div className={`figure selo ${tier ? `tier-${tier}` : ""} ${kind ?? ""}`} title={title}>
       <span className="figure-value num">{value}</span>
       <span className="figure-label">{label}</span>
     </div>

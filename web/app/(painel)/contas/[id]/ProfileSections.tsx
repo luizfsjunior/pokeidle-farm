@@ -5,6 +5,7 @@ import { ItemIcon } from "@/components/ItemIcon";
 import { MonSheet } from "@/components/MonSheet";
 import { Sprite } from "@/components/Sprite";
 import { num } from "@/lib/format";
+import { tierIvSum, tierPotency, tierQuality } from "@/lib/pokemon";
 import { gameDay, type Mon, type Profile } from "@/lib/profile";
 import { BALL_ICONS, BALL_NAMES, GAME_SITE, itemIconUrl, type Atlas } from "@/lib/sprites";
 import { MonActions } from "./TeamControls";
@@ -161,11 +162,10 @@ function MonTile({ mon, atlas, looktypes, active, small, children, onOpen }: {
         </span>
         <span className="mon-meta num">nv {mon.level ?? "?"}{mon.power != null && <> · poder {num(mon.power, { compact: true })}</>}</span>
         {!small && (
-          <span className="mon-meta num muted">
-            {mon.potency != null && <>P{mon.potency} · </>}
-            {mon.iv_sum != null && <>IV {mon.iv_sum}</>}
-            {mon.quality != null && <> · Q {num(mon.quality)}</>}
-            {active && <> · ativo</>}
+          <span className="mon-selos num">
+            {mon.potency != null && <span className={`mini-selo tier-${tierPotency(mon.potency)}`}>P{mon.potency}</span>}
+            {mon.iv_sum != null && <span className={`mini-selo tier-${tierIvSum(mon.iv_sum)}`}>IV {mon.iv_sum}</span>}
+            {mon.quality != null && <span className={`mini-selo tier-${tierQuality(mon.quality)}`}>Q {num(mon.quality)}</span>}
           </span>
         )}
       </button>

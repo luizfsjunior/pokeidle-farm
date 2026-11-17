@@ -273,3 +273,35 @@ export const BAND_PT: Record<string, string> = {
 };
 
 export const isLegendary = (rarity: string | null) => !!rarity && /LEND|LEGEND|MYTH|MITIC/i.test(rarity);
+
+// --- selos coloridos (os degraus t1–t5 do jogo: app.js e nota-pokemon.mjs) -----------------------
+
+const QUALITY_BANDS = [ // BANDAS_QUALIDADE: chance (%) de cada faixa de qualidade no nascimento
+  [0.8, 0.9, 5], [0.9, 1.0, 5], [1.0, 1.1, 34.03846], [1.1, 1.2, 20], [1.2, 1.3, 10], [1.3, 1.4, 10],
+  [1.4, 1.5, 10], [1.5, 1.6, 5], [1.7, 1.8, 0.67308], [1.8, 1.8, 0.28846],
+] as const;
+const CUTS_IV = [0.5, 0.7, 0.85, 0.95];
+const CUTS_QUALITY = [0.44, 0.74, 0.94, 0.99];
+const CUTS_GRADE = [3.5, 5.5, 7, 8.5];
+const IV_SUM_MIN = 6, IV_SUM_MAX = 192;
+const byCuts = (v: number, cuts: number[]) => cuts.reduce((n, c) => (v >= c ? n + 1 : n), 1);
+
+/** Percentil da qualidade entre os nascimentos (percentilQualidade do jogo). */
+export function qualityPercentile(q: number): number {
+  const v = Math.min(1.8, Math.max(0.8, q));
+  let acc = 0;
+  for (const [min, max, chance] of QUALITY_BANDS) {
+    if (v < min) break;
+    if (v >= max) { acc += chance; continue; }
+    acc += chance * ((v - min) / (max - min));
+    break;
+  }
+  return Math.min(1, Math.max(0, acc / 100));
+}
+
+export const tierPotency = (p: number) => Math.min(5, Math.max(1, Math.round(p)));
+export const tierQuality = (q: number) => byCuts(qualityPercentile(q), CUTS_QUALITY);
+export const tierIvSum = (s: number) => byCuts((s - IV_SUM_MIN) / (IV_SUM_MAX - IV_SUM_MIN), CUTS_IV);
+export const tierGrade = (n: number) => byCuts(n, CUTS_GRADE);
+/** IV de um stat (classeIvStat): ≤5, ≤10, ≤15, ≤24, 25+. */
+export const tierIvStat = (v: number) => (v <= 5 ? 1 : v <= 10 ? 2 : v <= 15 ? 3 : v <= 24 ? 4 : 5);
