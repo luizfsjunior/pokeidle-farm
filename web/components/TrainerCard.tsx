@@ -76,13 +76,14 @@ export function TrainerCard({ account, profile, atlas, looktypes, href, wide = f
               ))}
             </ol>
           )}
-          <div className="trainer-foot muted small">
-            {num(profile.pokemon_count)} pokémons · {num(profile.shiny_count)} shiny · Pokédex {num(profile.dex_caught)}
-            {" "}· atualizado {ago(profile.updated_at)}
+          <div className="trainer-foot chips" title={`perfil de ${ago(profile.updated_at)}`}>
+            <span className="chip"><strong>{num(profile.pokemon_count)}</strong> pokémons</span>
+            <span className="chip"><strong>{num(profile.dex_caught)}</strong> na Pokédex</span>
+            {profile.shiny_count > 0 && <span className="chip"><strong>{num(profile.shiny_count)}</strong> ✨</span>}
           </div>
         </>
       ) : (
-        <p className="muted small">Sem perfil ainda: ele aparece uns segundos depois de o worker conectar a conta.</p>
+        <p className="muted small">Perfil chegando…</p>
       )}
       {children}
     </section>

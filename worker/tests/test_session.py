@@ -172,6 +172,27 @@ async def test_busy_lease_prevents_connection(fake_game, make_session, store, ac
     await task
 
 
+async def test_busy_lease_keeps_status_of_the_holder(fake_game, make_session, store, account):
+    """Sem o lease, a sessão não mexe no status: quem grava é o worker que segura a conta.
+
+    Em 17/11 um worker antigo (PC de casa) subiu junto com o do VPS e, a cada minuto, gravava
+    `offline` por cima do `ready` do outro.
+    """
+    async def script(ws, hello, n):
+        await ws.send(welcome())
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    await store.acquire_lease(account.id, "outra-instancia", 3600)
+    await store.set_status(account.id, "ready")
+    session = make_session(game.url)
+    task = asyncio.create_task(session.run())
+    await wait_until(lambda: session.state is State.LEASE_BUSY)
+    assert store.status[account.id] == "ready"
+    session.stop()
+    await task
+
+
 async def test_telemetry_buffers_when_store_fails(fake_game, make_session, store, settings):
     async def script(ws, hello, n):
         await ws.send(welcome())

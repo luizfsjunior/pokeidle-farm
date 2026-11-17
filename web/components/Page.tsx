@@ -2,9 +2,10 @@ import Link from "next/link";
 import { Icon } from "./icons";
 
 /** Cabeçalho da página: título, uma linha de contexto e ações à direita; filtros embaixo. */
-export function PageHeader({ title, subtitle, actions, children }: {
+export function PageHeader({ title, subtitle, actions, hint, children }: {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
+  hint?: React.ReactNode; // explicação longa: fica num "ⓘ" ao lado do título
   actions?: React.ReactNode;
   children?: React.ReactNode;
 }) {
@@ -12,7 +13,7 @@ export function PageHeader({ title, subtitle, actions, children }: {
     <header className="page-head">
       <div className="page-head-row">
         <div className="page-head-text">
-          <h1>{title}</h1>
+          <div className="with-hint"><h1>{title}</h1>{hint && <Hint>{hint}</Hint>}</div>
           {subtitle && <p className="page-sub">{subtitle}</p>}
         </div>
         {actions && <div className="page-actions">{actions}</div>}
@@ -57,6 +58,32 @@ export function AccountTabs({ accounts, chosen, href, all = true }: {
   return <LinkTabs label="Conta" items={items} />;
 }
 
+/** "ⓘ" que abre a explicação num balão: o texto longo sai da página e fica a um toque. */
+export function Hint({ children, label = "Como é calculado" }: { children: React.ReactNode; label?: string }) {
+  return (
+    <details className="hint">
+      <summary aria-label={label} title={label}><Icon name="info" size={15} /></summary>
+      <div className="hint-pop" role="note">{children}</div>
+    </details>
+  );
+}
+
+/** Barrinha horizontal para comparar um valor com o maior da lista (dentro de tabelas e cartões). */
+export function Bar({ value, max, tone = "accent", label }: {
+  value: number | null | undefined;
+  max: number;
+  tone?: "accent" | "gem" | "gold" | "good" | "critical" | "link";
+  label?: React.ReactNode;
+}) {
+  const pct = max > 0 && value != null && value > 0 ? Math.min(100, (value / max) * 100) : 0;
+  return (
+    <span className="bar-cell">
+      {label != null && <span className="bar-label">{label}</span>}
+      <span className={`bar bar-${tone}`} aria-hidden><span style={{ width: `${pct}%` }} /></span>
+    </span>
+  );
+}
+
 /** "Como é calculado": a explicação longa fica recolhida, fora do caminho. */
 export function Explain({ title = "Como é calculado", children }: { title?: string; children: React.ReactNode }) {
   return (
@@ -68,9 +95,10 @@ export function Explain({ title = "Como é calculado", children }: { title?: str
 }
 
 /** Cartão com cabeçalho (título, meta à direita) e corpo. */
-export function Panel({ title, meta, children, className = "", flush = false, id }: {
+export function Panel({ title, meta, hint, children, className = "", flush = false, id }: {
   title?: React.ReactNode;
   meta?: React.ReactNode;
+  hint?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
   flush?: boolean; // corpo sem padding (tabelas de ponta a ponta)
@@ -80,7 +108,7 @@ export function Panel({ title, meta, children, className = "", flush = false, id
     <section className={`panel ${className}`} id={id}>
       {(title || meta) && (
         <div className="panel-head">
-          {title && <h2>{title}</h2>}
+          {title && <div className="with-hint"><h2>{title}</h2>{hint && <Hint>{hint}</Hint>}</div>}
           {meta && <div className="panel-meta">{meta}</div>}
         </div>
       )}

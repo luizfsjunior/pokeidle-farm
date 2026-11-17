@@ -28,7 +28,8 @@ export function OverviewView() {
     <>
       <PageHeader
         title="Contas"
-        subtitle={<>Hoje, {today.split("-").reverse().join("/")}. Os números do dia são recalculados a cada 10 min; moedas e equipe, a cada 2 min.</>}
+        subtitle={`Hoje, ${today.split("-").reverse().join("/")}`}
+        hint={<><p>Números do dia por hora ativa, recalculados a cada 10 min.</p><p>Moedas e equipe vêm do perfil, a cada 2 min.</p></>}
       />
       <ErrorNote message={d?.err} />
       {d && accounts.length === 0 && !d.err && (
@@ -55,17 +56,13 @@ export function OverviewView() {
               href={`/contas/${a.id}`}>
               <div className="today">
                 <div className="today-title small secondary">
-                  Hoje, por hora ativa{mins ? ` (${num(mins / 60)} h)` : ""} · último evento {ago(d.lastSeen.get(a.id))}
+                  Por hora hoje{mins ? ` · ${num(mins / 60)} h ativas` : ""} · {ago(d.lastSeen.get(a.id))}
                 </div>
-                <div className="stats">
-                  <Stat label="Drops em gemas" value={num(perHour(t?.drops_value_orb ?? 0, mins))} />
-                  <Stat label="Abates" value={num(perHour(t?.kills ?? 0, mins))} />
+                <div className="stats stats-4">
                   <Stat label="XP" value={num(perHour(t?.xp ?? 0, mins), { compact: true })} />
-                  <Stat label="Ouro" value={num(perHour(t?.gold ?? 0, mins), { compact: true })} />
-                  <Stat label="Ouro líquido" value={num(perHour(t?.gold_net ?? 0, mins), { compact: true })} />
-                  <Stat label="Capturas" value={num(perHour(t?.captures ?? 0, mins))} />
-                  <Stat label="Taxa de captura" value={t?.capture_attempts ? `${num((t.captures * 100) / t.capture_attempts)}%` : "—"} />
-                  <Stat label="Drops em ouro" value={num(perHour(t?.drops_value_gold ?? 0, mins), { compact: true })} />
+                  <Stat label="Abates" value={num(perHour(t?.kills ?? 0, mins))} />
+                  <Stat label="Gemas" value={num(perHour(t?.drops_value_orb ?? 0, mins))} />
+                  <Stat label="Ouro líq." value={num(perHour(t?.gold_net ?? 0, mins), { compact: true })} />
                 </div>
                 {rank && (
                   <div className="small">
