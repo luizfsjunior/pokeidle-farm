@@ -804,3 +804,9 @@ body:has(.login) { overflow: auto; }
   .segmented { flex-wrap: wrap; max-width: 100%; }
   .dex-controls input { min-width: 0; flex: 1 1 10rem; }
 }
+/* Pokédex fixa: nada escondido; capturada ● e vista ○ num canto */
+.dex-mode { font-size: .85rem; color: var(--text-secondary); }
+.dex-cell.dex-full { position: relative; }
+.dex-cell.dex-full .sprite { filter: none; }
+.dex-cell.dex-full .dex-name { color: var(--text-primary); }
+.dex-mark { position: absolute; top: .3rem; right: .4rem; font-size: .7rem; color: var(--accent); }

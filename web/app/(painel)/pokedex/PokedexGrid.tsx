@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { CaptureForm, CaptureStatus, type ActiveCapture } from "@/components/Capture";
 import { commandSummary } from "@/components/CommandButtons";
 import { Matchups, Moves, PvpRange, StatBars, StatRadar } from "@/components/SpeciesFacts";
@@ -58,6 +58,19 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
   const [query, setQuery] = useState("");
   const [type, setType] = useState("");
   const [order, setOrder] = useState<"numero" | "hunt">("numero");
+  // Pokédex fixa: tudo à mostra (nome, sprite, nível da hunt), sem esconder o que a conta não viu.
+  // A escolha fica no navegador.
+  const [full, setFullState] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("dex-modo") === "fixa") { setFullState(true); setOrder("hunt"); }
+    } catch { /* sem storage: fica a dinâmica */ }
+  }, []);
+  const setFull = (on: boolean) => {
+    setFullState(on);
+    setOrder(on ? "hunt" : "numero");
+    try { localStorage.setItem("dex-modo", on ? "fixa" : "dinamica"); } catch { /* ignora */ }
+  };
   const [selected, setSelected] = useState<number | null>(null);
 
   const types = useMemo(
@@ -135,6 +148,9 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
           <option value="numero">Ordem: número</option>
           <option value="hunt">Ordem: nível da hunt</option>
         </select>
+        <label className="dex-mode" title="Fixa: mostra todas as espécies com nome, sprite e nível da hunt, mesmo as que a conta ainda não encontrou">
+          <input type="checkbox" role="switch" checked={full} onChange={(e) => setFull(e.target.checked)} /> Mostrar tudo
+        </label>
         <span className="muted small">{num(shown.length)} espécies</span>
       </div>
 
@@ -143,15 +159,17 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
           {sorted.map((s) => {
             const e = dex[String(s.species_id)];
             const st = caught(e) > 0 ? "caught" : e != null ? "seen" : "missing";
+            const hide = !full && st === "missing";
             return (
               <li key={s.species_id}>
-                <button type="button" className={`dex-cell dex-${st} ${selected === s.species_id ? "is-selected" : ""}`}
+                <button type="button" className={`dex-cell dex-${st} ${full ? "dex-full" : ""} ${selected === s.species_id ? "is-selected" : ""}`}
                   onClick={() => setSelected(s.species_id)} aria-pressed={selected === s.species_id}>
                   <Sprite mon={mon(s)} atlas={atlas} size={48} />
                   <span className="dex-num num">#{s.species_id}</span>
-                  <span className="dex-name">{st === "missing" ? "???" : s.name}</span>
+                  <span className="dex-name">{hide ? "???" : s.name}</span>
                   {st === "caught" && <span className="dex-count num">×{num(caught(e))}</span>}
-                  {order === "hunt" && s.hunt_level != null && <span className="dex-hunt-lv num">nv {num(s.hunt_level)}</span>}
+                  {(order === "hunt" || full) && s.hunt_level != null && <span className="dex-hunt-lv num">hunt nv {num(s.hunt_level)}</span>}
+                  {full && st !== "missing" && <span className="dex-mark" aria-label={st === "caught" ? "capturada" : "vista"} title={st === "caught" ? "Capturada" : "Vista"}>{st === "caught" ? "●" : "○"}</span>}
                 </button>
               </li>
             );
