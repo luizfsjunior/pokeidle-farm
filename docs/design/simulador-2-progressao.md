@@ -110,3 +110,11 @@ Small) passam a compensar quando o HP máximo cresce. Fica para depois (restock)
 - **P-C.** Os bônus são lidos do `estado.bonusXp` (VIP, evento...), cada um até expirar.
 - **P-D.** Só o inicial e as evoluções dele; o segundo pokémon fica para as camadas 3 e 4.
 - **P-E.** ETA e plano no card da conta.
+
+## Evolução em qualquer foco (17/11)
+
+A evolução saiu do plugin `gems` e foi para o plugin **`evolve`** (sempre ligado, `plugins/evolve.py`): uma conta no
+foco gemas tinha o Charmander com nível e Fire Stone e não evoluía, porque só o foco XP chamava o `maybe_evolve`. A
+regra é a mesma (ativo no nível, pedra do `type1` na bolsa, uma tentativa a cada 10 min, `progress.evolve` →
+`progress.evolved` ou `progress.evolve_failed`). Desliga com `{"active": false}` na config do `evolve`. O foco XP
+continua buscando a pedra que falta ([foco-xp-pedra.md](foco-xp-pedra.md)); quem evolui é o `evolve`.

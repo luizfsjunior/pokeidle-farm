@@ -445,7 +445,7 @@ async def test_xp_focus_goes_to_the_stone_hunt_when_the_stone_is_missing():
         Event(account_id=uuid4(), session_id=uuid4(), type="state.patch", data={})
     )
     assert h.events("progress.stone_found") == [{"stone": "Water Stone", "hunt": "magikarp"}]
-    assert {"t": "pokemon.evoluir", "pokemonId": 7, "alvoId": 130} in h.sent
+    assert not [p for p in h.sent if p["t"] == "pokemon.evoluir"]  # quem evolui é o plugin evolve
     last = h.events("gems.plan")[-1]
     assert last["reason"] == "stone_found" and last["stone_hunt"] is None
     assert last["target"]["slug"] != "magikarp"

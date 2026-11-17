@@ -216,9 +216,7 @@ class GemsPlugin(Plugin):
             due = self._last_plan_at is None or self.now() - self._last_plan_at >= timedelta(
                 minutes=self.cfg.interval_min
             )
-            if self.cfg.objective == "xp":
-                if self._acting and self.cfg.auto_evolve:
-                    await self.progress.maybe_evolve()
+            if self.cfg.objective == "xp":  # a evolução fica com o plugin evolve
                 self.progress.maybe_plan("interval")
             if due:
                 await self._plan("interval")
@@ -245,9 +243,7 @@ class GemsPlugin(Plugin):
                 await self.ctx.actions.note(
                     "progress.stone_found", {"stone": self._seeking, "hunt": self.switch.current}
                 )
-                self._seeking = None
-                if self._acting and self.cfg.auto_evolve:
-                    await self.progress.maybe_evolve()
+                self._seeking = None  # o plugin evolve evolui com a pedra na bolsa
                 await self._plan("stone_found")
                 self.progress.maybe_plan("evolved")
             if level > self._level:
