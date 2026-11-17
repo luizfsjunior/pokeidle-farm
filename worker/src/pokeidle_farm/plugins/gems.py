@@ -13,6 +13,7 @@ Ver docs/design/foco-gemas-e-ritmo.md. Resumo:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar, Literal
@@ -81,6 +82,7 @@ class GemsPlugin(Plugin):
 
     # pedra -> unidades/semana que cada conta tira (para dividir a liquidez entre as contas)
     _claims: ClassVar[dict[UUID, dict[str, float]]] = {}
+    _models: ClassVar[dict[UUID, ModelRates]] = {}
 
     def __init__(self) -> None:
         self.now = lambda: datetime.now(UTC)
@@ -125,11 +127,26 @@ class GemsPlugin(Plugin):
         if self._acting:
             await self._check_rank()
         await self._load()
-        await self._plan("start")
+        # o primeiro plano roda o simulador para todas as hunts (dezenas de segundos): fica em
+        # segundo plano, senão o reinício pelo painel (focus.set) estoura o prazo (17/11)
+        self._first_plan = asyncio.get_running_loop().create_task(self._first())
         if self.cfg.objective == "xp":
             self.progress.maybe_plan("start")
 
+    async def _first(self) -> None:
+        try:
+            await self._locked(lambda: self._plan("start"))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.ctx.log.exception("gems: o primeiro plano falhou")
+
     async def stop(self) -> None:
+        first = getattr(self, "_first_plan", None)
+        if first is not None and not first.done():
+            first.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await first
         await self.switch.stop()
         await self.progress.stop()
         type(self)._claims.pop(self.ctx.account_id, None)
@@ -350,7 +367,8 @@ class GemsPlugin(Plugin):
         if not self.cfg.use_model:
             return {}
         if not hasattr(self, "_model"):
-            self._model = ModelRates()
+            # um por conta, guardado na classe: o reinício do plugin reaproveita o cache
+            self._model = type(self)._models.setdefault(self.ctx.account_id, ModelRates())
         try:
             return self._model.rates(
                 {s: (h.level, h.species_id) for s, h in cat.hunts.items()},

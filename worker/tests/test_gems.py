@@ -223,6 +223,7 @@ class Harness:
 
     async def start(self) -> Harness:
         await self.plugin.start(self.ctx)
+        await self.plugin._first_plan  # o primeiro plano roda em segundo plano
         return self
 
     def events(self, t: str) -> list[dict[str, Any]]:

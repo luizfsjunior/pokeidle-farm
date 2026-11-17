@@ -43,6 +43,9 @@ class PluginHost:
         self.running: dict[str, Plugin] = {}
         self.degraded: dict[str, str] = {}
         self._unsubs: dict[str, Unsubscribe] = {}
+        # a partida da sessão (READY) e o reinício pelo painel podiam correr juntos e subir o
+        # mesmo plugin duas vezes (17/11)
+        self._lock = asyncio.Lock()
 
     async def start_all(
         self,
@@ -53,6 +56,29 @@ class PluginHost:
         only_always_on: bool = False,
     ) -> None:
         """Sobe os plugins ligados que ainda não estão rodando (idempotente)."""
+        async with self._lock:
+            await self._start_all(bus, configs, make_ctx, only_always_on=only_always_on)
+
+    async def restart(
+        self,
+        name: str,
+        bus: EventBus,
+        configs: dict[str, tuple[bool, dict[str, Any]]],
+        make_ctx: Any,
+    ) -> None:
+        """Para e sobe de novo um plugin, sem outra partida no meio."""
+        async with self._lock:
+            await self._stop_one(name)
+            await self._start_all(bus, configs, make_ctx)
+
+    async def _start_all(
+        self,
+        bus: EventBus,
+        configs: dict[str, tuple[bool, dict[str, Any]]],
+        make_ctx: Any,
+        *,
+        only_always_on: bool = False,
+    ) -> None:
         for name, cls in self.available.items():
             if name in self.running or (only_always_on and not cls.always_on):
                 continue
@@ -88,6 +114,12 @@ class PluginHost:
         self.degraded[name] = repr(exc)
 
     async def stop_one(
+        self, name: str, *, drain_s: float = STOP_DRAIN_S, stop_s: float = STOP_TIMEOUT_S
+    ) -> None:
+        async with self._lock:
+            await self._stop_one(name, drain_s=drain_s, stop_s=stop_s)
+
+    async def _stop_one(
         self, name: str, *, drain_s: float = STOP_DRAIN_S, stop_s: float = STOP_TIMEOUT_S
     ) -> None:
         """Para um plugin (reinício pelo painel). Com prazo: a fila de eventos pode estar cheia
