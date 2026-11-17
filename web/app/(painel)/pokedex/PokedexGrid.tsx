@@ -122,6 +122,40 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
   const sorted = useMemo(() => order === "numero" ? shown : [...shown].sort((a, b) =>
     (a.hunt_level ?? Infinity) - (b.hunt_level ?? Infinity) || a.species_id - b.species_id), [shown, order]);
 
+  // formas do mesmo pokémon com números diferentes (Aron #304 de Kanto e #13304 de Hoenn): um card só
+  const formsOf = useMemo(() => {
+    const m = new Map<string, DexSpecies[]>();
+    for (const s of species) {
+      const k = (s.name ?? `#${s.species_id}`).toLowerCase();
+      m.set(k, [...(m.get(k) ?? []), s]);
+    }
+    return m;
+  }, [species]);
+  const keyOf = (s: DexSpecies) => (s.name ?? `#${s.species_id}`).toLowerCase();
+  // um card por nome, na posição da primeira forma que passou nos filtros
+  const cards = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { rep: DexSpecies; forms: DexSpecies[] }[] = [];
+    for (const s of sorted) {
+      const k = keyOf(s);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push({ rep: s, forms: formsOf.get(k) ?? [s] });
+    }
+    return out;
+  }, [sorted, formsOf]);
+  const groupEntry = (forms: DexSpecies[]): Entry | undefined => {
+    let c = 0, k = 0, any = false;
+    for (const f of forms) {
+      const e = dex[String(f.species_id)];
+      if (e == null) continue;
+      any = true;
+      c += caught(e);
+      k += kills(e) ?? 0;
+    }
+    return any ? { c, k } : undefined;
+  };
+
   const sel = selected != null ? byId.get(selected) : undefined;
   const selEntry = sel ? dex[String(sel.species_id)] : undefined;
   const mon = (s: DexSpecies) => ({ id: s.species_id, species_id: s.species_id, name: s.name ?? undefined, looktype: s.looktype ?? undefined });
@@ -169,24 +203,29 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
         <label className="dex-mode" title="Fixa: mostra todas as espécies com nome, sprite e nível da hunt, mesmo as que a conta ainda não encontrou">
           <input type="checkbox" role="switch" checked={full} onChange={(e) => setFull(e.target.checked)} /> Mostrar tudo
         </label>
-        <span className="muted small">{num(shown.length)} espécies</span>
+        <span className="muted small">{num(cards.length)} pokémons</span>
       </div>
 
       <div className="dex-body">
         <ul className="dex-grid">
-          {sorted.map((s) => {
-            const e = dex[String(s.species_id)];
+          {cards.map(({ rep: s, forms }) => {
+            const e = groupEntry(forms);
             const st = caught(e) > 0 ? "caught" : e != null ? "seen" : "missing";
             const hide = !full && st === "missing";
+            const ids = forms.map((f) => f.species_id);
+            const isSel = selected != null && ids.includes(selected);
+            const lv = Math.min(...forms.map((f) => f.hunt_level ?? Infinity));
             return (
               <li key={s.species_id}>
-                <button type="button" className={`dex-cell dex-${st} ${full ? "dex-full" : ""} ${selected === s.species_id ? "is-selected" : ""}`}
-                  onClick={() => setSelected(s.species_id)} aria-pressed={selected === s.species_id}>
+                <button type="button" className={`dex-cell dex-${st} ${full ? "dex-full" : ""} ${isSel ? "is-selected" : ""}`}
+                  onClick={() => setSelected(s.species_id)} aria-pressed={isSel}
+                  title={forms.length > 1 ? `${forms.length} formas: ${ids.map((i) => `#${i}`).join(", ")}` : undefined}>
                   <Sprite mon={mon(s)} atlas={atlas} size={48} />
                   <span className="dex-num num">#{s.species_id}</span>
                   <span className="dex-name">{hide ? "???" : s.name}</span>
                   {st === "caught" && <span className="dex-count num">×{num(caught(e))}</span>}
-                  {(order === "hunt" || full) && s.hunt_level != null && <span className="dex-hunt-lv num">hunt nv {num(s.hunt_level)}</span>}
+                  {(order === "hunt" || full) && Number.isFinite(lv) && <span className="dex-hunt-lv num">hunt nv {num(lv)}</span>}
+                  {forms.length > 1 && <span className="dex-forms num">{forms.length} formas</span>}
                   {full && st !== "missing" && <span className="dex-mark" aria-label={st === "caught" ? "capturada" : "vista"} title={st === "caught" ? "Capturada" : "Vista"}>{st === "caught" ? "●" : "○"}</span>}
                 </button>
               </li>
@@ -198,6 +237,19 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
           {sel ? (
             <>
               <button type="button" className="dex-close" onClick={() => setSelected(null)} aria-label="Fechar">×</button>
+              {(formsOf.get(keyOf(sel)) ?? []).length > 1 && (
+                <div className="segmented dex-form-tabs" role="radiogroup" aria-label="Forma">
+                  {formsOf.get(keyOf(sel))!.map((f) => {
+                    const h = huntsBySpecies.get(f.species_id)?.[0];
+                    return (
+                      <button key={f.species_id} type="button" role="radio" aria-checked={f.species_id === sel.species_id}
+                        className={f.species_id === sel.species_id ? "on" : undefined} onClick={() => setSelected(f.species_id)}>
+                        #{f.species_id}<span className="muted small"> {h ? `${h.region ?? ""} nv ${num(h.level)}` : "sem hunt"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <div className="trainer-stage dex-stage"><Sprite mon={mon(sel)} atlas={atlas} size={96} /></div>
               <h2 style={{ marginBottom: ".2rem" }}>{sel.name} <span className="muted num">#{sel.species_id}</span></h2>
               <p className="small" style={{ marginTop: 0 }}>
