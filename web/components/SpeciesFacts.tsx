@@ -2,7 +2,7 @@
 
 import { num } from "@/lib/format";
 import {
-  IV_MAX_STAT, RANGE_CUT_3, RANGE_CUT_4, STAT_LABEL, STATS, TYPE_PT, matchups, pvpRange, rangeLabel,
+  IV_MAX_STAT, RANGE_CUT_3, tierIvStat, RANGE_CUT_4, STAT_LABEL, STATS, TYPE_PT, matchups, pvpRange, rangeLabel,
   type Attack, type GameRules, type SpeciesInfo, type Stat,
 } from "@/lib/pokemon";
 
@@ -47,10 +47,10 @@ export function Matchups({ s, rules }: { s: Pick<SpeciesInfo, "type1" | "type2">
 // (quase nenhum base passa de 180; quem passa enche a barra)
 const BASE_SCALE = 180;
 
-function Meter({ value, max, label }: { value: number | null | undefined; max: number; label: string }) {
+function Meter({ value, max, label, tier }: { value: number | null | undefined; max: number; label: string; tier?: number }) {
   const w = value == null || max <= 0 ? 0 : Math.min(100, (value / max) * 100);
   return (
-    <span className="meter" role="img" aria-label={label}>
+    <span className={`meter ${tier ? `tier-${tier}` : ""}`} role="img" aria-label={label}>
       <span style={{ width: `${w}%` }} />
     </span>
   );
@@ -105,7 +105,7 @@ export function StatBars({ base, ivs, stats, refine }: {
               )}
               {ivs && (
                 <td className="sb-cell">
-                  <Meter value={iv} max={IV_MAX_STAT} label={`IV ${iv ?? "—"} de ${IV_MAX_STAT}`} />
+                  <Meter value={iv} max={IV_MAX_STAT} label={`IV ${iv ?? "—"} de ${IV_MAX_STAT}`} tier={iv != null ? tierIvStat(iv) : undefined} />
                   <span className="num sb-val">{iv ?? "—"}</span>
                   {iv === IV_MAX_STAT && <span className="sb-perfect" title="IV máximo"> ★</span>}
                 </td>

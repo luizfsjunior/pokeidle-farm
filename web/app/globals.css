@@ -657,7 +657,7 @@ body:has(.login) { overflow: auto; }
 @keyframes band-pulse { 50% { box-shadow: 0 0 18px -4px var(--band); } }
 
 .sheet-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: .6rem; }
-.sheet-figures .figure-value { font-size: 1.15rem; }
+.sheet-figures .figure-value { font-size: 1rem; white-space: nowrap; }
 .xpbar span { background: var(--series-1); }
 .mon-sheet h3 { margin: 0 0 .5rem; font-size: .95rem; }
 .mon-sheet .mon-actions { justify-content: flex-start; margin: 0; }
@@ -751,3 +751,22 @@ body:has(.login) { overflow: auto; }
 .stat-table { margin-top: .5rem; }
 .stat-table summary { cursor: pointer; font-size: .82rem; color: var(--link); }
 .stat-table[open] summary { margin-bottom: .4rem; }
+
+/* selos P · IV · Q (degraus t1–t5 do jogo): cinza, verde, azul e, do azul para cima, metal (violeta e dourado) */
+.tier-1 { --tier: #8b90a6; --tier-bg: #8b90a61f; }
+.tier-2 { --tier: #5fe08a; --tier-bg: #5fe08a1c; }
+.tier-3 { --tier: #6fd6ff; --tier-bg: #6fd6ff1c; }
+.tier-4 { --tier: #c9a7ff; --tier-bg: linear-gradient(135deg, #c9a7ff33, #6d4fb033 55%, #e6d6ff33); }
+.tier-5 { --tier: #ffcc33; --tier-bg: linear-gradient(135deg, #ffe08a3d, #b8860b3d 55%, #fff1b83d); }
+.figure.selo { padding: .45rem .55rem; border-radius: 10px; background: var(--surface-0); border: 1px solid var(--grid); }
+.figure.selo[class*="tier-"] { background: var(--tier-bg); border-color: color-mix(in srgb, var(--tier) 55%, transparent); }
+.figure.selo[class*="tier-"] .figure-value { color: var(--tier); }
+.figure.selo.power { border-color: #ff9f4366; background: #ff9f431a; }
+.figure.selo.power .figure-value { color: #ffb070; }
+.figure.selo.hp-ok { border-color: #5fe08a55; } .figure.selo.hp-ok .figure-value { color: var(--good); }
+.figure.selo.hp-mid { border-color: #ffb34755; } .figure.selo.hp-mid .figure-value { color: var(--warning); }
+.figure.selo.hp-low { border-color: #ff6b8155; } .figure.selo.hp-low .figure-value { color: var(--critical); }
+.mon-selos { display: flex; flex-wrap: wrap; justify-content: center; gap: .2rem; margin-top: .15rem; }
+.mini-selo { font-size: .7rem; font-weight: 650; padding: 0 .35rem; border-radius: 6px; color: var(--tier); background: var(--tier-bg);
+  border: 1px solid color-mix(in srgb, var(--tier) 45%, transparent); }
+.meter.tier-1 > span, .meter.tier-2 > span, .meter.tier-3 > span, .meter.tier-4 > span, .meter.tier-5 > span { background: var(--tier); }
