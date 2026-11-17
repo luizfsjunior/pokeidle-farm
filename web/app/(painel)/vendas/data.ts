@@ -5,6 +5,7 @@ import { itemIconUrl } from "@/lib/sprites";
 
 export const DAYS = 30;
 const MARKET_ACTIONS = new Set(["market.criar", "market.cancelar", "market.meus"]);
+const SELLER_TYPES = ["seller.plan", "seller.would", "seller.failed", "seller.probe"];
 const NOTICE_TYPES = new Set(["venda", "marketComprado", "aviso", "mktSorteio"]);
 
 export type Activity = { at: string; accountId: string; text: string; tone?: "error" | "muted" };
@@ -33,7 +34,9 @@ export async function loadSales(supabase: SupabaseClient, conta: string | null) 
       .order("received_at", { ascending: false }).limit(1500),
     base().in("type", ["action.sent", "action.blocked", "action.failed"]).in("data->>action", [...MARKET_ACTIONS])
       .order("received_at", { ascending: false }).limit(1000),
-    base().like("type", "seller.%").order("received_at", { ascending: false }).limit(300),
+    // lista fechada em vez de like "seller.%": o like não usa o índice (type, received_at) e, com o RLS,
+    // o banco varria todos os eventos da conta (~7 s); os tipos vêm de worker/src/.../plugins/seller.py
+    base().in("type", SELLER_TYPES).order("received_at", { ascending: false }).limit(300),
     base("received_at, account_id, type, data, raw").eq("type", "unknown").in("data->>t", [...NOTICE_TYPES])
       .order("received_at", { ascending: false }).limit(200),
     abas,

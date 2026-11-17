@@ -151,6 +151,8 @@ code { font-size: .85em; background: var(--surface-2); border-radius: 5px; paddi
 
 .grid { display: grid; gap: 1.1rem; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
 .stack { display: grid; gap: 1.25rem; }
+/* `hidden` vence qualquer display de classe (as abas da conta usam hidden em .stack) */
+[hidden] { display: none !important; }
 .row { display: flex; gap: .55rem; align-items: center; flex-wrap: wrap; }
 .spread { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; }
 .cols-2 { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }

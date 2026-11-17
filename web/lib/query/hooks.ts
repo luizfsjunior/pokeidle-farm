@@ -1,8 +1,8 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { useQuery, useQueryClient, type QueryKey, type UseQueryOptions } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useQuery, useQueryClient, type QueryKey, type UseQueryOptions, type UseQueryResult } from "@tanstack/react-query";
+import { useCallback, useSyncExternalStore } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Atlas } from "@/lib/sprites";
 import type { Account } from "@/lib/types";
@@ -14,13 +14,29 @@ export function supabaseBrowser(): SupabaseClient {
   return browserClient;
 }
 
+const noop = () => () => {};
+/** false no HTML do servidor e na hidratação; true depois. */
+function useHydrated() {
+  return useSyncExternalStore(noop, () => true, () => false);
+}
+
+/**
+ * O cache do localStorage pode já ter os dados no primeiro render do navegador, mas o HTML do servidor
+ * veio sem eles: até hidratar, a página finge que não tem dados (senão o React acusa a diferença e
+ * refaz a árvore inteira). Logo depois, mostra o cache.
+ */
+function afterHydration<T>(q: UseQueryResult<T>, hydrated: boolean): UseQueryResult<T> {
+  return hydrated ? q : ({ ...q, data: undefined, isSuccess: false } as UseQueryResult<T>);
+}
+
 /** Dados de uma página: o carregador roda no navegador e o resultado vai para o cache persistido. */
 export function usePanel<T>(
   key: QueryKey,
   load: (sb: SupabaseClient) => Promise<T>,
   opts: Omit<UseQueryOptions<T>, "queryKey" | "queryFn"> = {},
 ) {
-  return useQuery<T>({ queryKey: key, queryFn: () => load(supabaseBrowser()), ...opts });
+  const hydrated = useHydrated();
+  return afterHydration(useQuery<T>({ queryKey: key, queryFn: () => load(supabaseBrowser()), ...opts }), hydrated);
 }
 
 export async function loadAccounts(sb: SupabaseClient): Promise<Account[]> {
@@ -36,23 +52,25 @@ export function useAccounts() {
 
 /** Atlas dos retratos (pokeidle.io, lido pelo servidor em /api/atlas: o site do jogo não libera CORS). */
 export function useAtlas() {
-  return useQuery<Atlas | null>({
+  const hydrated = useHydrated();
+  return afterHydration(useQuery<Atlas | null>({
     queryKey: ["atlas"],
     queryFn: async () => {
       const res = await fetch("/api/atlas");
       return res.ok ? ((await res.json()) as Atlas | null) : null;
     },
     staleTime: 5 * 60_000,
-  });
+  }), hydrated);
 }
 
 /** E-mail de quem entrou, da sessão guardada no navegador (sem ir ao servidor). */
 export function useMe() {
-  return useQuery({
+  const hydrated = useHydrated();
+  return afterHydration(useQuery({
     queryKey: ["me"],
     queryFn: async () => (await supabaseBrowser().auth.getSession()).data.session?.user.email ?? "",
     staleTime: Infinity,
-  });
+  }), hydrated);
 }
 
 /** Marca tudo como velho e busca de novo o que está na tela (depois de um comando ou de salvar algo). */
