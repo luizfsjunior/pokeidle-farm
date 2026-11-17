@@ -4,6 +4,7 @@ import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persist
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { useState } from "react";
+import { RealtimeSync } from "./realtime";
 
 /**
  * Cache dos dados do painel no navegador (docs/design/painel-swr.md): cada página mostra na hora o que
@@ -66,6 +67,7 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
     // buster: muda quando o formato dos dados guardados muda. O cache é apagado ao entrar e ao sair
     // (login/page.tsx e o botão Sair), para não mostrar dados de outro usuário no mesmo aparelho.
     <PersistQueryClientProvider client={client} persistOptions={{ persister, maxAge: DAY, buster: "1" }}>
+      <RealtimeSync />
       {children}
     </PersistQueryClientProvider>
   );
