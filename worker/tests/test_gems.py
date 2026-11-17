@@ -487,3 +487,15 @@ async def test_stone_search_can_be_turned_off():
     _water_stone(h, 0)
     await h.start()
     assert h.events("gems.plan")[-1]["stone_hunt"] is None
+
+
+async def test_xp_focus_replans_when_the_active_changes():
+    h = Harness(dry_run=False, objective="xp", hunt_slug="caterpie")
+    h.ctx.state.active_pokemon = {"id": 7, "speciesId": 129, "level": 10}
+    _water_stone(h, 1)
+    await h.start()
+    patch = Event(account_id=uuid4(), session_id=uuid4(), type="state.patch", data={})
+    await h.plugin.on_event(patch)  # primeiro estado: só registra o ativo
+    h.ctx.state.active_pokemon = {"id": 8, "speciesId": 10, "level": 3}  # o team_train trocou
+    await h.plugin.on_event(patch)
+    assert h.events("gems.plan")[-1]["reason"] == "active_changed"

@@ -256,6 +256,12 @@ class GemsPlugin(Plugin):
                 getattr(self, "_species_now", None) is not None and species_now != self._species_now
             )
             self._species_now = species_now
+            # outro ativo (team_train ou a pessoa trocou): a hunt boa é outra (17/11)
+            active_now = prof.get("id")
+            swapped = (
+                getattr(self, "_active_now", None) is not None and active_now != self._active_now
+            )
+            self._active_now = active_now
             if self._seeking and (await self.progress.stones()).get(self._seeking, 0) > 0:
                 await self.ctx.actions.note(
                     "progress.stone_found", {"stone": self._seeking, "hunt": self.switch.current}
@@ -268,6 +274,9 @@ class GemsPlugin(Plugin):
                 await self._plan("level_up")
                 if self.cfg.objective == "xp":
                     self.progress.maybe_plan("level_up")
+            elif swapped and self.cfg.objective == "xp":
+                await self._plan("active_changed")
+                self.progress.maybe_plan("evolved")
             elif evolved and self.cfg.objective == "xp":
                 await self._plan("evolved")
                 self.progress.maybe_plan("evolved")

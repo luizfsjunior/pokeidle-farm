@@ -38,6 +38,7 @@ profile = "pokeidle_farm.plugins.profile:ProfilePlugin"
 hunt_hold = "pokeidle_farm.plugins.hunt_hold:HuntHoldPlugin"
 capture_target = "pokeidle_farm.plugins.capture_target:CaptureTargetPlugin"
 evolve = "pokeidle_farm.plugins.evolve:EvolvePlugin"
+team_train = "pokeidle_farm.plugins.team_train:TeamTrainPlugin"
 
 [build-system]
 requires = ["hatchling"]

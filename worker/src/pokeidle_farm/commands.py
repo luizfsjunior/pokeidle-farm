@@ -22,6 +22,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from .actions import ActionBlocked, TeamActive, TeamMove
 from .events import Event
 from .plugins.base import Plugin
 from .store.base import AccountRecord, CommandRecord, Store
@@ -193,6 +194,35 @@ class Supervisor:
             applied = await self.live[acc.id].session.restart_plugin(p.plugin)
         return {"enabled": enabled, "applied": "agora" if applied else "na próxima conexão"}
 
+    async def _send_now(self, acc: AccountRecord, action: Any) -> dict[str, Any]:
+        """Manda uma ação do painel pela sessão da conta (precisa estar conectada)."""
+        live = self.live.get(acc.id)
+        gateway = getattr(live.session, "gateway", None) if live else None
+        if not self._is_running(acc.id) or gateway is None:
+            raise CommandError("a conta não está conectada")
+        try:
+            await gateway.submit(action, source="panel")
+        except ActionBlocked as exc:
+            wait = f" (tente em {exc.wait_s:.0f} s)" if exc.wait_s else ""
+            raise CommandError(f"bloqueado: {exc.reason}{wait}") from exc
+        return {"sent": action.to_wire()}
+
+    async def _team_active(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Troca o pokémon ativo (docs/design/team-train.md)."""
+        try:
+            p = TeamActiveParams.model_validate(params)
+        except ValidationError as exc:
+            raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
+        return await self._send_now(acc, TeamActive(pokemon_id=p.pokemon_id))
+
+    async def _team_move(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Põe o pokémon num slot da equipe, ou tira (slot null)."""
+        try:
+            p = TeamMoveParams.model_validate(params)
+        except ValidationError as exc:
+            raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
+        return await self._send_now(acc, TeamMove(pokemon_id=p.pokemon_id, slot=p.slot))
+
     async def _hunt_select(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Hunt escolhida pelo painel, travada por `hours` (plugin hunt_hold; painel-fase-3.md)."""
         try:
@@ -311,6 +341,19 @@ class Supervisor:
         return {"focus": p.focus, "applied": "agora" if applied else "na próxima conexão"}
 
 
+class TeamActiveParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pokemon_id: int = Field(gt=0)
+
+
+class TeamMoveParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pokemon_id: int = Field(gt=0)
+    slot: int | None = Field(None, ge=0, le=5)
+
+
 class HuntSelectParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -359,6 +402,8 @@ _HANDLERS: dict[str, Handler] = {
     "hunt.release": Supervisor._hunt_release,
     "capture.start": Supervisor._capture_start,
     "capture.stop": Supervisor._capture_stop,
+    "team.active": Supervisor._team_active,
+    "team.move": Supervisor._team_move,
 }
 
 

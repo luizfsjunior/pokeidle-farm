@@ -265,6 +265,7 @@ class AccountSession:
                     self.state_view.apply(ev)
                     self.state_view.server_offset = self._translator.server_offset
                     self.state_view.active_pokemon = self._translator.active_profile()
+                    self.state_view.team = self._translator.team()
                     self._copy_progress()
                     await self.bus.publish(ev)
                 return
@@ -317,6 +318,7 @@ class AccountSession:
                 self.state_view.apply(ev)
             self.state_view.server_offset = self._translator.server_offset
             self.state_view.active_pokemon = self._translator.active_profile()
+            self.state_view.team = self._translator.team()
             self._copy_progress()
             # o tradutor sabe a hunt atual (hunt, patch, campo.init); os plugins leem daqui
             self.state_view.hunt_slug = self._translator.hunt_slug

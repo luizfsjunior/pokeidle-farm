@@ -262,6 +262,35 @@ class PokemonEvolve(ActionSpec):
         return {"t": "pokemon.evoluir", "pokemonId": self.pokemon_id, "alvoId": self.target_id}
 
 
+class TeamActive(ActionSpec):
+    """Troca o pokémon ativo (`team.active`, lido do app.js em 17/11)."""
+
+    name: ClassVar[str] = "team.active"
+    description: ClassVar[str] = "Troca o pokémon ativo (o de batalha, que ganha o XP)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 20.0
+
+    pokemon_id: int
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "team.active", "pokemonId": self.pokemon_id}
+
+
+class TeamMove(ActionSpec):
+    """Põe um pokémon num slot da equipe, ou tira (`slot` None); `team.move` do app.js."""
+
+    name: ClassVar[str] = "team.move"
+    description: ClassVar[str] = "Põe o pokémon num slot da equipe (ou tira, com slot vazio)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 5.0
+
+    pokemon_id: int
+    slot: int | None = None
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "team.move", "pokemonId": self.pokemon_id, "slot": self.slot}
+
+
 class HuntSelect(ActionSpec):
     name: ClassVar[str] = "hunt.select"
     description: ClassVar[str] = "Troca de hunt (só fora da trava de combate e do trocaLivreEm)"
