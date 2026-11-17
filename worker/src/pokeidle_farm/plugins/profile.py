@@ -2,6 +2,9 @@
 
 Ver docs/design/painel-perfil.md. Junta o welcome e os patches (`profile.ProfileState`) e grava
 uma linha por conta a cada `interval_s`, só se algo mudou. Não manda nada ao jogo.
+
+O que o painel muda (pokémon ativo, equipe, hunt) vai para o banco em `quick_s`, sem esperar o
+intervalo: o painel recebe a mudança pelo Realtime e a tela acompanha em segundos.
 """
 
 from __future__ import annotations
@@ -21,6 +24,19 @@ class ProfileConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     interval_s: float = Field(120.0, ge=10)
+    quick_s: float = Field(2.0, ge=0.5, le=30)
+
+
+# chaves de um patch do estado que o painel pede para ver logo (docs/design/tela-na-hora.md)
+QUICK_KEYS = ("activeId", "huntSlug", "pkFora")
+
+
+def is_quick(patch: dict) -> bool:
+    """O patch muda o ativo, a hunt ou a equipe (um pokémon com `slot` no pkMud)?"""
+    if any(k in patch for k in QUICK_KEYS):
+        return True
+    mud = patch.get("pkMud")
+    return isinstance(mud, list) and any(isinstance(p, dict) and "slot" in p for p in mud)
 
 
 class ProfilePlugin(Plugin):
@@ -38,6 +54,7 @@ class ProfilePlugin(Plugin):
         self.dirty = False
         self.sleep = asyncio.sleep  # trocado nos testes
         self._timer: asyncio.Task[None] | None = None
+        self._soon: asyncio.Task[None] | None = None
 
     async def start(self, ctx: PluginContext) -> None:
         await super().start(ctx)
@@ -58,6 +75,13 @@ class ProfilePlugin(Plugin):
         if self.profile.ready:
             self.profile.apply_patch(estado)
             self.dirty = True
+            if is_quick(estado) and (self._soon is None or self._soon.done()):
+                self._soon = asyncio.create_task(self._flush_soon())
+
+    async def _flush_soon(self) -> None:
+        # junta os patches de uma mesma troca (o jogo manda vários em sequência)
+        await self.sleep(self.cfg.quick_s)
+        await self.flush()
 
     async def flush(self) -> None:
         if not self.dirty or not self.profile.ready:
@@ -71,10 +95,11 @@ class ProfilePlugin(Plugin):
             self.ctx.log.warning("profile: falha ao gravar o perfil (%r)", exc)
 
     async def stop(self) -> None:
-        if self._timer is not None:
-            self._timer.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._timer
+        for task in (self._timer, self._soon):
+            if task is not None and not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
         await self.flush()
 
     async def _loop(self) -> None:

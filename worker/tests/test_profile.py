@@ -184,3 +184,37 @@ def test_extra_keeps_known_fields_and_skips_huge_ones():
     assert "campConquistas" not in s["extra"] and "token" not in s["extra"]
     assert s["extra"]["loja"] == {"vipAte": 1_800_000_000_000}
     assert s["pokedex"]["129"] == {"c": 1, "k": 502}
+
+
+async def test_plugin_writes_soon_when_team_or_active_changes():
+    import asyncio
+
+    plugin, store, ctx = _plugin()
+    gate = asyncio.Event()
+
+    async def sleep(s: float) -> None:
+        if s == ProfileConfig().interval_s:
+            await asyncio.Event().wait()  # o intervalo longo nunca vence no teste
+        await gate.wait()
+
+    plugin.sleep = sleep
+    await plugin.start(ctx)
+    await plugin.on_event(_ev(ctx, "state.snapshot", ESTADO))
+    await plugin.on_event(_ev(ctx, "state.patch", {"gold": 7}))  # comum: espera o intervalo
+    assert plugin._soon is None
+    await plugin.on_event(_ev(ctx, "state.patch", {"activeId": 9}))
+    await plugin.on_event(_ev(ctx, "state.patch", {"pkMud": [{"id": 8, "slot": 2}]}))
+    gate.set()
+    await plugin._soon
+    row = store.profiles[str(ctx.account_id)]
+    assert row["active_pokemon_id"] == 9 and row["gold"] == 7
+    assert [t["id"] for t in row["team"]] == [7, 9, 8]
+    await plugin.stop()
+
+
+def test_is_quick():
+    from pokeidle_farm.plugins.profile import is_quick
+
+    assert is_quick({"huntSlug": "x"}) and is_quick({"pkFora": [1]})
+    assert is_quick({"pkMud": [{"id": 1, "slot": None}]})
+    assert not is_quick({"pkMud": [{"id": 1, "level": 5}]}) and not is_quick({"gold": 1})
