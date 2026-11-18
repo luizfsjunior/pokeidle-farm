@@ -68,8 +68,8 @@ Next.js na Vercel, com Supabase Auth por e-mail e senha (Google pode entrar depo
 - Página da conta: comandos (ligar, desligar, reconectar), foco (captura, ouro-xp-drop, rank), card do rank e os
   plugins em JSON
 - Métricas em gráfico e objetivos com progresso e previsão
-- `/hunts` (o que cada hunt rendeu e o catálogo com o valor das pedras), `/mercado` (drops valorados pelo Mercado) e
-  `/compensa` (renda em US$ contra o custo de energia)
+- `/hunts` (o que cada hunt rendeu) e `/economia` (vendas, drops pelo preço do Mercado e o "compensa?": renda em US$
+  contra o custo; pedras não contam como renda, docs/design/painel-ux-v2.md)
 - Aviso de token expirado (status `needs_login`)
 
 ## Fluxos

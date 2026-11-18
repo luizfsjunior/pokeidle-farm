@@ -60,7 +60,9 @@ const KPH_SOURCE: Record<GemOption["kph_source"], string> = {
  * Plano do foco XP (docs/design/foco-xp.md): a hunt de mais XP/h agora e o plano até o marco. O foco por pedras
  * saiu (docs/design/painel-ux-v2.md): conta ainda nele não mostra plano, o card "Fazendo agora" avisa.
  */
-export function PlanCard({ plan, progress = null }: { plan: GemsPlanData | null; progress?: ProgressPlanData | null }) {
+export function PlanCard({ plan, progress: raw = null }: { plan: GemsPlanData | null; progress?: ProgressPlanData | null }) {
+  // conta que já passou do marco (ex.: nível 381 com marco 150): o plano até ele não diz mais nada
+  const progress = raw && raw.trainer_level < raw.goal ? raw : null;
   if (plan?.objective === "xp") return <XpCard plan={plan} progress={progress} />;
   return progress ? <section className="card stack"><ProgressPlan progress={progress} /></section> : null;
 }

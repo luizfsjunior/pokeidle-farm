@@ -27,7 +27,10 @@ export function chance(v: number | null | undefined): string {
 
 export function dateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
-  return new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, dateStyle: "short", timeStyle: "short" }).format(new Date(iso));
+  const d = new Date(iso);
+  // o banco pode mandar ano de 5 dígitos (previsão de objetivo com ritmo ~0): o JS não lê e a página caía
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, dateStyle: "short", timeStyle: "short" }).format(d);
 }
 
 export function hourLabel(iso: string, bucket: "hour" | "day"): string {

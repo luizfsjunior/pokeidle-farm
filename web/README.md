@@ -3,31 +3,30 @@
 Next.js 16 (App Router) + Supabase Auth. Lê as contas, as métricas da fase 4a
 ([ADR 0012](../docs/decisions/0012-metricas-em-camadas.md)) e os objetivos.
 
-- **Visão geral** (`/`): um cartão de treinador por conta (pokémon ativo, nível e XP, ouro, gemas, diamantes,
-  equipe e coleção, de `account_profile`), status, último evento e os números de hoje por hora ativa.
-  As imagens são os arquivos públicos do jogo (atlas por `looktype`; ver docs/design/painel-perfil.md).
-- **Métricas** (`/metricas`): qualquer métrica por hora ou por dia, filtrando por conta e hunt (`metric_series`).
-- **Comandos**: botões **Ping**, **Reconectar** e **Ligar/Desligar** em cada card; histórico em `/comandos`
-  (com cancelar para os pendentes); foco (captura, ouro-xp-drop ou rank, comando `focus.set`), card "Rank
-  semanal" (espécies, posição, alvo, fila e falhas, lidos de `events` por `lib/rank.ts`) e plugins de cada conta
-  em `/contas/<id>`. Na visão geral, contas com o `rank` ligado mostram as espécies da semana e o alvo.
-- **Página da conta**: cartão de treinador, Equipe, Coleção e Mochila (com os ícones dos itens), card Foco (captura, ouro-xp-drop, rank ou gemas), cards Rank e Gemas (alvo e potencial em
-  gemas das melhores hunts) e os plugins em JSON recolhidos em "Avançado".
-- **Hunts** (`/hunts`): as hunts visitadas no período (24 h, 7 ou 30 dias; por conta ou todas), com tempo, abates/h,
-  gemas/h dos drops reais, ouro, drops, capturas e espécies novas (função `hunt_summary` no banco), e o catálogo das
-  hunts que a conta alcança com as pedras que dropam, "gemas por 1.000 abates" e, onde há ritmo medido, gemas/h.
-  O modelo das pedras está em `lib/hunts.ts` (o mesmo do worker).
-- **Mercado** (`/mercado`): itens dropados nos últimos 7 dias, por conta ou todas, com a média de 7 dias do
-  Mercado em gemas e ouro (último snapshot; sem vendas em ouro, o preço do NPC) e o valor total. A visão geral
-  mostra o valor dos drops por hora ativa (métricas `drops_value_orb` e `drops_value_gold`, que usam o preço da
-  hora de cada drop).
-- **Vendas** (`/vendas`): anúncios das contas no Mercado (abertos, vendidos, cancelados), gemas recebidas e o que o
-  seller fez, montados a partir dos eventos (docs/design/pagina-vendas.md).
-- **Compensa?** (`/compensa`): renda mensal projetada em US$ (gemas dos drops × 0,85 × 0,009, como está e com
-  24 h/dia), custo do mês (energia e fixo de VPS e proxy, editáveis em `evaluation_settings`), lucro, veredito e
-  liquidez por item.
-  Os números vêm das funções `evaluation_summary` e `evaluation_liquidity` no banco.
-- **Objetivos** (`/objetivos`): criar sem SQL, progresso, ritmo, previsão e chance até o prazo; histórico das fotos em `/objetivos/<id>`.
+Navegação (docs/design/painel-ux-v2.md): no celular, **Contas, Pokédex, Hunts, Economia** e **Mais** (Bosses,
+Objetivos, Métricas, Comandos). As páginas com dados por conta usam o seletor `AccountPicker` (`?conta=`), que lembra
+a última conta escolhida (`localStorage`, chave `pf-conta`).
+
+- **Contas** (`/`): um cartão de treinador por conta (pokémon ativo, nível, moedas, equipe, de `account_profile`) e
+  os números de hoje por hora ativa. Só o botão Abrir (e Reconectar quando a conta ligada não está pronta).
+- **Conta** (`/contas/<id>`), 3 abas:
+  - **Agora**: cartão do treinador; **Fazendo agora** (foco, hunt e captura, cada linha abre a ação: `focus.set`,
+    `hunt.select` com busca e filtro pelo nível do treinador, `capture.stop`); plano de XP até o marco; treinar a
+    equipe; Outland; rank; bônus, passe e evolução recolhidos.
+  - **Pokémons**: equipe (tornar ativo, pôr e tirar), coleção, mochila e a ficha de cada pokémon.
+  - **Ajustes**: os plugins em JSON (um por linha, recolhidos) e os últimos comandos.
+- **Pokédex** (`/pokedex`): catálogo do jogo cruzado com a Pokédex da conta (as formas de mesmo nome num card),
+  ficha da espécie, chance de captura por bola e o botão de capturar (`capture.start`).
+- **Hunts** (`/hunts`): por conta, o que cada hunt rendeu no período (`hunt_summary`); tocar numa hunt abre a
+  gaveta para trocar (respeita o nível do treinador) ou capturar.
+- **Bosses** (`/bosses`): os trios lendários por região, prêmio do dia e quem da conta serve contra cada um.
+- **Economia** (`/economia`, no lugar de Vendas, Mercado e Compensa, que redirecionam): o veredito "Compensa?"
+  (`evaluation_summary`: drops das contas de farm × preço, menos o custo de `evaluation_settings`), o que o Mercado
+  já pagou, os anúncios (montados dos eventos por `lib/sales.ts`), o que o seller fez e os drops de 7 dias.
+  **Pedras não contam como renda** (vendem a 2 gemas): ficam fora de `drops_value_orb` e dos totais.
+- **Objetivos** (`/objetivos`): progresso, ritmo e previsão; o formulário mostra o essencial e esconde os filtros
+  finos em "Mais opções". Histórico das fotos em `/objetivos/<id>`.
+- **Métricas** (`/metricas`): qualquer métrica por hora ou por dia (`metric_series`). **Comandos**: histórico.
 
 ## Segurança
 
@@ -49,11 +48,18 @@ Next.js 16 (App Router) + Supabase Auth. Lê as contas, as métricas da fase 4a
   e ao sair.
 - **Carregamento**: `components/Loading.tsx` (`Ld`, `LdRows`, `LdBlock`). Título, descrição, abas e cabeçalhos
   aparecem direto; só os valores mostram a animação.
-- **Pouco texto na tela**: explicações longas ficam no "ⓘ" (`Hint`, em `components/Page.tsx`; `PageHeader` e `Panel`
-  aceitam `hint`). Comparações dentro de tabelas usam a barrinha `Bar`. No celular, toda tabela com `<thead>` vira
+- **Pouco texto na tela**: explicações longas ficam no "ⓘ"; detalhe que pouca gente abre fica em `Fold` (seção
+  recolhida, `components/Page.tsx`). Números usam a fonte comum (`--font-num`): a pixelada fazia o 3 parecer 9.
+  O "ⓘ" é o `Hint` (`PageHeader` e `Panel` aceitam `hint`). Comparações dentro de tabelas usam a barrinha `Bar`. No celular, toda tabela com `<thead>` vira
   cartões (`components/TableLabels.tsx` copia o cabeçalho para o `data-label` de cada célula; `data-keep` evita).
 - **Ações** (comandos, objetivos, configurações) gravam no Supabase e depois invalidam as consultas
   (`useRefreshAll`) para a tela buscar de novo.
+- **Uma regra para cada número** (docs/design/painel-ux-v2.md): preço de hoje em gemas, comissão e US$ por gema
+  só em `lib/money.ts`; status de comando só em `components/CommandStatus.tsx`; catálogo de hunts sempre por
+  `lib/catalog.ts` (a API devolve no máximo 1.000 linhas e o jogo tem mais hunts que isso); bolas pelas regras do
+  jogo (`loadGameRules`). Antes cada tela tinha a sua versão e os números não batiam.
+- **Erro não vira "nada"**: carregador que depende de uma consulta essencial lança o erro (em vez de devolver lista
+  vazia); a tela mantém os últimos dados bons do cache e mostra o aviso.
 - **Imagens do jogo**: o atlas dos retratos é lido pelo servidor em `/api/atlas` (o site do jogo não libera CORS).
 
 ## Rodar no Codespaces (ou local)

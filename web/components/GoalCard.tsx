@@ -54,5 +54,6 @@ export function GoalSummary({ goal, progress, metric, link = true }: { goal: Goa
 /** Previsão para mais de 5 anos é ruído do ritmo baixo, não uma data útil. */
 function etaText(eta: string | null | undefined): string {
   if (!eta) return "sem ritmo ainda";
-  return new Date(eta).getTime() - Date.now() > 5 * 365 * 86400_000 ? "ritmo baixo demais" : dateTime(eta);
+  const t = new Date(eta).getTime(); // ano de 5 dígitos vira NaN: também é ritmo baixo demais
+  return Number.isNaN(t) || t - Date.now() > 5 * 365 * 86400_000 ? "ritmo baixo demais" : dateTime(eta);
 }
