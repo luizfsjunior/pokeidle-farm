@@ -39,8 +39,6 @@ export type Listing = {
   gameState: string | null; // `estado` como o jogo mandou, quando não é "aberto"
 };
 
-export const MARKET_FEE = 0.15; // taxa do Mercado sobre a venda (PRECO_MIN_ORB = ceil(1 / 0,85))
-
 type Raw = Record<string, unknown>;
 
 const str = (v: unknown) => (v == null ? null : String(v));

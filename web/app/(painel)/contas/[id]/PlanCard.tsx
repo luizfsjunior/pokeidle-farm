@@ -1,5 +1,5 @@
 import { Bar, Hint } from "@/components/Page";
-import { ago, num } from "@/lib/format";
+import { ago, dateTime, hours1, num } from "@/lib/format";
 
 type Stone = { name: string; chance: number; gems: number | null; sold_week: number | null; per_week: number; counted_week: number };
 export type GemOption = {
@@ -56,66 +56,15 @@ const KPH_SOURCE: Record<GemOption["kph_source"], string> = {
   near_level: "estimado (nível próximo)",
   default: "estimado (padrão)",
 };
-// gemas → US$: comissão de 15% e saque a US$ 0,009 (fase 8)
-const usdMonth = (gemsPerHour: number) => gemsPerHour * 24 * 30 * 0.85 * 0.009;
-
 /**
- * Card "Gemas" (docs/design/foco-gemas-e-ritmo.md): o que o foco gemas decidiu e, para qualquer foco,
- * o potencial das melhores hunts em pedras de evolução (calculado a cada snapshot de preços).
+ * Plano do foco XP (docs/design/foco-xp.md): a hunt de mais XP/h agora e o plano até o marco. O foco por pedras
+ * saiu (docs/design/painel-ux-v2.md): conta ainda nele não mostra plano, o card "Fazendo agora" avisa.
  */
-export function GemsCard({
-  plan,
-  progress = null,
-}: {
-  plan: GemsPlanData | null;
-  progress?: ProgressPlanData | null;
-}) {
+export function PlanCard({ plan, progress: raw = null }: { plan: GemsPlanData | null; progress?: ProgressPlanData | null }) {
+  // conta que já passou do marco (ex.: nível 381 com marco 150): o plano até ele não diz mais nada
+  const progress = raw && raw.trainer_level < raw.goal ? raw : null;
   if (plan?.objective === "xp") return <XpCard plan={plan} progress={progress} />;
-  if (!plan) return null;
-  const list = plan.options ?? [];
-  const maxGems = Math.max(0, ...list.slice(0, 5).map((o) => o.capped_gems_per_hour));
-  return (
-    <section className="card stack">
-      <div className="spread">
-        <div className="with-hint"><h2 style={{ margin: 0 }}>Gemas</h2><Hint>
-          Chance de pedra por abate pela posição na cadeia evolutiva (0,2% / 0,35% / 0,5%); cada pedra vale o menor entre a
-          média de 7 dias e o menor anúncio, até 10% do que o Mercado vende dela por semana. US$ com 15% de comissão e saque a
-          US$ 0,009 por gema.
-        </Hint></div>
-        <span className="muted small">plano {ago(plan.at)}</span>
-      </div>
-      {plan && (
-        <p className="small" style={{ margin: 0 }}>
-          <strong>{plan.dry_run || !plan.acting ? "Ensaio" : "Ativo"}:</strong> {plan.current_hunt ?? "—"} → alvo{" "}
-          {plan.target ? `${plan.target.name ?? plan.target.slug} (~${num(plan.target.capped_gems_per_hour)} gemas/h, ~US$ ${num(usdMonth(plan.target.capped_gems_per_hour))}/mês a 24 h)` : "nenhum"}
-          {(plan.degraded?.length ?? 0) > 0 && <span className="error"> · {plan.degraded?.join(", ")}</span>}
-        </p>
-      )}
-      {list.length > 0 && (
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr><th>Hunt</th><th>Nível</th><th>Abates/h</th><th>Pedras</th><th>Gemas/h</th><th>US$/mês (24 h)</th></tr>
-            </thead>
-            <tbody>
-              {list.slice(0, 5).map((o) => (
-                <tr key={o.slug}>
-                  <td>{o.name ?? o.slug}</td>
-                  <td>{o.level}</td>
-                  <td title={KPH_SOURCE[o.kph_source]}>{num(o.kills_per_hour)}</td>
-                  <td className="small">{o.stones.map((s) => `${s.name}${s.gems == null ? " (sem preço)" : ` ${num(s.gems)}`}`).join(", ")}</td>
-                  <td title={o.capped_gems_per_hour < o.gems_per_hour - 0.05 ? `sem teto: ${num(o.gems_per_hour)}` : undefined}>
-                    <Bar value={o.capped_gems_per_hour} max={maxGems} tone="gem" label={num(o.capped_gems_per_hour)} />
-                  </td>
-                  <td>{num(usdMonth(o.capped_gems_per_hour))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-  );
+  return progress ? <section className="card stack"><ProgressPlan progress={progress} /></section> : null;
 }
 
 /** Foco XP (docs/design/foco-xp.md): a hunt de mais XP/h e as melhores opções. */
@@ -126,7 +75,7 @@ function XpCard({ plan, progress }: { plan: GemsPlanData; progress: ProgressPlan
   return (
     <section className="card stack">
       <div className="spread">
-        <div className="with-hint"><h2 style={{ margin: 0 }}>Foco XP</h2><Hint>
+        <div className="with-hint"><h2 style={{ margin: 0 }}>Plano de XP</h2><Hint>
           O ritmo é o medido na hunt, projetado para o nível do pokémon ativo; hunt nunca medida usa o simulador de combate.
           XP por abate: a medida, ou 0,6 × nível² + 8 com o bônus da conta. Passe o dedo nos números para ver a origem.
         </Hint></div>
@@ -165,9 +114,6 @@ function XpCard({ plan, progress }: { plan: GemsPlanData; progress: ProgressPlan
   );
 }
 
-const hours1 = (h: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(h);
-const fmtEta = (iso: string) =>
-  new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
 
 /** Plano até o marco (camada 2 do simulador): fases, evoluções e previsão de chegada. */
 function ProgressPlan({ progress }: { progress: ProgressPlanData }) {
@@ -186,7 +132,7 @@ function ProgressPlan({ progress }: { progress: ProgressPlanData }) {
         ) : (
           <>
             <strong>~{hours1(progress.hours)} h</strong> de farm
-            {progress.eta ? ` · previsão ${fmtEta(progress.eta)}` : ""}
+            {progress.eta ? ` · previsão ${dateTime(progress.eta)}` : ""}
             {progress.evolutions.length > 0 &&
               ` · evolui ${progress.evolutions
                 .map((e) => `${e.to_name ?? e.to} no ${e.level}${e.farm_hours ? ` (~${hours1(e.farm_hours)} h buscando ${e.stone})` : ""}`)

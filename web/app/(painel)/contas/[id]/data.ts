@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { HuntHold, HuntOption } from "@/components/HuntPicker";
 import { loadActiveCapture } from "@/lib/capture";
+import { loadAllHunts } from "@/lib/catalog";
 import { loadProfiles, speciesOf } from "@/lib/profile";
 import { rankSummary } from "@/lib/rank";
 import { speciesLooktypes } from "@/lib/sprites";
 import type { Account, Command } from "@/lib/types";
-import type { GemsPlanData, ProgressPlanData } from "./GemsCard";
+import type { GemsPlanData, ProgressPlanData } from "./PlanCard";
 import type { OutlandPotentialData } from "./OutlandCard";
 import type { ItemInfo } from "./ProfileSections";
 
@@ -27,7 +28,7 @@ export async function loadAccount(supabase: SupabaseClient, id: string) {
     supabase.from("commands").select("*").eq("account_id", id).order("created_at", { ascending: false }).limit(20),
     loadProfiles(supabase, [id]),
     lastEvent(supabase, id, "outland.potential"),
-    supabase.from("game_hunts").select("slug, name, level").order("level").limit(1000),
+    loadAllHunts<HuntOption>(supabase, "slug, name, level"),
     loadActiveCapture(supabase, id),
     supabase.from("account_profile_daily").select("day, level, xp, gold, gems, diamonds, pokemon_count, dex_caught")
       .eq("account_id", id).order("day", { ascending: true }).limit(90),
@@ -58,7 +59,7 @@ export async function loadAccount(supabase: SupabaseClient, id: string) {
   return {
     account, plugins, profile, looktypes, items, rank, capture, hold,
     commands: (cmds.data ?? []) as Command[],
-    huntOptions: (huntsRes.data ?? []) as HuntOption[],
+    huntOptions: huntsRes.data,
     daily: (dailyRes.data ?? []) as Daily[],
     gemsPlan: withAt<GemsPlanData>(gemsPlanRes),
     outland: withAt<OutlandPotentialData>(potentialRes),

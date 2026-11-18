@@ -39,25 +39,6 @@ export function LinkTabs({ label, items }: {
   );
 }
 
-/** Abas de conta: "Todas" (opcional) e uma por nick, com a inicial como avatar. */
-export function AccountTabs({ accounts, chosen, href, all = true }: {
-  accounts: { id: string; nick: string }[];
-  chosen: string | null;
-  href: (id: string | null) => string;
-  all?: boolean;
-}) {
-  const items = [
-    ...(all ? [{ key: "todas", href: href(null), label: "Todas", active: chosen == null }] : []),
-    ...accounts.map((a) => ({
-      key: a.id,
-      href: href(a.id),
-      active: chosen === a.id,
-      label: <><span className="tab-avatar" aria-hidden>{a.nick.slice(0, 1).toUpperCase()}</span>{a.nick}</>,
-    })),
-  ];
-  return <LinkTabs label="Conta" items={items} />;
-}
-
 /** "ⓘ" que abre a explicação num balão: o texto longo sai da página e fica a um toque. */
 export function Hint({ children, label = "Como é calculado" }: { children: React.ReactNode; label?: string }) {
   return (
@@ -84,12 +65,22 @@ export function Bar({ value, max, tone = "accent", label }: {
   );
 }
 
-/** "Como é calculado": a explicação longa fica recolhida, fora do caminho. */
-export function Explain({ title = "Como é calculado", children }: { title?: string; children: React.ReactNode }) {
+/** Seção recolhida: o detalhe fica a um toque, a página mostra só o título e um resumo à direita. */
+export function Fold({ title, meta, open = false, children, flush = false }: {
+  title: React.ReactNode;
+  meta?: React.ReactNode;
+  open?: boolean;
+  flush?: boolean; // corpo sem padding (tabelas de ponta a ponta)
+  children: React.ReactNode;
+}) {
   return (
-    <details className="explain">
-      <summary><Icon name="info" size={16} /> {title}</summary>
-      <div className="explain-body">{children}</div>
+    <details className="fold" open={open}>
+      <summary className="fold-head">
+        <span className="fold-title">{title}</span>
+        {meta != null && <span className="small muted fold-meta">{meta}</span>}
+        <span className="fold-chevron" aria-hidden />
+      </summary>
+      <div className={flush ? "panel-flush" : "fold-body"}>{children}</div>
     </details>
   );
 }
@@ -124,6 +115,16 @@ export function Kpi({ label, value, note, tone }: { label: string; value: React.
       <span className="kpi-label">{label}</span>
       <span className="kpi-value num">{value}</span>
       {note && <span className="kpi-note">{note}</span>}
+    </div>
+  );
+}
+
+/** Número pequeno com rótulo (grades de 2 a 4 colunas dentro de cartões). */
+export function Stat({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
+  return (
+    <div className="stat">
+      <div className="label">{label}</div>
+      <div className="value">{value}</div>
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { gemPrice, STONE_CATEGORY } from "@/lib/money";
 import { itemIconUrl } from "@/lib/sprites";
 
 export const DAYS = 7;
-export const MIN_SALES = 3; // o mesmo `min_sales` do seller
 const MAX_KILLS = 5000; // abates com drop lidos por vez (bem acima do que uma conta faz em 7 dias)
 
 type Price = { avg: number; units: number | null };
@@ -17,17 +17,13 @@ export type Row = {
   orb: Price | null;
   gold: Price | null;
   npc: number | null;
+  stone: boolean; // pedra: não é fonte de gemas, fica fora do total (docs/design/painel-ux-v2.md)
 };
 
 export const goldOf = (r: Row) => (r.gold ? r.gold.avg : r.npc ?? 0);
-// gemas: a referência (mediana das vendas, ou a média de 7 dias com poucas vendas), limitada pelo
-// menor anúncio aberto (o preço pelo qual vende hoje)
-const refOf = (r: Row) => (r.ref && r.ref.sales >= MIN_SALES ? r.ref.median : r.orb?.avg ?? null);
-export const orbOf = (r: Row) => {
-  const ref = refOf(r);
-  if (ref == null) return 0;
-  return r.ask?.min != null ? Math.min(ref, r.ask.min) : ref;
-};
+/** Preço de hoje em gemas (lib/money: a mesma regra de todas as telas). */
+export const orbOf = (r: Row) =>
+  gemPrice({ median: r.ref?.median, sales: r.ref?.sales, avg: r.orb?.avg, minAsk: r.ask?.min }) ?? 0;
 
 /**
  * Itens que as contas dropam e quanto valem no Mercado (docs/design/fase-7-precos-do-mercado.md, seção 6).
@@ -43,6 +39,8 @@ export async function loadMarket(supabase: SupabaseClient, conta: string | null)
     supabase.from("market_prices").select("taken_at").order("taken_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.rpc("market_reference"),
   ]);
+  // sem os abates, "nenhum drop" seria mentira: o erro sobe e a tela mantém os últimos dados bons
+  if (killsRes.error) throw new Error(killsRes.error.message);
   // mediana das vendas reais (docs/design/preco-de-referencia.md); só vale com MIN_SALES vendas
   const refs = new Map<string, Ref>();
   for (const r of (refRes.data ?? []) as { item_name: string; currency: string; median_unit: number; sales: number; raw_mean_unit: number | null }[]) {
@@ -63,10 +61,11 @@ export async function loadMarket(supabase: SupabaseClient, conta: string | null)
   const takenAt = (lastSnap.data?.taken_at as string | undefined) ?? null;
 
   const itemsRes = names.length
-    ? await supabase.from("game_items").select("item_id, name, npc_price, icon").in("name", names)
+    ? await supabase.from("game_items").select("item_id, name, npc_price, icon, category").in("name", names)
     : { data: [] };
-  const itemByName = new Map<string, { item_id: number; npc_price: number | null; icon?: string | null }>();
-  for (const it of (itemsRes.data ?? []) as { item_id: number; name: string; npc_price: number | null; icon: string | null }[]) {
+  type It = { item_id: number; name: string; npc_price: number | null; icon: string | null; category: string | null };
+  const itemByName = new Map<string, It>();
+  for (const it of (itemsRes.data ?? []) as It[]) {
     const cur = itemByName.get(it.name);
     if (!cur || it.item_id < cur.item_id) itemByName.set(it.name, it);
   }
@@ -102,9 +101,10 @@ export async function loadMarket(supabase: SupabaseClient, conta: string | null)
       orb: it ? prices.get(`${it.item_id}:orb`) ?? null : null,
       gold: it ? prices.get(`${it.item_id}:gold`) ?? null : null,
       npc: it?.npc_price ?? null,
+      stone: it?.category === STONE_CATEGORY,
     };
   });
-  // mais valioso primeiro: gemas, depois ouro
-  rows.sort((a, b) => orbOf(b) * b.qty - orbOf(a) * a.qty || goldOf(b) * b.qty - goldOf(a) * a.qty);
-  return { rows, takenAt, err: killsRes.error?.message ?? null };
+  // o que rende gemas primeiro (as pedras vão para o fim), do mais valioso ao menos
+  rows.sort((a, b) => Number(a.stone) - Number(b.stone) || orbOf(b) * b.qty - orbOf(a) * a.qty || goldOf(b) * b.qty - goldOf(a) * a.qty);
+  return { rows, takenAt };
 }

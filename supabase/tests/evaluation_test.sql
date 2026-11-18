@@ -8,7 +8,9 @@ insert into auth.users (id) values
 insert into public.accounts (id, owner_id, nick, role) values
   ('00000000-0000-0000-0000-00000e0ac001', '00000000-0000-0000-0000-0000000e0a01', 'aval-1', 'farm'),
   ('00000000-0000-0000-0000-00000e0ac002', '00000000-0000-0000-0000-0000000e0a01', 'aval-2', 'farm'),
-  ('00000000-0000-0000-0000-00000e0bc001', '00000000-0000-0000-0000-0000000e0b02', 'aval-b', 'farm');
+  ('00000000-0000-0000-0000-00000e0bc001', '00000000-0000-0000-0000-0000000e0b02', 'aval-b', 'farm'),
+  -- conta pessoal do dono A: não entra na renda do farm (docs/design/painel-ux-v2.md)
+  ('00000000-0000-0000-0000-00000e0ac003', '00000000-0000-0000-0000-0000000e0a01', 'aval-pessoal', 'personal');
 
 -- aval-1: 7 dias (168 horas) até a hora atual, 12 h ativas por dia (30 min por hora), 100 gemas por dia
 insert into public.metric_hourly (account_id, hour, hunt_slug, metric, value)
@@ -24,6 +26,11 @@ select '00000000-0000-0000-0000-00000e0ac002', h, 'x', m.metric, m.value
   from generate_series(date_trunc('hour', now()) - interval '71 hours', date_trunc('hour', now()),
                        interval '1 hour') h
   cross join (values ('kills', 10::numeric), ('active_minutes', 60), ('drops_value_orb', 60.0 / 24)) m (metric, value);
+
+-- aval-pessoal: drops que não podem entrar na Compensa
+insert into public.metric_hourly (account_id, hour, hunt_slug, metric, value) values
+  ('00000000-0000-0000-0000-00000e0ac003', date_trunc('hour', now()), 'x', 'drops_value_orb', 5000),
+  ('00000000-0000-0000-0000-00000e0ac003', date_trunc('hour', now()), 'x', 'kills', 1);
 
 -- aval-b (outro dono): não pode aparecer para o dono A
 insert into public.metric_hourly (account_id, hour, hunt_slug, metric, value) values
@@ -79,6 +86,8 @@ begin
   -- caso 6: o outro dono não aparece
   assert not exists (select 1 from public.evaluation_summary(7) where nick = 'aval-b'), 'conta alheia apareceu';
   assert (select count(*) from public.evaluation_summary(7) where kind = 'account') = 2, 'deveria ter 2 contas';
+  -- caso 9: a conta pessoal fica fora (só farm)
+  assert not exists (select 1 from public.evaluation_summary(7) where nick = 'aval-pessoal'), 'conta pessoal entrou na renda';
 
   -- caso 3: com parâmetros (60 W, R$ 0,90, câmbio 5) → US$ 7,776; marginal → 0; tarifa vazia → nulo
   insert into public.evaluation_settings (machine_watts, kwh_price_brl, usd_brl) values (60, 0.90, 5.0);
@@ -146,8 +155,8 @@ delete from public.market_prices where item_id in (910001, 910002);
 delete from public.game_items where item_id in (910001, 910002);
 delete from public.metric_hourly where account_id in
   ('00000000-0000-0000-0000-00000e0ac001', '00000000-0000-0000-0000-00000e0ac002',
-   '00000000-0000-0000-0000-00000e0bc001');
+   '00000000-0000-0000-0000-00000e0bc001', '00000000-0000-0000-0000-00000e0ac003');
 delete from public.evaluation_settings where owner_id = '00000000-0000-0000-0000-0000000e0a01';
-delete from public.accounts where nick in ('aval-1', 'aval-2', 'aval-b');
+delete from public.accounts where nick in ('aval-1', 'aval-2', 'aval-b', 'aval-pessoal');
 delete from auth.users where id in ('00000000-0000-0000-0000-0000000e0a01', '00000000-0000-0000-0000-0000000e0b02');
 do $$ begin raise notice 'compensa: ok'; end $$;

@@ -1,6 +1,7 @@
 import { Bar, Hint } from "@/components/Page";
-import { ago, num } from "@/lib/format";
-import type { ProgressPlanData } from "./GemsCard";
+import { ago, dateTime, hours1, num } from "@/lib/format";
+import { usd, USD_PER_ORB } from "@/lib/money";
+import type { ProgressPlanData } from "./PlanCard";
 
 export type OutlandOption = {
   slug: string; name: string | null; level: number; kills_per_hour: number;
@@ -20,12 +21,8 @@ export type OutlandPotentialData = {
   options: OutlandOption[];
 };
 
-const usdDay = (gemsPerHour: number) => gemsPerHour * 24 * 0.009; // a comissão já vem descontada
-const money = (v: number) =>
-  `US$ ${new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)}`;
-const hours1 = (h: number) => new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(h);
-const fmtEta = (iso: string) =>
-  new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
+// as gemas do evento já vêm sem a comissão (worker/src/pokeidle_farm/outland_model.py)
+const usdDay = (gemsPerHour: number) => usd(gemsPerHour * 24 * USD_PER_ORB);
 
 /**
  * Card "Outland": o que a conta deve render em gemas quando chegar no 150. Substituiu o potencial em
@@ -33,7 +30,9 @@ const fmtEta = (iso: string) =>
  */
 export function OutlandCard({ data, progress = null }: { data: OutlandPotentialData; progress?: ProgressPlanData | null }) {
   const best = data.options[0] ?? null;
-  const missing = data.trainer_level != null ? Math.max(0, data.goal_level - data.trainer_level) : null;
+  // evento de versão antiga pode vir sem os níveis: sem eles, não diz quanto falta (antes saía "NaN")
+  const missing = typeof data.trainer_level === "number" && typeof data.goal_level === "number"
+    ? Math.max(0, data.goal_level - data.trainer_level) : null;
   const maxGems = Math.max(0, ...data.options.map((o) => o.gems_per_hour));
   const priced = Object.entries(data.prices);
   return (
@@ -52,20 +51,20 @@ export function OutlandCard({ data, progress = null }: { data: OutlandPotentialD
       <p className="small" style={{ margin: 0 }}>
         {missing === 0 ? (
           <strong>Liberada.</strong>
-        ) : (
+        ) : missing == null ? null : (
           <>
-            <strong>Faltam {missing ?? "?"} níveis</strong>
+            <strong>Faltam {num(missing)} níveis</strong>
             {progress && progress.stuck_at == null && progress.goal >= data.goal_level
-              ? `, ~${hours1(progress.hours)} h de farm${progress.eta ? ` (previsão ${fmtEta(progress.eta)})` : ""}`
+              ? `, ~${hours1(progress.hours)} h de farm${progress.eta ? ` (previsão ${dateTime(progress.eta)})` : ""}`
               : ""}.
           </>
         )}
         {best ? (
           <>
             {" "}Lá, na melhor hunt ({best.name ?? best.slug}): <strong>~{num(best.gems_per_hour, { compact: true })} gemas/h</strong>{" "}
-            ({money(usdDay(best.gems_per_hour))}/dia)
+            ({usdDay(best.gems_per_hour)}/dia)
             {data.top_tier_mult > 1
-              ? `; no seu tier (${data.top_tier_label ?? "atual"}, ×${num(data.top_tier_mult)}), ~${num(best.gems_per_hour_top, { compact: true })} gemas/h (${money(usdDay(best.gems_per_hour_top))}/dia)`
+              ? `; no seu tier (${data.top_tier_label ?? "atual"}, ×${num(data.top_tier_mult)}), ~${num(best.gems_per_hour_top, { compact: true })} gemas/h (${usdDay(best.gems_per_hour_top)}/dia)`
               : ""}.
           </>
         ) : (

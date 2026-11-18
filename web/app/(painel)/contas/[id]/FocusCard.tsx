@@ -1,9 +1,8 @@
 "use client";
 
-import { Hint } from "@/components/Page";
-
 import { useState } from "react";
-import { commandSummary } from "@/components/CommandButtons";
+import { CommandStatus } from "@/components/CommandStatus";
+import { BALL_NAMES } from "@/lib/sprites";
 import { useCommand } from "@/lib/useCommand";
 
 type Focus = "capture" | "gold_xp_drop" | "rank" | "gems" | "xp";
@@ -19,13 +18,8 @@ const FOCUS_LABEL: Record<Focus, string> = {
 // Gemas por pedra saiu da lista (17/11): as pedras vendem a 2 gemas com filas de semanas
 // (docs/design/outland-potencial.md). Só aparece para a conta que ainda está nele.
 const OFFERED: Focus[] = ["xp", "gold_xp_drop", "capture", "rank"];
-// mesma ordem dos padrões do RankConfig (Ultra, Super, Great, Poke)
-const BALLS: { id: number; name: string }[] = [
-  { id: 4, name: "Ultra" },
-  { id: 3, name: "Super" },
-  { id: 2, name: "Great" },
-  { id: 1, name: "Poke" },
-];
+// ordem de preferência dos padrões do RankConfig (Ultra, Super, Great, Poke); os nomes vêm de lib/sprites
+const BALLS = [4, 3, 2, 1].map((id) => ({ id, name: BALL_NAMES[String(id)] ?? `Bola ${id}` }));
 
 /** Foco atual pelas configs gravadas (docs/design/fase-3b-rank-ligado.md, seção 7). */
 export function currentFocus(plugins: PluginRow[]): { focus: Focus; label: string } {
@@ -49,7 +43,8 @@ export function currentFocus(plugins: PluginRow[]): { focus: Focus; label: strin
   return { focus, label: FOCUS_LABEL[focus] + (rankOn && rankDry ? " · rank em ensaio" : "") };
 }
 
-export function FocusCard({ accountId, plugins }: { accountId: string; plugins: PluginRow[] }) {
+/** Trocar o foco (comando focus.set, grava restock, rank e gems juntos). Fica dentro do card "Fazendo agora". */
+export function FocusForm({ accountId, plugins }: { accountId: string; plugins: PluginRow[] }) {
   const { send, cmd, error, busy } = useCommand();
   const now = currentFocus(plugins);
   const restockCfg = plugins.find((p) => p.plugin === "restock")?.config ?? {};
@@ -90,20 +85,10 @@ export function FocusCard({ accountId, plugins }: { accountId: string; plugins: 
   }
 
   return (
-    <form onSubmit={submit} className="card stack">
-      <div className="spread">
-        <div className="with-hint"><h2 style={{ margin: 0 }}>Foco</h2><Hint>
-          <p><strong>XP</strong>: a hunt de mais XP por hora para o nível do pokémon ativo.</p>
-          <p><strong>Ouro, XP e drop</strong>: não escolhe hunt; fica na atual, só com poções e sem bolas.</p>
-          <p>O foco por pedras saiu: elas vendem a 2 gemas e esperam semanas na fila. As pedras que caem continuam sendo vendidas pelo <code>seller</code>.</p>
-          <p>No XP, as bolas ficam desligadas. Salvar grava o <code>restock</code>, o <code>rank</code> e o <code>gems</code> juntos (<code>focus.set</code>).</p>
-        </Hint></div>
-        <span className="muted small">agora: {now.label}</span>
-      </div>
+    <form onSubmit={submit} className="stack">
       {now.focus === "gems" && (
-        <p className="small" style={{ margin: 0 }}>
-          Esta conta está no foco por pedras, que rende quase nada (as pedras vendem a 2 gemas com filas de semanas).
-          Salve outro foco; o sugerido é <strong>XP</strong>, até a Outland.
+        <p className="small warn-text" style={{ margin: 0 }}>
+          O foco por pedras rende quase nada (vendem a 2 gemas). Salve outro: o sugerido é XP, até a Outland.
         </p>
       )}
       <div className="row">
@@ -144,8 +129,8 @@ export function FocusCard({ accountId, plugins }: { accountId: string; plugins: 
           </label>
         </fieldset>
       )}
-      {(formError || error) && <p className="error">{formError ?? error}</p>}
-      {cmd && <p className={`small ${cmd.status === "failed" ? "error" : "muted"}`}>{commandSummary(cmd)}</p>}
+      {formError && <p className="error small" style={{ margin: 0 }}>{formError}</p>}
+      <CommandStatus cmd={cmd} error={error} />
       <div><button type="submit" disabled={busy}>{busy ? "Enviando…" : "Salvar e aplicar"}</button></div>
     </form>
   );

@@ -2,13 +2,13 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { CaptureForm, CaptureStatus, type ActiveCapture } from "@/components/Capture";
-import { commandSummary } from "@/components/CommandButtons";
+import { CommandStatus } from "@/components/CommandStatus";
 import { Matchups, Moves, PvpRange, StatBars, StatRadar } from "@/components/SpeciesFacts";
 import { Sprite } from "@/components/Sprite";
 import { RARITY_PT, captureChance, captureFactor, loadGameRules, loadSpeciesInfo, RULES_VERSION } from "@/lib/pokemon";
 import { usePanel } from "@/lib/query/hooks";
 import { useCommand } from "@/lib/useCommand";
-import { dateTime, num } from "@/lib/format";
+import { ago, num } from "@/lib/format";
 import type { Atlas } from "@/lib/sprites";
 
 export type DexSpecies = {
@@ -40,6 +40,19 @@ function caught(e: Entry | undefined): number {
 }
 function kills(e: Entry | undefined): number | null {
   return e != null && typeof e === "object" && typeof e.k === "number" ? e.k : null;
+}
+const keyOf = (s: DexSpecies) => (s.name ?? `#${s.species_id}`).toLowerCase();
+/** Capturas e abates somados das formas de um card; nada se a conta não viu nenhuma. */
+function groupEntry(dex: Record<string, Entry>, forms: DexSpecies[]): Entry | undefined {
+  let c = 0, k = 0, any = false;
+  for (const f of forms) {
+    const e = dex[String(f.species_id)];
+    if (e == null) continue;
+    any = true;
+    c += caught(e);
+    k += kills(e) ?? 0;
+  }
+  return any ? { c, k } : undefined;
 }
 
 export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId, capture, balls, together, updatedAt, level = null }: {
@@ -104,42 +117,45 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
   }, [hunts]);
   const byId = useMemo(() => new Map(species.map((s) => [s.species_id, s])), [species]);
 
+  // formas do mesmo pokémon com números diferentes (Aron #304 de Kanto e #13304 de Hoenn): um card só
+  const formsOf = useMemo(() => {
+    const m = new Map<string, DexSpecies[]>();
+    for (const s of species) {
+      const k = keyOf(s);
+      m.set(k, [...(m.get(k) ?? []), s]);
+    }
+    return m;
+  }, [species]);
+  // situação de cada card (por nome): capturada se alguma forma foi capturada
+  const statusOf = useMemo(() => {
+    const m = new Map<string, "capturadas" | "vistas" | "faltando">();
+    for (const [k, forms] of formsOf) {
+      const e = groupEntry(dex, forms);
+      m.set(k, caught(e) > 0 ? "capturadas" : e != null ? "vistas" : "faltando");
+    }
+    return m;
+  }, [formsOf, dex]);
   const counts = useMemo(() => {
     let c = 0, v = 0;
-    for (const s of species) {
-      const e = dex[String(s.species_id)];
-      if (caught(e) > 0) c++;
-      else if (e != null) v++;
-    }
-    return { caught: c, seenOnly: v, missing: species.length - c - v };
-  }, [species, dex]);
+    for (const st of statusOf.values()) { if (st === "capturadas") c++; else if (st === "vistas") v++; }
+    return { caught: c, seenOnly: v, total: statusOf.size };
+  }, [statusOf]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return species.filter((s) => {
-      const e = dex[String(s.species_id)];
-      const st = caught(e) > 0 ? "capturadas" : e != null ? "vistas" : "faltando";
+      const st = statusOf.get(keyOf(s)) ?? "faltando";
       if (filter !== "todas" && filter !== st) return false;
       if (type && s.type1 !== type && s.type2 !== type) return false;
       if (region && (regionOf.get(s.species_id) ?? "sem-hunt") !== region) return false;
       if (q && !(s.name ?? "").toLowerCase().includes(q) && String(s.species_id) !== q) return false;
       return true;
     });
-  }, [species, dex, filter, type, query, region, regionOf]);
+  }, [species, statusOf, filter, type, query, region, regionOf]);
   // por nível de hunt: as espécies sem hunt vão para o fim; empate, pelo número
   const sorted = useMemo(() => order === "numero" ? shown : [...shown].sort((a, b) =>
     (huntLvOf.get(a.species_id) ?? Infinity) - (huntLvOf.get(b.species_id) ?? Infinity) || a.species_id - b.species_id), [shown, order, huntLvOf]);
 
-  // formas do mesmo pokémon com números diferentes (Aron #304 de Kanto e #13304 de Hoenn): um card só
-  const formsOf = useMemo(() => {
-    const m = new Map<string, DexSpecies[]>();
-    for (const s of species) {
-      const k = (s.name ?? `#${s.species_id}`).toLowerCase();
-      m.set(k, [...(m.get(k) ?? []), s]);
-    }
-    return m;
-  }, [species]);
-  const keyOf = (s: DexSpecies) => (s.name ?? `#${s.species_id}`).toLowerCase();
   // um card por nome, na posição da primeira forma que passou nos filtros
   const cards = useMemo(() => {
     const seen = new Set<string>();
@@ -152,17 +168,6 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
     }
     return out;
   }, [sorted, formsOf]);
-  const groupEntry = (forms: DexSpecies[]): Entry | undefined => {
-    let c = 0, k = 0, any = false;
-    for (const f of forms) {
-      const e = dex[String(f.species_id)];
-      if (e == null) continue;
-      any = true;
-      c += caught(e);
-      k += kills(e) ?? 0;
-    }
-    return any ? { c, k } : undefined;
-  };
 
   const sel = selected != null ? byId.get(selected) : undefined;
   const selEntry = sel ? dex[String(sel.species_id)] : undefined;
@@ -171,20 +176,16 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
   return (
     <div className="dex">
       <div className="dex-summary">
-        <div className="figure"><span className="figure-value num">{num(counts.caught)}</span><span className="figure-label">capturadas de {num(species.length)}</span></div>
-        <div className="figure"><span className="figure-value num">{num(counts.seenOnly)}</span><span className="figure-label">vistas, sem captura</span></div>
-        <div className="figure"><span className="figure-value num">{num(counts.missing)}</span><span className="figure-label">faltando</span></div>
-        <div className="dex-progress" role="meter" aria-label="Espécies capturadas" aria-valuemin={0} aria-valuemax={species.length} aria-valuenow={counts.caught}>
-          <span style={{ width: `${(counts.caught / Math.max(1, species.length)) * 100}%` }} />
+        <p className="dex-line">
+          <strong className="num">{num(counts.caught)}</strong> de {num(counts.total)} capturadas
+          <span className="muted"> · {num(counts.seenOnly)} só vistas{together ? " · contas somadas" : ""}</span>
+          {hasProfile && <span className="muted small" title="O perfil chega a cada ~2 min"> · {ago(updatedAt)}</span>}
+        </p>
+        <div className="dex-progress" role="meter" aria-label="Pokémons capturados" aria-valuemin={0} aria-valuemax={counts.total} aria-valuenow={counts.caught}>
+          <span style={{ width: `${(counts.caught / Math.max(1, counts.total)) * 100}%` }} />
         </div>
       </div>
-      {!hasProfile && <p className="muted small">Sem perfil da conta ainda: todas aparecem como faltando.</p>}
-      {hasProfile && (
-        <p className="muted small" style={{ margin: 0 }}>
-          {together ? "Todas as contas juntas: capturas e abates somados. " : "A Pokédex é de cada conta, como no jogo. "}
-          Atualizada {dateTime(updatedAt)}; a página busca de novo a cada minuto.
-        </p>
-      )}
+      {!hasProfile && <p className="muted small">Sem perfil da conta ainda: todos aparecem como faltando.</p>}
 
       <div className="dex-controls">
         <div className="segmented" role="radiogroup" aria-label="Mostrar">
@@ -195,6 +196,9 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
           ))}
         </div>
         <input type="search" placeholder="Nome ou número" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Buscar espécie" />
+        <details className="dex-more" open={!!(type || region || order !== "numero" || full)}>
+          <summary className="ghost small">Filtros{type || region ? " ·" : ""}{type ? ` ${type}` : ""}{region ? ` ${region}` : ""}</summary>
+          <div className="dex-more-body">
         <select value={type} onChange={(e) => setType(e.target.value)} aria-label="Tipo">
           <option value="">Todos os tipos</option>
           {types.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -211,13 +215,15 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
         <label className="dex-mode" title="Fixa: mostra todas as espécies com nome, sprite e nível da hunt, mesmo as que a conta ainda não encontrou">
           <input type="checkbox" role="switch" checked={full} onChange={(e) => setFull(e.target.checked)} /> Mostrar tudo
         </label>
+          </div>
+        </details>
         <span className="muted small">{num(cards.length)} pokémons</span>
       </div>
 
       <div className="dex-body">
         <ul className="dex-grid">
           {cards.map(({ rep: s, forms }) => {
-            const e = groupEntry(forms);
+            const e = groupEntry(dex, forms);
             const st = caught(e) > 0 ? "caught" : e != null ? "seen" : "missing";
             const hide = !full && st === "missing";
             const ids = forms.map((f) => f.species_id);
@@ -431,7 +437,7 @@ function GoHunt({ accountId, slug, need, level }: { accountId: string; slug: str
       <button type="button" className="ghost small" disabled={busy} onClick={() => void send(accountId, "hunt.select", { slug, hours: 2 })}>
         Ir por 2 h
       </button>
-      {(cmd || error) && <span className={`small ${error || cmd?.status === "failed" ? "error" : "muted"}`}> {error ?? (cmd && commandSummary(cmd))}</span>}
+      <CommandStatus cmd={cmd} error={error} inline />
     </span>
   );
 }

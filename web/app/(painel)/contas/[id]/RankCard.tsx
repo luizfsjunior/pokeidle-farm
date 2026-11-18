@@ -1,7 +1,8 @@
+import { Stat } from "@/components/Page";
 import { ago, num } from "@/lib/format";
+import { BALL_NAMES } from "@/lib/sprites";
 import type { QueueItem, RankSummary } from "@/lib/rank";
 
-const BALL_NAME: Record<number, string> = { 1: "Poke", 2: "Great", 3: "Super", 4: "Ultra", 5: "Master" };
 const REASON: Record<string, string> = {
   start: "subida",
   week: "lista da semana",
@@ -55,7 +56,7 @@ export function RankCard({ rank }: { rank: RankSummary }) {
             <p className="small" style={{ margin: 0 }}>
               <strong>Agora:</strong> {plan.current ?? "—"} → alvo{" "}
               {plan.target ? `${label(plan.target)} (~${minutes(plan.target)})` : "nenhum"}
-              {plan.ballId != null && ` · ${BALL_NAME[plan.ballId] ?? `bola ${plan.ballId}`} Ball`}
+              {plan.ballId != null && ` · ${BALL_NAMES[String(plan.ballId)] ?? `bola ${plan.ballId}`}`}
               <span className="muted"> · {REASON[plan.reason] ?? plan.reason}, {ago(plan.at)}</span>
             </p>
           )}
@@ -88,14 +89,5 @@ export function RankCard({ rank }: { rank: RankSummary }) {
         </>
       )}
     </section>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="stat">
-      <div className="label">{label}</div>
-      <div className="value">{value}</div>
-    </div>
   );
 }

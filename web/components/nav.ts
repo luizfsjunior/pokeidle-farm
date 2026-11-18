@@ -10,21 +10,20 @@ export const NAV_GROUPS: { title: string | null; items: NavItem[] }[] = [
       { href: "/hunts", label: "Hunts", icon: "map" },
       { href: "/bosses", label: "Bosses", icon: "crown" },
       { href: "/objetivos", label: "Objetivos", icon: "target" },
-      { href: "/metricas", label: "Métricas", icon: "chart" },
     ],
   },
+  { title: null, items: [{ href: "/economia", label: "Economia", icon: "coins" }] },
   {
-    title: "Economia",
+    title: "Sistema",
     items: [
-      { href: "/vendas", label: "Vendas", icon: "tag" },
-      { href: "/mercado", label: "Mercado", icon: "coins" },
-      { href: "/compensa", label: "Compensa?", icon: "scale" },
+      { href: "/metricas", label: "Métricas", icon: "chart" },
+      { href: "/comandos", label: "Comandos", icon: "terminal" },
     ],
   },
-  { title: "Sistema", items: [{ href: "/comandos", label: "Comandos", icon: "terminal" }] },
 ];
 
-export const TAB_ITEMS = ["/", "/pokedex", "/vendas", "/hunts"];
+/** Barra de baixo do celular: as 4 mais usadas; o resto fica em "Mais". */
+export const TAB_ITEMS = ["/", "/pokedex", "/hunts", "/economia"];
 
 export function isActive(path: string, href: string): boolean {
   return href === "/" ? path === "/" || path.startsWith("/contas") : path.startsWith(href);

@@ -26,10 +26,7 @@ export async function loadSales(supabase: SupabaseClient, conta: string | null) 
     const b = supabase.from("events").select(cols).gte("received_at", since);
     return conta ? b.eq("account_id", conta) : b;
   };
-  let abas = supabase.from("events").select("received_at, aba:data->aba").eq("type", "market.reply")
-    .gte("received_at", since).order("received_at", { ascending: false }).limit(500);
-  if (conta) abas = abas.eq("account_id", conta);
-  const [replies, actions, seller, notes, abasRes, sellerRes] = await Promise.all([
+  const [replies, actions, seller, notes, sellerRes] = await Promise.all([
     base("received_at, account_id, type, data, raw").eq("type", "market.reply").in("data->>aba", ["meus", "criado"])
       .order("received_at", { ascending: false }).limit(1500),
     base().in("type", ["action.sent", "action.blocked", "action.failed"]).in("data->>action", [...MARKET_ACTIONS])
@@ -39,10 +36,11 @@ export async function loadSales(supabase: SupabaseClient, conta: string | null) 
     base().in("type", SELLER_TYPES).order("received_at", { ascending: false }).limit(300),
     base("received_at, account_id, type, data, raw").eq("type", "unknown").in("data->>t", [...NOTICE_TYPES])
       .order("received_at", { ascending: false }).limit(200),
-    abas,
     supabase.from("strategy_configs").select("account_id, enabled, config").eq("plugin", "seller"),
   ]);
-  const evRes = replies.error ? replies : actions.error ? actions : seller.error ? seller : notes;
+  // sem os eventos, "nenhum anúncio" seria mentira: o erro sobe e a tela mantém os últimos dados bons
+  const failed = [replies, actions, seller, notes].find((r) => r.error);
+  if (failed?.error) throw new Error(failed.error.message);
   const events = ([replies, actions, seller, notes].flatMap((r) => (r.data ?? []) as unknown[]) as MarketEvent[])
     .map((e) => ({ ...e, raw: e.raw ?? null }))
     .sort((a, b) => b.received_at.localeCompare(a.received_at));
@@ -83,14 +81,9 @@ export async function loadSales(supabase: SupabaseClient, conta: string | null) 
     .slice(0, 60)
     .map((e) => ({ at: e.received_at, accountId: e.account_id, ...describe(e) }));
 
-  const abaCount = new Map<string, number>();
-  for (const r of (abasRes.data ?? []) as { aba: unknown }[]) {
-    const k = r.aba == null ? "(sem aba)" : String(r.aba);
-    abaCount.set(k, (abaCount.get(k) ?? 0) + 1);
-  }
   const lastMine = events.find((e) => e.type === "market.reply" && e.data?.aba === "meus")?.received_at ?? null;
   const sellers = ((sellerRes.data ?? []) as SellerCfg[]).filter((s) => !conta || s.account_id === conta);
-  return { rows, notices, plans, activity, abaCount, lastMine, sellers, err: evRes.error?.message ?? null };
+  return { rows, notices, plans, activity, lastMine, sellers };
 }
 
 function describe(e: MarketEvent): { text: string; tone?: "error" | "muted" } {
