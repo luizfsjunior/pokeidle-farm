@@ -322,10 +322,13 @@ a:hover > .trainer-nick { color: var(--accent); }
 .trainer-foot { border-top: 1px solid var(--grid); padding-top: .6rem; }
 
 .wallet { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem; }
-.coin { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: .5rem; align-items: center;
-  background: var(--surface-0); border-radius: 10px; padding: .45rem .6rem; }
-.coin-mark { grid-row: span 2; width: 14px; height: 14px; }
-.coin-value { font-size: 1.15rem; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* o ícone fica na linha do rótulo e o valor ocupa a largura toda: ao lado do ícone, "21,6 mi" não cabia no celular
+   (e cortar com "…" comia justamente o "mi") */
+.coin { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "m l" "v v";
+  column-gap: .35rem; row-gap: .1rem; align-items: center; background: var(--surface-0); border-radius: 10px; padding: .45rem .6rem; }
+.coin-mark { grid-area: m; width: 11px; height: 11px; }
+.coin-label { grid-area: l; }
+.coin-value { grid-area: v; font-size: 1.15rem; line-height: 1.1; white-space: nowrap; }
 .coin-label { font-size: .74rem; color: var(--text-muted); }
 .coin-gold .coin-value { color: var(--gold); }
 .coin-gem .coin-value { color: var(--gem); }
@@ -437,12 +440,17 @@ img.sprite { object-fit: contain; transform: scale(1.35); } /* o sprite nacional
 .segmented button.on { background: var(--surface-3); color: var(--accent); }
 .dex-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1.2rem; align-items: start; }
 .dex-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: .5rem; }
+/* cards da mesma linha com a mesma altura, conteúdo alinhado em cima */
+.dex-grid > li { display: flex; }
+.dex-grid .dex-cell { height: 100%; align-content: start; }
 .dex-cell { width: 100%; display: grid; justify-items: center; gap: .05rem; padding: .45rem .25rem .5rem; min-height: 0; border-radius: 12px;
   background: var(--surface-1); border: 1px solid var(--grid); color: inherit; font-family: inherit; font-size: inherit; font-weight: inherit; position: relative; }
 .dex-cell:hover { border-color: var(--edge-hi, #3d4466); filter: none; }
 .dex-cell.is-selected { border-color: var(--accent); background: var(--accent-soft); }
 .dex-num { font-size: .7rem; color: var(--text-muted); }
-.dex-name { font-size: .78rem; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* nome em até 2 linhas: cortar com "…" escondia metade dos nomes compostos (Galarian Articuno, Tornadus Therian) */
+.dex-name { font-size: .76rem; font-weight: 600; max-width: 100%; line-height: 1.15; text-align: center; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .dex-count { position: absolute; top: .3rem; right: .45rem; font-family: var(--font-num); font-weight: 700; font-variant-numeric: tabular-nums; font-size: .72rem; color: var(--good); }
 .dex-seen .sprite { filter: grayscale(1) opacity(.5); }
 .dex-missing .sprite { filter: brightness(0) opacity(.35); }
@@ -561,8 +569,8 @@ body:has(.login) { overflow: auto; }
   .kpi-value { font-size: 1.35rem; }
   .trainer { padding: .95rem; }
   .trainer-wide .trainer-nick { font-size: 1.1rem; }
-  .coin { padding: .4rem .45rem; column-gap: .3rem; }
-  .coin-value { font-size: .95rem; letter-spacing: -.02em; }
+  .coin { padding: .4rem .5rem; }
+  .coin-value { font-size: 1.02rem; }
   .wallet { gap: .4rem; }
   .activity li { grid-template-columns: 1fr; gap: 0; }
 
@@ -774,7 +782,7 @@ body:has(.login) { overflow: auto; }
 .mini-selo { font-size: .7rem; font-weight: 650; padding: 0 .35rem; border-radius: 6px; color: var(--tier); background: var(--tier-bg);
   border: 1px solid color-mix(in srgb, var(--tier) 45%, transparent); }
 .meter.tier-1 > span, .meter.tier-2 > span, .meter.tier-3 > span, .meter.tier-4 > span, .meter.tier-5 > span { background: var(--tier); }
-.dex-hunt-lv { font-size: .68rem; color: var(--text-muted); }
+.dex-meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 .35rem; font-size: .66rem; color: var(--text-muted); line-height: 1.2; }
 
 /* --- bosses ----------------------------------------------------------------------------------- */
 .boss-regions { flex-wrap: wrap; }
@@ -817,7 +825,7 @@ body:has(.login) { overflow: auto; }
 .dex-cell.dex-full { position: relative; }
 .dex-cell.dex-full .sprite { filter: none; }
 .dex-cell.dex-full .dex-name { color: var(--text-primary); }
-.dex-mark { position: absolute; top: .3rem; right: .4rem; font-size: .7rem; color: var(--accent); }
+.dex-mark { position: absolute; top: .3rem; left: .45rem; font-size: .7rem; color: var(--accent); } /* à esquerda: à direita fica o contador ×N */
 
 /* --- switch: todo checkbox com role="switch" vira uma chave (17/11) ---------------------------- */
 input[type="checkbox"][role="switch"] {
@@ -869,7 +877,7 @@ input[type="checkbox"][role="switch"]:focus-visible { outline: 2px solid var(--a
 }
 .sprite-outfit { display: inline-grid; place-items: end center; }
 .sprite-outfit > span { display: block; background-repeat: no-repeat; image-rendering: pixelated; }
-.dex-forms { font-size: .66rem; color: var(--link); }
+.dex-forms { color: var(--link); }
 .dex-form-tabs { margin: 0 2rem .6rem 0; flex-wrap: wrap; }
 
 /* revisão de UX (docs/design/painel-ux-v2.md) */
@@ -895,12 +903,17 @@ tr.is-muted td { color: var(--text-muted); }
 .pick-list .badge { margin-left: .4rem; }
 .now-card h2 { margin: 0 0 .4rem; }
 .now-row { border-top: 1px solid var(--grid); }
-.now-row > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) auto; align-items: center; gap: .6rem; padding: .7rem 0; min-height: 44px; }
+.now-row > summary, .now-link { list-style: none; cursor: pointer; display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) auto; align-items: center; gap: .6rem; padding: .7rem 0; min-height: 44px; }
 .now-row > summary::-webkit-details-marker { display: none; }
 .now-label { color: var(--text-muted); font-size: .82rem; }
 .now-value { min-width: 0; overflow-wrap: anywhere; font-weight: 550; }
 .now-action { font-size: .8rem; font-weight: 600; color: var(--accent); border: 1px solid var(--border); border-radius: 999px; padding: .2rem .65rem; }
-.now-row[open] .now-action { background: var(--accent-soft); border-color: var(--accent); }
+.now-row[open] .now-action { background: var(--surface-3); border-color: var(--border); color: var(--text-secondary); }
+/* aberta, a linha ganha um fundo para mostrar o que pertence a ela */
+.now-row[open] { background: var(--surface-0); margin: 0 -.6rem; padding: 0 .6rem; border-radius: 10px; }
+.now-link { color: inherit; text-decoration: none; }
+.now-link:hover { text-decoration: none; }
+.now-link:active { background: var(--surface-2); }
 .now-body { padding: 0 0 .9rem; }
 .now-body > .action-box { margin: 0; }
 .card-actions { display: flex; align-items: center; gap: .6rem; margin-top: .8rem; flex-wrap: wrap; }

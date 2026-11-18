@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { CaptureForm, CaptureStatus, type ActiveCapture } from "@/components/Capture";
 import { CommandStatus } from "@/components/CommandStatus";
 import { Hint } from "@/components/Page";
-import { Matchups, Moves, PvpRange, StatBars, StatRadar } from "@/components/SpeciesFacts";
+import { Matchups, Moves, PvpRange, StatBars, StatRadar, TypeChips } from "@/components/SpeciesFacts";
 import { Sprite } from "@/components/Sprite";
 import { RARITY_PT, captureChance, captureFactor, loadGameRules, loadSpeciesInfo, RULES_VERSION } from "@/lib/pokemon";
 import { usePanel } from "@/lib/query/hooks";
@@ -239,8 +239,13 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
                   <span className="dex-num num">#{s.species_id}</span>
                   <span className="dex-name">{hide ? "???" : s.name}</span>
                   {st === "caught" && <span className="dex-count num">×{num(caught(e))}</span>}
-                  {(order === "hunt" || full) && Number.isFinite(lv) && <span className="dex-hunt-lv num">hunt nv {num(lv)}</span>}
-                  {forms.length > 1 && <span className="dex-forms num">{forms.length} formas</span>}
+                  {/* uma linha só para o nível da hunt e as formas: em duas, o card ficava mais alto que os vizinhos */}
+                  {((order === "hunt" || full) && Number.isFinite(lv)) || forms.length > 1 ? (
+                    <span className="dex-meta num">
+                      {(order === "hunt" || full) && Number.isFinite(lv) && <span title={`Hunt de nível ${num(lv)}`}>nv {num(lv, { compact: true })}</span>}
+                      {forms.length > 1 && <span className="dex-forms">{forms.length} formas</span>}
+                    </span>
+                  ) : null}
                   {full && st !== "missing" && <span className="dex-mark" aria-label={st === "caught" ? "capturada" : "vista"} title={st === "caught" ? "Capturada" : "Vista"}>{st === "caught" ? "●" : "○"}</span>}
                 </button>
               </li>
@@ -268,8 +273,8 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
               <div className="trainer-stage dex-stage"><Sprite mon={mon(sel)} atlas={atlas} size={96} /></div>
               <h2 style={{ marginBottom: ".2rem" }}>{sel.name} <span className="muted num">#{sel.species_id}</span></h2>
               <p className="small" style={{ marginTop: 0 }}>
-                {[sel.type1, sel.type2].filter(Boolean).map((t) => <span key={t} className="type-chip">{t}</span>)}
-                {sel.rarity && <span className="muted"> {sel.rarity}</span>}
+                {/* as mesmas etiquetas de tipo dos Bosses (antes "ROCK GROUND COMMON", em inglês); a raridade fica na ficha abaixo */}
+                <TypeChips s={sel} />
               </p>
               <dl className="dex-facts">
                 <dt>Capturas</dt><dd className="num">{num(caught(selEntry))}</dd>

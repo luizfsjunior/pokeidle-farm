@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { CaptureStatus, type ActiveCapture } from "@/components/Capture";
 import { HuntPicker, type HuntHold, type HuntOption } from "@/components/HuntPicker";
 import { dateTime, num } from "@/lib/format";
@@ -36,25 +37,32 @@ export function NowCard({ accountId, plugins, capture, hold, hunts, huntSlug, tr
         <HuntPicker key={`${hold?.slug}:${huntSlug}`} accountId={accountId} hunts={hunts} current={huntSlug} hold={hold}
           trainerLevel={trainerLevel} enabled={enabled} />
       </NowRow>
-      <NowRow label="Captura" action={capture ? "Ver" : "Escolher"}
-        value={capture
-          ? <>{capture.species_name ?? `#${capture.species_id}`} <span className="muted num">{num(capture.captured)}{capture.count ? ` de ${num(capture.count)}` : ""}</span></>
-          : <span className="muted">nenhuma</span>}>
-        {capture
-          ? <CaptureStatus accountId={accountId} active={capture} />
-          : <p className="small" style={{ margin: 0 }}>Escolha a espécie na <Link href={`/pokedex?conta=${accountId}`}>Pokédex</Link> (botão Capturar).</p>}
-      </NowRow>
+      {capture ? (
+        <NowRow label="Captura" action="Ver"
+          value={<>{capture.species_name ?? `#${capture.species_id}`} <span className="muted num">{num(capture.captured)}{capture.count ? ` de ${num(capture.count)}` : ""}</span></>}>
+          <CaptureStatus accountId={accountId} active={capture} />
+        </NowRow>
+      ) : (
+        // sem captura não há o que abrir aqui: a escolha é na Pokédex, então a linha leva direto para lá
+        <Link href={`/pokedex?conta=${accountId}`} className="now-row now-link">
+          <span className="now-label">Captura</span>
+          <span className="now-value muted">nenhuma</span>
+          <span className="now-action">Escolher na Pokédex →</span>
+        </Link>
+      )}
     </section>
   );
 }
 
+/** Linha que abre a ação dela; aberta, o botão vira "Fechar" (antes ficava "Mudar" e não dizia como sair). */
 function NowRow({ label, value, action, children }: { label: string; value: React.ReactNode; action: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
   return (
-    <details className="now-row">
-      <summary>
+    <details className="now-row" onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
+      <summary aria-label={`${label}: ${open ? "fechar" : action.toLowerCase()}`}>
         <span className="now-label">{label}</span>
         <span className="now-value">{value}</span>
-        <span className="now-action">{action}</span>
+        <span className="now-action">{open ? "Fechar ✕" : action}</span>
       </summary>
       <div className="now-body">{children}</div>
     </details>
