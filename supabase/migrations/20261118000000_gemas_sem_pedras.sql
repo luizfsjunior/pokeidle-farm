@@ -5,7 +5,7 @@
 -- chegou a dizer US$ 144/mês com 0 vendas. Agora:
 -- - drops_value_orb não conta as pedras (o resto da regra é a mesma: o menor entre a média e o menor anúncio);
 -- - evaluation_summary soma só as contas de farm (a pessoal entrava na renda);
--- - os últimos 30 dias de métricas são recalculados;
+-- - as horas novas já saem sem pedras; as antigas são recalculadas fora daqui (ver o fim do arquivo);
 -- - índice parcial dos abates com drop: a página Economia lia 60 mil abates para achar ~400 com drop
 --   (21 s, estourava o tempo do banco).
 
@@ -232,5 +232,6 @@ $$;
 create index if not exists events_kill_drops on public.events (received_at)
   where type = 'kill' and (data -> 'drops') <> '[]'::jsonb;
 
--- recalcula as métricas dos últimos 30 dias com a regra nova (a função apaga e regrava a janela)
-select public.refresh_metric_hourly(now() - interval '30 days', now());
+-- Sem recálculo aqui: 1 dia de métricas leva ~50 s e a migration roda numa transação só (a integração do GitHub),
+-- segurando a trava do refresh. Os dias anteriores são recalculados depois, um por chamada
+-- (select public.refresh_metric_hourly(<dia>, <dia> + interval '1 day' - interval '1 hour')).

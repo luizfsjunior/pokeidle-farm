@@ -11,7 +11,7 @@ antiga das pedras) e a Outland (mediana menos 15%). A Compensa chegou a dizer US
 
 - **Pedras não são fonte de gemas.** Vendem a 2 gemas com milhares na fila (análise de 17/11). Os itens de
   `game_items.category = 'stone'` (pedras de evolução, Shiny Stones e Rough Gemstone) saem da renda: a métrica
-  `drops_value_orb` não as conta (migração `20261118000000_gemas_sem_pedras.sql`, recalculando 30 dias). Elas
+  `drops_value_orb` não as conta (migração `20261118000000_gemas_sem_pedras.sql`; os dias antigos são recalculados um a um depois do deploy, porque 1 dia leva ~50 s). Elas
   continuam no estoque, no seller e na página Economia, marcadas como "fora da renda".
 - **Preço de hoje** = a referência (mediana das vendas reais com 3+ vendas, senão a média de 7 dias do jogo),
   limitada pelo menor anúncio aberto. Uma função só no painel: `gemPrice` em `web/lib/money.ts`.
