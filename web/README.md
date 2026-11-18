@@ -51,7 +51,12 @@ a última conta escolhida (`localStorage`, chave `pf-conta`).
 - **Pouco texto na tela**: explicações longas ficam no "ⓘ"; detalhe que pouca gente abre fica em `Fold` (seção
   recolhida, `components/Page.tsx`). Números usam a fonte comum (`--font-num`): a pixelada fazia o 3 parecer 9.
   O "ⓘ" é o `Hint` (`PageHeader` e `Panel` aceitam `hint`). Comparações dentro de tabelas usam a barrinha `Bar`. No celular, toda tabela com `<thead>` vira
-  cartões (`components/TableLabels.tsx` copia o cabeçalho para o `data-label` de cada célula; `data-keep` evita).
+  cartões só pelo CSS (`main table:has(> thead)`; `data-keep` evita); `components/TableLabels.tsx` só copia o
+  cabeçalho para o `data-label` de cada célula. Não pôr o layout de cartão atrás de JS: com o app em segundo plano
+  o `requestAnimationFrame` para e a tabela vazava da tela.
+- **Toque**: no celular não existe `:hover`; todo elemento clicável tem `:active` e transição (bloco "Retorno ao
+  toque" no fim do `globals.css`). Botão novo herda isso pela classe; componente com `all: unset` precisa entrar
+  na lista de lá.
 - **Ações** (comandos, objetivos, configurações) gravam no Supabase e depois invalidam as consultas
   (`useRefreshAll`) para a tela buscar de novo.
 - **Uma regra para cada número** (docs/design/painel-ux-v2.md): preço de hoje em gemas, comissão e US$ por gema
