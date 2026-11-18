@@ -232,7 +232,11 @@ def _qty(value: Any) -> int:
 
 # Eventos que passam pelo barramento mas não são gravados.
 # rank.board: ~100 linhas por resposta; o plugin rank grava só o resultado (rank.position).
-NOT_PERSISTED = frozenset({"attack", "wild.spawned", "rank.board", *NOISE_TYPES.values()})
+# state.patch: o jogo manda um a cada poucos segundos e nada lê do banco (o perfil fica em
+# account_profile); em 18/11 eram 270 mil linhas e 400 MB, 62% do banco.
+NOT_PERSISTED = frozenset(
+    {"attack", "wild.spawned", "rank.board", "state.patch", *NOISE_TYPES.values()}
+)
 
 
 # campos do pokémon no `estado` que o simulador de combate usa
