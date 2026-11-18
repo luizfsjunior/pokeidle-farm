@@ -9,6 +9,11 @@
 --    - o resto (capturas, níveis, vendas, planos): 30 dias;
 -- 3. reescreve a tabela (CLUSTER) para o espaço voltar e o tamanho do banco cair de verdade.
 
+-- a primeira passada apaga ~280 mil linhas e reescreve ~650 MB: passa do limite de 2 min do statement
+-- (a primeira tentativa, em 18/11, caiu por timeout e nada foi aplicado). Vale só para esta transação.
+set local statement_timeout = 0;
+set local lock_timeout = '60s';
+
 delete from public.events where type = 'state.patch';
 
 create or replace function public.prune_events()
