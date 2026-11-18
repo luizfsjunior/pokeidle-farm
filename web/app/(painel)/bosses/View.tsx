@@ -134,11 +134,11 @@ function BossCard({ boss, step, pos, rules, atlas, profile, list }: {
                   <button type="button" className="boss-pick" onClick={() => setOpen(c.mon)}>
                     <Sprite mon={c.mon} atlas={atlas} size={36} />
                     <span className="bp-name">{c.mon.name}{c.mon.slot != null && <span className="muted small"> · equipe</span>}</span>
-                    <span className={`num small ${c.levelOk ? "good-text" : "warn-text"}`} title={c.levelOk ? "No nível do boss" : `Faltam ${num(level - (c.mon.level ?? 0))} níveis`}>
+                    <span className={`bp-lv num small ${c.levelOk ? "good-text" : "warn-text"}`} title={c.levelOk ? "No nível do boss" : `Faltam ${num(level - (c.mon.level ?? 0))} níveis`}>
                       nv {num(c.mon.level ?? null)}
                     </span>
-                    <span className={`bp-mult ${c.hits >= 2 ? "good" : c.hits < 1 ? "bad" : ""}`} title="Quanto os tipos dele batem no boss">bate ×{mult.format(c.hits)}</span>
-                    <span className={`bp-mult ${c.takes <= 0.5 ? "good" : c.takes >= 2 ? "bad" : ""}`} title="O pior que ele leva dos tipos do boss">leva ×{mult.format(c.takes)}</span>
+                    <span className={`bp-mult bp-hits ${c.hits >= 2 ? "good" : c.hits < 1 ? "bad" : ""}`} title="Quanto os tipos dele batem no boss">bate ×{mult.format(c.hits)}</span>
+                    <span className={`bp-mult bp-takes ${c.takes <= 0.5 ? "good" : c.takes >= 2 ? "bad" : ""}`} title="O pior que ele leva dos tipos do boss">leva ×{mult.format(c.takes)}</span>
                   </button>
                 </li>
               ))}

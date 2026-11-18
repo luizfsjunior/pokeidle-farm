@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { CaptureForm, CaptureStatus, type ActiveCapture } from "@/components/Capture";
 import { CommandStatus } from "@/components/CommandStatus";
+import { Hint } from "@/components/Page";
 import { Matchups, Moves, PvpRange, StatBars, StatRadar } from "@/components/SpeciesFacts";
 import { Sprite } from "@/components/Sprite";
 import { RARITY_PT, captureChance, captureFactor, loadGameRules, loadSpeciesInfo, RULES_VERSION } from "@/lib/pokemon";
@@ -417,10 +418,11 @@ function CaptureTable({ rules, factor, estimated }: { rules: NonNullable<Awaited
         </tbody>
       </table>
       <p className="small muted" style={{ margin: ".4rem 0 0" }}>
-        Uma bola por corpo derrubado. {estimated
+        {rules.shinyChance ? `Shiny: 1 em ${num(Math.round(1 / rules.shinyChance))}. ` : ""}
+        <Hint>Uma bola por corpo derrubado. {estimated
           ? "Sem hunt própria, o jogo usa o preço da espécie no fator; aqui vai o preço do NPC, então é uma estimativa."
-          : `Fator do degrau da cadeia: ${num(Math.round(factor * 100) / 100)}.`}
-        {rules.shinyChance ? ` Shiny: 1 em ${num(Math.round(1 / rules.shinyChance))} por nascimento, sem bônus (Shiny Secret Lure, live e Safari multiplicam).` : ""}
+          : `Fator do degrau da cadeia: ${num(Math.round(factor * 100) / 100)}.`} O shiny não conta bônus (Shiny Secret Lure,
+          live e Safari multiplicam).</Hint>
       </p>
     </>
   );
