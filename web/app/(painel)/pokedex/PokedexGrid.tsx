@@ -319,7 +319,7 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
                 <ul className="small dex-hunts">
                   {huntsBySpecies.get(sel.species_id)!.map((h) => (
                     <li key={h.slug}>
-                      {h.name ?? h.slug} <span className="muted">nv {h.level}</span>
+                      <span>{h.name ?? h.slug} <span className="muted num">nv {num(h.level)}</span></span>
                       {accountId && <GoHunt accountId={accountId} slug={h.slug} need={h.level} level={level} />}
                     </li>
                   ))}
@@ -360,7 +360,7 @@ function OtherForms({ sel, species, huntsBySpecies, accountId, onPick, level }: 
           <ul className="dex-hunts">
             {huntsBySpecies.get(f.species_id)!.map((h) => (
               <li key={h.slug}>
-                {h.name ?? h.slug} <span className="muted">nv {h.level}{h.region ? ` · ${h.region}` : ""}</span>
+                <span>{h.name ?? h.slug} <span className="muted num">nv {num(h.level)}{h.region ? ` · ${h.region}` : ""}</span></span>
                 {accountId && <GoHunt accountId={accountId} slug={h.slug} need={h.level} level={level} />}
               </li>
             ))}
