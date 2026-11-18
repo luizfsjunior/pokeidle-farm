@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { chance, dateTime, num } from "@/lib/format";
+import { chance, dateTime, huntLabel, num } from "@/lib/format";
 import { describeFilter } from "@/lib/goals";
 import type { Goal, GoalProgress, MetricDef } from "@/lib/types";
 
@@ -42,7 +42,7 @@ export function GoalSummary({ goal, progress, metric, link = true }: { goal: Goa
       </div>
       <p className="small muted" style={{ margin: 0 }}>
         {goal.kind === "capture" ? describeFilter(goal.filter) : metric?.label ?? goal.metric}
-        {goal.hunt_slug && ` · ${goal.hunt_slug}`}
+        {goal.hunt_slug && ` · ${huntLabel(goal.hunt_slug)}`}
         {rate && ` · ${rate}`}
         {goal.deadline && ` · prazo ${dateTime(goal.deadline)}`}
         {goal.kind === "capture" && goal.deadline && progress?.chance_by_deadline != null && ` · chance ${chance(progress.chance_by_deadline)}`}

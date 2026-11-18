@@ -60,3 +60,6 @@ export function nickBadge(nick: string): string {
   const m = nick.match(/_(\d+)$/);
   return m ? m[1] : nick.slice(0, 1).toUpperCase();
 }
+
+/** Nome legível de uma hunt a partir do slug (ancient_pupitar → Ancient Pupitar), onde só o slug está à mão. */
+export const huntLabel = (slug: string) => slug.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");

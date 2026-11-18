@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { IV_STATS, type Account, type MetricDef } from "@/lib/types";
+import { huntLabel } from "@/lib/format";
 import { createGoal } from "./actions";
 
 /** Novo objetivo: o essencial à vista; prazo, hunt e os filtros finos do pokémon em "Mais opções". */
@@ -54,7 +55,7 @@ export function GoalForm({ accounts, metrics, hunts }: { accounts: Account[]; me
             <label>Hunt
               <select name="hunt_slug" defaultValue="">
                 <option value="">Qualquer</option>
-                {hunts.map((h) => <option key={h} value={h}>{h}</option>)}
+                {hunts.map((h) => <option key={h} value={h}>{huntLabel(h)}</option>)}
               </select>
             </label>
             {kind === "capture" && <>

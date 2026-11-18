@@ -325,7 +325,7 @@ a:hover > .trainer-nick { color: var(--accent); }
 .coin { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: .5rem; align-items: center;
   background: var(--surface-0); border-radius: 10px; padding: .45rem .6rem; }
 .coin-mark { grid-row: span 2; width: 14px; height: 14px; }
-.coin-value { font-size: 1.15rem; line-height: 1.1; }
+.coin-value { font-size: 1.15rem; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .coin-label { font-size: .74rem; color: var(--text-muted); }
 .coin-gold .coin-value { color: var(--gold); }
 .coin-gem .coin-value { color: var(--gem); }
@@ -562,7 +562,7 @@ body:has(.login) { overflow: auto; }
   .trainer { padding: .95rem; }
   .trainer-wide .trainer-nick { font-size: 1.1rem; }
   .coin { padding: .4rem .45rem; column-gap: .3rem; }
-  .coin-value { font-size: 1rem; }
+  .coin-value { font-size: .95rem; letter-spacing: -.02em; }
   .wallet { gap: .4rem; }
   .activity li { grid-template-columns: 1fr; gap: 0; }
 
@@ -595,19 +595,20 @@ body:has(.login) { overflow: auto; }
   .dex-controls .segmented { width: 100%; display: flex; overflow-x: auto; scrollbar-width: none; }
   .dex-controls .segmented button { flex: 1 0 auto; white-space: nowrap; }
 
-  /* tabelas viram cartões: o nome da coluna vem do data-label (components/TableLabels.tsx) */
-  table.rt, table.rt tbody, table.rt tr, table.rt td { display: block; width: 100%; }
-  table.rt thead { display: none; }
-  table.rt tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem .9rem; padding: .75rem .95rem;
+  /* tabelas viram cartões já no CSS (sem esperar o JS: com o app em segundo plano ele atrasa e a tabela vazava);
+     o nome da coluna vem do data-label (components/TableLabels.tsx) */
+  main table:not([data-keep]):has(> thead), main table:not([data-keep]):has(> thead) tbody, main table:not([data-keep]):has(> thead) tr, main table:not([data-keep]):has(> thead) td { display: block; width: 100%; }
+  main table:not([data-keep]):has(> thead) thead { display: none; }
+  main table:not([data-keep]):has(> thead) tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem .9rem; padding: .75rem .95rem;
     border-bottom: 1px solid var(--grid); }
-  table.rt tr:last-child { border-bottom: 0; }
-  .panel-flush table.rt td, table.rt td { padding: 0; border: 0; text-align: left; min-width: 0; overflow-wrap: anywhere; }
-  table.rt td::before { content: attr(data-label); display: block; font-size: .7rem; font-weight: 600; color: var(--text-muted);
+  main table:not([data-keep]):has(> thead) tr:last-child { border-bottom: 0; }
+  .panel-flush main table:not([data-keep]):has(> thead) td, main table:not([data-keep]):has(> thead) td { padding: 0; border: 0; text-align: left; min-width: 0; overflow-wrap: anywhere; }
+  main table:not([data-keep]):has(> thead) td::before { content: attr(data-label); display: block; font-size: .7rem; font-weight: 600; color: var(--text-muted);
     text-transform: none; margin-bottom: .05rem; }
-  table.rt td:first-child { grid-column: 1 / -1; font-weight: 600; font-size: .95rem; }
-  table.rt td:first-child::before { display: none; }
-  table.rt td[data-label=""]::before { display: none; }
-  table.rt td:empty { display: none; }
+  main table:not([data-keep]):has(> thead) td:first-child { grid-column: 1 / -1; font-weight: 600; font-size: .95rem; }
+  main table:not([data-keep]):has(> thead) td:first-child::before { display: none; }
+  main table:not([data-keep]):has(> thead) td[data-label=""]::before { display: none; }
+  main table:not([data-keep]):has(> thead) td:empty { display: none; }
   .table-scroll, .panel-flush { overflow-x: visible; }
 
   /* quantidade ímpar de KPIs: o último ocupa a linha toda */
@@ -794,10 +795,14 @@ body:has(.login) { overflow: auto; }
 .bp-mult.bad { color: var(--critical); background: #ff6b811a; }
 @media (max-width: 420px) {
   .boss-grid { grid-template-columns: 1fr; }
-  .boss-pick { grid-template-columns: 36px 1fr auto; row-gap: .1rem; }
-  .boss-pick .bp-mult { grid-row: 2; }
-  .boss-pick .bp-mult:nth-of-type(1) { grid-column: 2; justify-self: start; }
-  .boss-pick .bp-mult:nth-of-type(2) { grid-column: 3; }
+  /* sprite nas duas linhas; nome e nível em cima, "bate" e "leva" embaixo (classes, não nth-of-type: o
+     nome e o nível também são span e tiravam os selos da coluna) */
+  .boss-pick { grid-template-columns: 36px minmax(0, 1fr) auto; grid-template-areas: "s n l" "s h t"; row-gap: .15rem; }
+  .boss-pick > :first-child { grid-area: s; }
+  .boss-pick .bp-name { grid-area: n; }
+  .boss-pick .bp-lv { grid-area: l; justify-self: end; }
+  .boss-pick .bp-hits { grid-area: h; justify-self: start; }
+  .boss-pick .bp-takes { grid-area: t; justify-self: end; }
 }
 
 /* abas de conta (e outras) quebram linha no celular em vez de sumir pela direita (17/11) */
@@ -842,6 +847,8 @@ input[type="checkbox"][role="switch"]:focus-visible { outline: 2px solid var(--a
 .fold-meta { margin-left: auto; text-align: right; }
 .fold-meta + .fold-chevron { margin-left: .2rem; }
 .fold-body { padding: 1rem; display: grid; gap: .9rem; }
+/* item de grid não encolhe abaixo do conteúdo sem isto: uma tabela larga empurrava a seção para fora da tela */
+.fold-body > *, .stack > *, .now-body > * { min-width: 0; }
 .fold > .fold-body > .card { border: 0; box-shadow: none; padding: 0; background: none; }
 .fold-chevron { margin-left: auto; flex: none; width: 9px; height: 9px; border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted);
   transform: rotate(45deg) translate(-2px, -2px); transition: transform .15s ease; }
@@ -905,3 +912,37 @@ tr.is-muted td { color: var(--text-muted); }
 .goal-eta { display: grid; text-align: right; }
 @media (max-width: 480px) { .goal-main { grid-template-columns: auto minmax(0, 1fr); } .goal-eta { grid-column: 1 / -1; text-align: left; display: flex; gap: .4rem; } }
 .cmd-status { margin: 0; }
+
+/* Retorno ao toque (docs/design/painel-ux-v2.md): o :hover não existe no celular, então tudo que é clicável
+   precisa de um :active (afunda um pouco ou acende o fundo) e de transição; antes o toque não dava sinal nenhum. */
+button, .button, .tab, .btn-link, .rail-link, .tabbar a, .tabbar button, summary, .dex-cell, .mon-open, .boss-pick,
+.hunt-open, .linklike, .pick-list button, .now-action, .bag li, .sheet a, input, select {
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease, transform .1s ease, filter .15s ease, opacity .15s ease;
+}
+button:not(:disabled):active, .button:active, .btn-link:active, .tab:active, .tabbar a:active, .tabbar button:active,
+.dex-cell:active, .pick-list button:active, .mon-open:active, .sheet a:active { transform: scale(.96); }
+.fold-head:active, .now-row > summary:active, .boss-pick:active, .bag li:active, .hint summary:active,
+.dex-more > summary:active, tbody tr:active td { background: var(--surface-2); }
+.hunt-open:active, .linklike:active { opacity: .7; }
+.now-row > summary:hover .now-action { border-color: var(--accent); }
+/* seção que abre (sanfona, linha de "Fazendo agora", aba) aparece deslizando, não de estalo */
+details[open] > :not(summary), .section-tabs [role="tabpanel"]:not([hidden]) { animation: reveal .18s ease-out; }
+@keyframes reveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+/* status de comando: pontinho que pulsa enquanto espera o worker, ✓ quando feito */
+.cmd-status { display: inline-flex; align-items: center; gap: .4rem; }
+.cmd-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.cmd-status.is-wait { color: var(--accent); }
+.cmd-status.is-wait .cmd-dot { animation: pulse 1s ease-in-out infinite; }
+.cmd-status.is-done { color: var(--good); }
+@keyframes pulse { 50% { opacity: .25; transform: scale(.7); } }
+@media (prefers-reduced-motion: reduce) {
+  details[open] > :not(summary), .section-tabs [role="tabpanel"]:not([hidden]), .cmd-status.is-wait .cmd-dot { animation: none; }
+  button:not(:disabled):active, .tab:active, .dex-cell:active, .mon-open:active { transform: none; }
+}
+/* no celular o ⓘ abre como um painel fixo acima da barra de baixo: posicionado pelo título, ele saía da tela
+   quando o ⓘ ficava no meio de um texto ou perto da borda direita */
+@media (max-width: 760px) {
+  .hint-pop { position: fixed; left: 12px; right: 12px; top: auto; bottom: calc(78px + env(safe-area-inset-bottom));
+    width: auto; min-width: 0; max-height: 50vh; overflow-y: auto; box-shadow: 0 10px 40px #000a; }
+}

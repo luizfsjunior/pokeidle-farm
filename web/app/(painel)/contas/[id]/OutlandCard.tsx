@@ -43,7 +43,8 @@ export function OutlandCard({ data, progress = null }: { data: OutlandPotentialD
           (Key, Shiny Stone e Bicycle, 1 em 250 mil abates cada) e o Bronze Boss Token (1 em 10 mil). O tier da Outland
           multiplica esses drops e sobe com o nível do treinador: ×1 até o 499, ×1,1 no 500, ×2 no 2.250. O selvagem é o
           mesmo em todos. Abates/h previstos pelo simulador com {data.active_name ?? "o ativo"} no {data.goal_level};
-          preço = mediana das vendas reais, menos 15% de comissão; US$ 0,009 por gema.
+          preço = mediana das vendas reais, menos 15% de comissão; US$ 0,009 por gema. Não conta shiny: não há shiny nas
+          hunts da Outland.
         </Hint></div>
         <span className="muted small">estimativa {ago(data.at)}</span>
       </div>
@@ -93,11 +94,11 @@ export function OutlandCard({ data, progress = null }: { data: OutlandPotentialD
         </div>
       )}
 
-      <p className="muted small" style={{ margin: 0 }}>
-        Preços (mediana das vendas):{" "}
-        {priced.map(([name, p]) => `${name} ${p.gems == null ? "sem venda" : num(p.gems)}`).join(", ")}.
-        Não conta shiny: não há shiny nas hunts da Outland.
-      </p>
+      <div className="chips">
+        {priced.map(([name, p]) => (
+          <span key={name} className="chip" title="Mediana das vendas, em gemas">{name} <strong>{p.gems == null ? "—" : num(p.gems)}</strong></span>
+        ))}
+      </div>
     </section>
   );
 }

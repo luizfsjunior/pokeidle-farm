@@ -1,5 +1,6 @@
 "use client";
 
+import { Hint } from "@/components/Page";
 import { num } from "@/lib/format";
 import {
   IV_MAX_STAT, RANGE_CUT_3, tierIvStat, RANGE_CUT_4, STAT_LABEL, STATS, TYPE_PT, matchups, pvpRange, rangeLabel,
@@ -207,9 +208,9 @@ export function PvpRange({ base }: { base: Record<Stat, number> | null }) {
     <div className="pvp-range">
       <span className={`range-badge ${r.range > 1 ? "far" : "near"}`}>{rangeLabel(r.range)}</span>
       <div className="small">
-        <b>{r.range > 1 ? `Ataca a ${r.range} casas` : "Corpo a corpo"}</b> no tabuleiro do PvP.
-        <span className="muted"> Folga = Sp. Atk {base.spAtk} − maior entre Ataque {base.atk} e HP {base.hp} = {r.slack}
-          {" "}(≤ 0 corpo a corpo; 1–{RANGE_CUT_3 - 1} → 2; {RANGE_CUT_3}–{RANGE_CUT_4 - 1} → 3; {RANGE_CUT_4}+ → 4). Evoluir muda; IV e nível não.</span>
+        <b>{r.range > 1 ? `Ataca a ${r.range} casas` : "Corpo a corpo"}</b> no tabuleiro do PvP.{" "}
+        <Hint label="Como é calculado">Folga = Sp. Atk {base.spAtk} − maior entre Ataque {base.atk} e HP {base.hp} = {r.slack}
+          {" "}(≤ 0 corpo a corpo; 1–{RANGE_CUT_3 - 1} → 2; {RANGE_CUT_3}–{RANGE_CUT_4 - 1} → 3; {RANGE_CUT_4}+ → 4). Evoluir muda; IV e nível não.</Hint>
       </div>
     </div>
   );

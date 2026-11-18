@@ -16,10 +16,13 @@ export function commandSummary(c: Command): string {
 export function CommandStatus({ cmd, error, inline = false }: { cmd: Command | null; error: string | null; inline?: boolean }) {
   if (!cmd && !error) return null;
   const failed = !!error || cmd?.status === "failed" || cmd?.status === "expired";
+  // na fila ou executando: pontinho pulsando; feito: verde com ✓; falhou: vermelho
+  const state = failed ? "error" : cmd?.status === "done" ? "is-done" : cmd?.status === "cancelled" ? "muted" : "is-wait";
   const Tag = inline ? "span" : "p";
   return (
-    <Tag className={`cmd-status small ${failed ? "error" : "muted"}`} role="status">
-      {error ?? (cmd && commandSummary(cmd))}
+    <Tag className={`cmd-status small ${state}`} role="status">
+      {state === "is-done" ? <span aria-hidden>✓</span> : <span className="cmd-dot" aria-hidden />}
+      <span>{error ?? (cmd && commandSummary(cmd))}</span>
     </Tag>
   );
 }
