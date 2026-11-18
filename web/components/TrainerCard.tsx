@@ -6,7 +6,7 @@ import { STATUS_LABEL, type Account } from "@/lib/types";
 import { Sprite } from "./Sprite";
 
 /** Cartão de treinador: o ativo em destaque, nick, nível, moedas e a equipe. */
-export function TrainerCard({ account, profile, atlas, looktypes, href, wide = false, hideNick = false, children }: {
+export function TrainerCard({ account, profile, atlas, looktypes, href, wide = false, hideNick = false, compact = false, children }: {
   account: Account;
   profile: Profile | undefined;
   atlas: Atlas | null;
@@ -14,6 +14,7 @@ export function TrainerCard({ account, profile, atlas, looktypes, href, wide = f
   href?: string;
   wide?: boolean;
   hideNick?: boolean; // a página da conta já tem o nick no título
+  compact?: boolean; // visão geral: sem os chips de coleção (estão na conta)
   children?: React.ReactNode;
 }) {
   const active = activeMon(profile);
@@ -76,11 +77,11 @@ export function TrainerCard({ account, profile, atlas, looktypes, href, wide = f
               ))}
             </ol>
           )}
-          <div className="trainer-foot chips" title={`perfil de ${ago(profile.updated_at)}`}>
+          {!compact && <div className="trainer-foot chips" title={`perfil de ${ago(profile.updated_at)}`}>
             <span className="chip"><strong>{num(profile.pokemon_count)}</strong> pokémons</span>
             <span className="chip"><strong>{num(profile.dex_caught)}</strong> na Pokédex</span>
             {profile.shiny_count > 0 && <span className="chip"><strong>{num(profile.shiny_count)}</strong> ✨</span>}
-          </div>
+          </div>}
         </>
       ) : (
         <p className="muted small">Perfil chegando…</p>

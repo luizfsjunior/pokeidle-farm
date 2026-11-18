@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import { SalesView } from "./View";
+import { EconomyView } from "./View";
 
 /** Estática: os dados vêm no navegador, com cache (lib/query). O Suspense é do useSearchParams. */
-export default function SalesPage() {
-  return <Suspense><SalesView /></Suspense>;
+export default function EconomyPage() {
+  return <Suspense><EconomyView /></Suspense>;
 }

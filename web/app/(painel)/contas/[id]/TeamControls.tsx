@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { commandSummary } from "@/components/CommandButtons";
+import { CommandStatus } from "@/components/CommandStatus";
 import { Hint } from "@/components/Page";
 import type { Mon } from "@/lib/profile";
 import { useCommand } from "@/lib/useCommand";
@@ -19,7 +19,6 @@ export function MonActions({ accountId, mon, team, isActive }: {
   const inTeam = team.some((t) => t.id === mon.id);
   const used = new Set(team.map((t) => t.slot).filter((s): s is number => typeof s === "number"));
   const free = Array.from({ length: TEAM_SLOTS }, (_, i) => i).find((i) => !used.has(i));
-  const failed = error || cmd?.status === "failed";
   return (
     <div className="mon-actions">
       {inTeam ? (
@@ -44,11 +43,7 @@ export function MonActions({ accountId, mon, team, isActive }: {
           Pôr na equipe
         </button>
       )}
-      {(cmd || error) && (
-        <span className={`small ${failed ? "error" : "muted"}`} role="status">
-          {error ?? (cmd && commandSummary(cmd))}
-        </span>
-      )}
+      <CommandStatus cmd={cmd} error={error} inline />
     </div>
   );
 }
@@ -93,15 +88,9 @@ export function TeamTrainCard({ accountId, plugins, team }: { accountId: string;
         {on && <button type="button" className="ghost" disabled={busy} onClick={() => apply(false)}>Desligar</button>}
       </div>
       {team.length < TEAM_SLOTS && (
-        <p className="small muted" style={{ margin: 0 }}>
-          A equipe tem {team.length} de {TEAM_SLOTS}. Ponha os outros na aba Equipe e coleção (botão Pôr na equipe).
-        </p>
+        <p className="small muted" style={{ margin: 0 }}>A equipe tem {team.length} de {TEAM_SLOTS}: complete na aba Pokémons.</p>
       )}
-      {(cmd || error) && (
-        <p className={`small ${error || cmd?.status === "failed" ? "error" : "muted"}`} role="status" style={{ margin: 0 }}>
-          {error ?? (cmd && commandSummary(cmd))}
-        </p>
-      )}
+      <CommandStatus cmd={cmd} error={error} />
     </section>
   );
 }

@@ -9,6 +9,9 @@ export function num(v: number | null | undefined, opts: { compact?: boolean } = 
   return opts.compact && Math.abs(n) >= 10_000 ? compact.format(n) : plain.format(n);
 }
 
+/** Horas com uma casa decimal (1,5). */
+export const hours1 = (h: number) => plain.format(h);
+
 export function pct(v: number | null | undefined, digits = 1): string {
   if (v === null || v === undefined) return "—";
   return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: digits }).format(Number(v) * 100)}%`;
@@ -47,4 +50,10 @@ export function ago(iso: string | null | undefined): string {
   if (s < 3600) return `há ${Math.round(s / 60)} min`;
   if (s < 86400) return `há ${Math.round(s / 3600)} h`;
   return `há ${Math.round(s / 86400)} d`;
+}
+
+/** Selo curto de uma conta: o número do fim do nick (luizfsjunior_2 → 2), senão a inicial. */
+export function nickBadge(nick: string): string {
+  const m = nick.match(/_(\d+)$/);
+  return m ? m[1] : nick.slice(0, 1).toUpperCase();
 }

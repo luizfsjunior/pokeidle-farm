@@ -3,8 +3,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useSearchParams } from "next/navigation";
 import { LdBlock } from "@/components/Loading";
-import { AccountTabs, ErrorNote, PageHeader } from "@/components/Page";
+import { AccountPicker } from "@/components/AccountPicker";
+import { ErrorNote, PageHeader } from "@/components/Page";
 import { loadActiveCapture } from "@/lib/capture";
+import { loadAllHunts } from "@/lib/catalog";
 import { loadProfiles } from "@/lib/profile";
 import { useAccounts, useAtlas, usePanel } from "@/lib/query/hooks";
 import { PokedexGrid, type DexHunt, type DexSpecies } from "./PokedexGrid";
@@ -15,12 +17,12 @@ async function loadDexCatalog(supabase: SupabaseClient) {
   const [p1, p2, huntsRes] = await Promise.all([
     supabase.from("game_species").select(cols).order("species_id").range(0, 999),
     supabase.from("game_species").select(cols).order("species_id").range(1000, 1999),
-    supabase.from("game_hunts").select("slug, name, level, species_id, region").order("level"),
+    loadAllHunts<DexHunt>(supabase, "slug, name, level, species_id, region"),
   ]);
   return {
     species: [...(p1.data ?? []), ...(p2.data ?? [])] as unknown as DexSpecies[],
-    hunts: (huntsRes.data ?? []) as DexHunt[],
-    err: p1.error?.message ?? huntsRes.error?.message ?? null,
+    hunts: huntsRes.data,
+    err: p1.error?.message ?? huntsRes.error ?? null,
   };
 }
 
@@ -70,7 +72,7 @@ export function PokedexView() {
   return (
     <>
       <PageHeader title="Pokédex">
-        <AccountTabs accounts={accounts} chosen={chosen?.id ?? null} href={(id) => `/pokedex?conta=${id ?? "todas"}`} />
+        <AccountPicker accounts={accounts} chosen={chosen?.id ?? null} hasParam={sp.has("conta")} href={(id) => `/pokedex?conta=${id ?? "todas"}`} />
       </PageHeader>
       <ErrorNote message={catalog?.err ?? accountsQ.error?.message} />
       {!ready ? (

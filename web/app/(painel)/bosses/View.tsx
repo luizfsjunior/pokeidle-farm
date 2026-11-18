@@ -4,7 +4,8 @@ import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { LdBlock } from "@/components/Loading";
 import { MonSheet } from "@/components/MonSheet";
-import { AccountTabs, ErrorNote, PageHeader } from "@/components/Page";
+import { AccountPicker } from "@/components/AccountPicker";
+import { ErrorNote, PageHeader } from "@/components/Page";
 import { Matchups, Moves, StatRadar, TypeChips } from "@/components/SpeciesFacts";
 import { Sprite } from "@/components/Sprite";
 import {
@@ -56,7 +57,7 @@ export function BossesView() {
         do trio gira todo dia às 18:00 de Brasília (TM, fragmento de Mega, tickets). O dano que você leva sobe ×3 por degrau abaixo do nível do
         boss: o ideal são 5 pokémons no nível dele ou acima. Fraquezas e &quot;quem serve&quot; supõem que os golpes do boss saem no tipo dele.
       </>}>
-        <AccountTabs all={false} accounts={accounts} chosen={chosen?.id ?? null} href={(id) => `/bosses?conta=${id}`} />
+        <AccountPicker all={false} accounts={accounts} chosen={chosen?.id ?? null} hasParam={sp.has("conta")} href={(id) => `/bosses?conta=${id}`} />
       </PageHeader>
       <ErrorNote message={species.error?.message} />
 

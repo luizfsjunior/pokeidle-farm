@@ -9,6 +9,11 @@ const codespaceOrigin =
 
 const config: NextConfig = {
   poweredByHeader: false,
+  // Vendas, Mercado e Compensa viraram a página Economia (docs/design/painel-ux-v2.md): os atalhos antigos
+  // (e o app instalado) continuam abrindo
+  async redirects() {
+    return ["vendas", "mercado", "compensa"].map((p) => ({ source: `/${p}`, destination: "/economia", permanent: false }));
+  },
   experimental: {
     serverActions: { allowedOrigins: codespaceOrigin },
     // stale-while-revalidate na navegação (docs/design/painel-swr.md): a página já visitada volta na

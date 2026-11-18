@@ -1,16 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { commandSummary } from "./CommandButtons";
+import { CommandStatus } from "./CommandStatus";
 import { dateTime } from "@/lib/format";
+import { loadGameRules, RULES_VERSION } from "@/lib/pokemon";
+import { usePanel } from "@/lib/query/hooks";
+import { BALL_NAMES } from "@/lib/sprites";
 import { useCommand } from "@/lib/useCommand";
-
-export const BALLS: { id: number; name: string; price: number }[] = [
-  { id: 1, name: "Poké Ball", price: 5 },
-  { id: 2, name: "Great Ball", price: 20 },
-  { id: 3, name: "Super Ball", price: 50 },
-  { id: 4, name: "Ultra Ball", price: 130 },
-];
 type Stop = "count" | "time" | "first" | "manual";
 
 /**
@@ -35,6 +31,9 @@ export function CaptureForm({ accountId, speciesId, speciesName, hunts: allHunts
   balls?: Record<string, number>;
 }) {
   const { send, cmd, error, busy } = useCommand();
+  // as bolas que se compram, com o preço do jogo (game_catalog.catalogoBolas)
+  const { data: rules } = usePanel(["game-rules", RULES_VERSION], loadGameRules, { staleTime: 30 * 60_000 });
+  const shop = (rules?.balls ?? []).filter((b) => b.price != null);
   const hunts = level == null ? allHunts : allHunts.filter((h) => h.level <= level);
   const [hunt, setHunt] = useState(hunts[0]?.slug ?? "");
   const [ball, setBall] = useState(4);
@@ -71,7 +70,8 @@ export function CaptureForm({ accountId, speciesId, speciesName, hunts: allHunts
       )}
       <label>Bola
         <select value={ball} onChange={(e) => setBall(Number(e.target.value))}>
-          {BALLS.map((b) => (
+          {shop.length === 0 && <option value={ball}>{BALL_NAMES[String(ball)] ?? `Bola ${ball}`}</option>}
+          {shop.map((b) => (
             <option key={b.id} value={b.id}>{b.name} · {b.price} de ouro{balls ? ` · ${balls[String(b.id)] ?? 0} na mochila` : ""}</option>
           ))}
         </select>
@@ -97,11 +97,7 @@ export function CaptureForm({ accountId, speciesId, speciesName, hunts: allHunts
         </div>
       )}
       <button type="button" disabled={busy || !hunt} onClick={go}>Começar a captura</button>
-      {(cmd || error) && (
-        <p className={`small ${error || cmd?.status === "failed" ? "error" : "muted"}`} role="status" style={{ margin: 0 }}>
-          {error ?? (cmd && commandSummary(cmd))}
-        </p>
-      )}
+      <CommandStatus cmd={cmd} error={error} />
     </div>
   );
 }
@@ -120,7 +116,7 @@ export type ActiveCapture = {
 /** A captura em andamento, com o progresso e o botão de parar. */
 export function CaptureStatus({ accountId, active }: { accountId: string; active: ActiveCapture }) {
   const { send, cmd, error, busy } = useCommand();
-  const ball = BALLS.find((b) => b.id === active.ball_id)?.name ?? `bola ${active.ball_id}`;
+  const ball = BALL_NAMES[String(active.ball_id)] ?? `bola ${active.ball_id}`;
   const pct = active.count ? Math.min(1, active.captured / active.count) : null;
   return (
     <div className="action-box">
@@ -134,11 +130,7 @@ export function CaptureStatus({ accountId, active }: { accountId: string; active
       </div>
       {pct != null && <div className="progress"><span style={{ width: `${pct * 100}%` }} /></div>}
       <button type="button" className="ghost" disabled={busy} onClick={() => void send(accountId, "capture.stop")}>Parar a captura</button>
-      {(cmd || error) && (
-        <p className={`small ${error || cmd?.status === "failed" ? "error" : "muted"}`} role="status" style={{ margin: 0 }}>
-          {error ?? (cmd && commandSummary(cmd))}
-        </p>
-      )}
+      <CommandStatus cmd={cmd} error={error} />
     </div>
   );
 }
