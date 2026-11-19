@@ -10,7 +10,7 @@ import { supabaseBrowser } from "@/lib/query/hooks";
  * aqui também: só chegam as mudanças das contas do usuário.
  */
 // consultas que mostram o perfil da conta (lib/profile: account_profile)
-const PROFILE_QUERIES = new Set(["account", "dex", "dex-all", "boss-profiles", "hunts", "overview"]);
+const PROFILE_QUERIES = new Set(["account", "dex", "dex-all", "boss-profiles", "hunts", "overview", "collection"]);
 
 export function RealtimeSync() {
   const qc = useQueryClient();

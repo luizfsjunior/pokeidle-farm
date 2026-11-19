@@ -173,6 +173,18 @@ class Store(Protocol):
         """Grava (ou substitui) a linha da conta em account_profile."""
         ...
 
+    async def sync_account_pokemon(
+        self,
+        account_id: UUID,
+        upsert: list[dict[str, Any]],
+        delete: list[int],
+        *,
+        full: bool = False,
+    ) -> None:
+        """Coleção completa (account_pokemon, conta-v2.md seção 1.2). Com `full`, as linhas
+        de `upsert` são a coleção inteira, e o que não estiver nela sai."""
+        ...
+
     async def rank_hunt_stats(self, account_id: UUID, since: datetime) -> list[HuntStats]:
         """Por hunt, desde `since`: abates e minutos ativos e a última chance de captura."""
         ...
