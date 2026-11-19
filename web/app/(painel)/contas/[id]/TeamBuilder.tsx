@@ -83,6 +83,9 @@ export function TeamBuilder({ accountId, profile, draft, update, byId, atlas, lo
 }) {
   const { send, cmd, error, busy } = useCommand();
   const now = useMemo(() => draftFromProfile(profile), [profile]);
+  // quem sai da equipe: para onde vai (padrão Coleção, que a venda do Depot não leva)
+  const [leftTo, setLeftTo] = useState<Record<number, "colecao" | "depot">>({});
+  const leaving = now.team.filter((id): id is number => id != null && !draft.team.includes(id));
   const name = (id: number | null) => (id == null ? "vazia" : byId.get(id)?.nickname || byId.get(id)?.name || `#${id}`);
 
   const changes = useMemo(() => {
@@ -107,7 +110,8 @@ export function TeamBuilder({ accountId, profile, draft, update, byId, atlas, lo
   const payload = () => {
     const team = [...draft.team];
     while (team.length && team[team.length - 1] == null) team.pop();
-    return { team, active: draft.active };
+    const left_to = Object.fromEntries(leaving.map((id) => [String(id), leftTo[id] ?? "colecao"]));
+    return { team, active: draft.active, left_to };
   };
 
   return (
@@ -144,6 +148,21 @@ export function TeamBuilder({ accountId, profile, draft, update, byId, atlas, lo
       {changes.length > 0 ? (
         <ul className="builder-diff small">{changes.map((c) => <li key={c}>{c}</li>)}</ul>
       ) : <p className="muted small">Igual à equipe de agora.</p>}
+      {leaving.length > 0 && (
+        <div className="builder-leaving small">
+          <span className="muted">Quem sai vai para:</span>
+          {leaving.map((id) => (
+            <label key={id}>
+              {name(id)}{" "}
+              <select value={leftTo[id] ?? "colecao"}
+                onChange={(e) => setLeftTo({ ...leftTo, [id]: e.target.value as "colecao" | "depot" })}>
+                <option value="colecao">Coleção</option>
+                <option value="depot">Depot (vai na venda)</option>
+              </select>
+            </label>
+          ))}
+        </div>
+      )}
       <div className="builder-foot">
         <button type="button" disabled={!canApply || busy} onClick={() => void send(accountId, "team.apply", payload())}>
           {busy ? "Aplicando…" : "Aplicar"}

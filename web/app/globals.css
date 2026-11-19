@@ -997,3 +997,4 @@ details[open] > :not(summary), .section-tabs [role="tabpanel"]:not([hidden]) { a
 .sell-warn { color: var(--warning); }
 button.danger { background: var(--critical); color: #1a0006; border-color: var(--critical); }
 button.danger:disabled { opacity: .5; }
+.builder-leaving { display: flex; flex-wrap: wrap; gap: .4rem 1rem; align-items: center; margin-top: .6rem; }
