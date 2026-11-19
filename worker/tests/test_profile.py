@@ -218,3 +218,32 @@ def test_is_quick():
     assert is_quick({"huntSlug": "x"}) and is_quick({"pkFora": [1]})
     assert is_quick({"pkMud": [{"id": 1, "slot": None}]})
     assert not is_quick({"pkMud": [{"id": 1, "level": 5}]}) and not is_quick({"gold": 1})
+
+
+async def test_collection_is_synced_full_then_only_what_changed():
+    plugin, store, ctx = _plugin()
+
+    async def never(s: float) -> None:
+        await __import__("asyncio").Event().wait()
+
+    plugin.sleep = never
+    await plugin.start(ctx)
+    await plugin.on_event(_ev(ctx, "state.snapshot", ESTADO))
+    rows = store.pokemon[str(ctx.account_id)]
+    ids = {p["id"] for p in ESTADO["pokemons"]}
+    assert set(rows) == ids and rows[next(iter(ids))]["data"]["id"] in ids
+    first = next(iter(ids))
+    await plugin.on_event(_ev(ctx, "state.patch", {"pkMud": [{"id": first, "level": 99}]}))
+    await plugin.on_event(_ev(ctx, "state.patch", {"pkFora": [p for p in ids if p != first][:1]}))
+    calls: list[tuple[int, int, bool]] = []
+    real = store.sync_account_pokemon
+
+    async def spy(aid, upsert, delete, *, full=False):  # type: ignore[no-untyped-def]
+        calls.append((len(upsert), len(delete), full))
+        await real(aid, upsert, delete, full=full)
+
+    store.sync_account_pokemon = spy  # type: ignore[method-assign]
+    await plugin.flush()
+    assert calls == [(1, 1 if len(ids) > 1 else 0, False)]
+    assert rows[first]["data"]["level"] == 99
+    await plugin.stop()

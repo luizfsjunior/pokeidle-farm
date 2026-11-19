@@ -93,6 +93,22 @@ class ProfilePlugin(Plugin):
         except Exception as exc:
             self.dirty = True  # tenta de novo no próximo intervalo
             self.ctx.log.warning("profile: falha ao gravar o perfil (%r)", exc)
+        await self._sync_collection()
+
+    async def _sync_collection(self) -> None:
+        """Só os pokémons que mudaram (ou tudo, depois do welcome) em account_pokemon."""
+        rows, removed, full = self.profile.collection_rows(str(self.ctx.account_id))
+        if not rows and not removed and not full:
+            return
+        sync = getattr(self.ctx.store, "sync_account_pokemon", None)
+        if sync is None:
+            return
+        try:
+            await sync(self.ctx.account_id, rows, removed, full=full)
+        except Exception as exc:
+            self.profile.requeue(rows, removed, full)
+            self.dirty = True
+            self.ctx.log.warning("profile: falha ao gravar a coleção (%r)", exc)
 
     async def stop(self) -> None:
         for task in (self._timer, self._soon):

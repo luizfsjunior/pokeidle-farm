@@ -19,6 +19,7 @@ import { OutlandCard } from "./OutlandCard";
 import { PlanCard } from "./PlanCard";
 import { PluginEditor } from "./PluginEditor";
 import { ProfileSections } from "./ProfileSections";
+import { Collection } from "./Collection";
 import { RankCard } from "./RankCard";
 
 /**
@@ -91,7 +92,10 @@ export function AccountView() {
         {/* Pokémons */}
         <>
           {!d ? loading : profile
-            ? <ProfileSections part="collection" profile={profile} atlas={atlas} looktypes={d.looktypes} items={d.items} accountId={d.account.id} />
+            ? <>
+                <ProfileSections part="collection" profile={profile} atlas={atlas} looktypes={d.looktypes} items={d.items} accountId={d.account.id} />
+                <Collection accountId={d.account.id} profile={profile} atlas={atlas} looktypes={d.looktypes} />
+              </>
             : <p className="muted">Sem perfil ainda: ele aparece uns segundos depois de o worker conectar a conta.</p>}
         </>
 

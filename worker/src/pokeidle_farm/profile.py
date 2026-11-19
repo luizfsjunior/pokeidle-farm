@@ -44,6 +44,10 @@ POKEMON_FIELDS = {
     "caughtBy": "caught_by",
     "levelGinasio": "gym_level",
     "nota": "grade",  # a nota que o jogo calcula (0 a 10)
+    "starter": "starter",
+    "pasta": "folder",  # a pasta da coleção (o jogo organiza em pastas)
+    "colecao": "in_collection",  # a marca da Coleção (colecao.mover)
+    "travado": "locked",
     "pisoNivel": "min_level",
 }
 # dicionários pequenos guardados como vieram (IV por stat; stats de combate, se o jogo mandar)
@@ -91,6 +95,10 @@ class ProfileState:
         self.pokemons: dict[Any, dict[str, Any]] = {}
         self.pokedex: dict[str, Any] = {}
         self.ready = False  # só depois do primeiro welcome
+        # o que mudou na coleção desde a última gravação de account_pokemon
+        self.changed: set[Any] = set()
+        self.removed: set[Any] = set()
+        self.full_sync = False
 
     def apply_snapshot(self, estado: dict[str, Any]) -> None:
         self.estado = {
@@ -103,13 +111,20 @@ class ProfileState:
         dex = estado.get("pokedex")
         self.pokedex = dict(dex) if isinstance(dex, dict) else {}
         self.ready = True
+        self.full_sync = True
+        self.changed.clear()
+        self.removed.clear()
 
     def apply_patch(self, src: dict[str, Any]) -> None:
         for p in src.get("pkMud") or []:
             if isinstance(p, dict) and p.get("id") is not None:
                 self.pokemons.setdefault(p["id"], {}).update(p)
+                self.changed.add(p["id"])
+                self.removed.discard(p["id"])
         for pid in src.get("pkFora") or []:
             self.pokemons.pop(pid, None)
+            self.removed.add(pid)
+            self.changed.discard(pid)
         dex = src.get("dexMud")
         if isinstance(dex, dict):
             for key, entry in dex.items():
@@ -126,6 +141,37 @@ class ProfileState:
                 self.estado[key] = {**(cur if isinstance(cur, dict) else {}), **value}
             else:
                 self.estado[key] = value
+
+    def collection_rows(self, account_id: str) -> tuple[list[dict[str, Any]], list[int], bool]:
+        """O que gravar em account_pokemon: (linhas, ids que saíram, sincronização completa).
+
+        Zera o que estava pendente; quem chama devolve com `requeue` se a gravação falhar.
+        """
+        full = self.full_sync
+        ids = list(self.pokemons) if full else [i for i in self.changed if i in self.pokemons]
+        rows = []
+        for pid in ids:
+            p = self.pokemons[pid]
+            c = compact_pokemon(p)
+            rows.append(
+                {
+                    "account_id": account_id,
+                    "pokemon_id": int(pid),
+                    "species_id": c.get("species_id"),
+                    "slot": c.get("slot"),
+                    "data": c,
+                }
+            )
+        removed = [int(i) for i in self.removed]
+        self.full_sync = False
+        self.changed.clear()
+        self.removed.clear()
+        return rows, removed, full
+
+    def requeue(self, rows: list[dict[str, Any]], removed: list[int], full: bool) -> None:
+        self.full_sync = self.full_sync or full
+        self.changed.update(r["pokemon_id"] for r in rows)
+        self.removed.update(removed)
 
     def summary(self, now: datetime | None = None) -> dict[str, Any]:
         """Linha de `account_profile` (sem `account_id`)."""

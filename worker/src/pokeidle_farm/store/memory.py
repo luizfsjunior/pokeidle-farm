@@ -214,6 +214,24 @@ class MemoryStore:
             self.profiles: dict[str, dict[str, Any]] = {}
         self.profiles[row["account_id"]] = row
 
+    async def sync_account_pokemon(
+        self,
+        account_id: UUID,
+        upsert: list[dict[str, Any]],
+        delete: list[int],
+        *,
+        full: bool = False,
+    ) -> None:
+        if not hasattr(self, "pokemon"):
+            self.pokemon: dict[str, dict[int, dict[str, Any]]] = {}
+        rows = self.pokemon.setdefault(str(account_id), {})
+        if full:
+            rows.clear()
+        for r in upsert:
+            rows[int(r["pokemon_id"])] = r
+        for pid in delete:
+            rows.pop(int(pid), None)
+
     async def market_reference(self) -> dict[str, dict[str, Any]]:
         return dict(getattr(self, "reference", {}))
 

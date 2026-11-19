@@ -251,6 +251,33 @@ class SupabaseStore:
     async def upsert_account_profile(self, row: dict[str, Any]) -> None:
         await self._db.table("account_profile").upsert(row).execute()
 
+    async def sync_account_pokemon(
+        self,
+        account_id: UUID,
+        upsert: list[dict[str, Any]],
+        delete: list[int],
+        *,
+        full: bool = False,
+    ) -> None:
+        table = self._db.table("account_pokemon")
+        aid = str(account_id)
+        if upsert:
+            for i in range(0, len(upsert), 500):
+                await table.upsert(upsert[i : i + 500]).execute()
+        if full:
+            keep = {int(r["pokemon_id"]) for r in upsert}
+            res = await table.select("pokemon_id").eq("account_id", aid).execute()
+            delete = [
+                int(r["pokemon_id"]) for r in res.data or [] if int(r["pokemon_id"]) not in keep
+            ]
+        for i in range(0, len(delete), 200):
+            await (
+                table.delete()
+                .eq("account_id", aid)
+                .in_("pokemon_id", delete[i : i + 200])
+                .execute()
+            )
+
     async def market_reference(self) -> dict[str, dict[str, Any]]:
         res = await self._db.rpc("market_reference", {}).execute()
         out: dict[str, dict[str, Any]] = {}
