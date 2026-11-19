@@ -8,7 +8,10 @@ import { useCommand } from "@/lib/useCommand";
 
 const TEAM_SLOTS = 5;
 
-/** Botões de um pokémon na aba Equipe: tornar ativo, tirar ou pôr na equipe (team.active, team.move). */
+/**
+ * Botões de um pokémon fora da montagem: tornar ativo (quem está na equipe) e Coleção/Depot (quem não
+ * está). Pôr e tirar da equipe fica só no "Montar equipe", que vai ao Pokécenter (o jogo só aceita lá).
+ */
 export function MonActions({ accountId, mon, team, isActive, inCollection }: {
   accountId: string;
   mon: Mon;
@@ -18,38 +21,13 @@ export function MonActions({ accountId, mon, team, isActive, inCollection }: {
 }) {
   const { send, cmd, error, busy } = useCommand();
   const inTeam = team.some((t) => t.id === mon.id);
-  const used = new Set(team.map((t) => t.slot).filter((s): s is number => typeof s === "number"));
-  const free = Array.from({ length: TEAM_SLOTS }, (_, i) => i).find((i) => !used.has(i));
+  if (isActive && !cmd && !error) return null;
   return (
     <div className="mon-actions">
-      {inTeam ? (
-        <>
-          {!isActive && (
-            <button type="button" className="small" disabled={busy}
-              onClick={() => void send(accountId, "team.active", { pokemon_id: mon.id })}>
-              Tornar ativo
-            </button>
-          )}
-          {!isActive && (
-            <>
-              <button type="button" className="ghost small" disabled={busy}
-                title="Sai da equipe e fica guardado: a venda do Depot não leva"
-                onClick={() => void send(accountId, "team.move", { pokemon_id: mon.id, slot: null, to: "colecao" })}>
-                Tirar para a Coleção
-              </button>
-              <button type="button" className="ghost small" disabled={busy}
-                title="Sai da equipe e entra na próxima venda do Depot"
-                onClick={() => void send(accountId, "team.move", { pokemon_id: mon.id, slot: null, to: "depot" })}>
-                Tirar para o Depot
-              </button>
-            </>
-          )}
-        </>
-      ) : (
-        <button type="button" className="small" disabled={busy || free === undefined}
-          title={free === undefined ? "A equipe está cheia: tire alguém antes" : undefined}
-          onClick={() => void send(accountId, "team.move", { pokemon_id: mon.id, slot: free })}>
-          Pôr na equipe
+      {inTeam && !isActive && (
+        <button type="button" className="small" disabled={busy}
+          onClick={() => void send(accountId, "team.active", { pokemon_id: mon.id })}>
+          Tornar ativo
         </button>
       )}
       {!inTeam && inCollection !== undefined && (
@@ -104,7 +82,7 @@ export function TeamTrainCard({ accountId, plugins, team }: { accountId: string;
         {on && <button type="button" className="ghost" disabled={busy} onClick={() => apply(false)}>Desligar</button>}
       </div>
       {team.length < TEAM_SLOTS && (
-        <p className="small muted" style={{ margin: 0 }}>A equipe tem {team.length} de {TEAM_SLOTS}: complete na aba Pokémons.</p>
+        <p className="small muted" style={{ margin: 0 }}>A equipe tem {team.length} de {TEAM_SLOTS}: complete em Montar equipe, na aba Pokémons.</p>
       )}
       <CommandStatus cmd={cmd} error={error} />
     </section>
