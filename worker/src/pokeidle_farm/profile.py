@@ -84,6 +84,7 @@ EXTRA_KEYS = (
 LOJA_KEYS = ("vip", "vipAte", "looktype", "gender", "visual")
 EXTRA_MAX_BYTES = 20_000
 TOP_POKEMON = 24  # destaques da coleção: os mais fortes
+TOP_PER_SPECIES = 3  # fora da equipe, no máximo 3 de cada espécie (senão viram 24 Brave Steelix)
 MAX_SHINIES = 60
 
 
@@ -200,7 +201,7 @@ class ProfileState:
             "dex_seen": len(self.pokedex),
             "dex_caught": caught,
             "team": team,
-            "top_pokemon": strongest[:TOP_POKEMON],
+            "top_pokemon": _varied(strongest, TOP_POKEMON),
             "shinies": shinies[:MAX_SHINIES],
             "items": _positive(est.get("items")),
             "balls": _positive(est.get("balls")),
@@ -273,3 +274,19 @@ def _ms_to_iso(value: Any) -> str | None:
     if not isinstance(value, int | float) or isinstance(value, bool) or value <= 0:
         return None
     return datetime.fromtimestamp(value / 1000, UTC).isoformat()
+
+
+def _varied(strongest: list[dict[str, Any]], n: int) -> list[dict[str, Any]]:
+    """Os mais fortes, com no máximo TOP_PER_SPECIES de cada espécie fora da equipe."""
+    out: list[dict[str, Any]] = []
+    seen: dict[Any, int] = {}
+    for p in strongest:
+        if p.get("slot") is None:
+            key = p.get("species_id") or p.get("name")
+            if seen.get(key, 0) >= TOP_PER_SPECIES:
+                continue
+            seen[key] = seen.get(key, 0) + 1
+        out.append(p)
+        if len(out) >= n:
+            break
+    return out
