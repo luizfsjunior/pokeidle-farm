@@ -83,11 +83,48 @@ async def test_death_in_hunt_heals_at_center_and_restores_the_active():
 async def test_no_heal_without_survival_items():
     p, actions, state, clock = await _plugin()
     state.items = {"200": 0, "205": 0}
+    for m in state.team:
+        m["hp"] = 0
     state.in_center = True
     await p.check()
     clock[0] += 60
     await p.check()
     assert actions.sent == []
+
+
+async def test_healed_but_still_in_center_goes_back_to_the_hunt():
+    # 19/11 10:15: curada, mas o jogo não voltou sozinho; a vigia curava de novo a cada minuto
+    p, actions, state, clock = await _plugin()
+    state.in_center = True
+    await p.check()
+    clock[0] += 25
+    await p.check()
+    assert actions.sent == [{"t": "hunt.select", "slug": "brave_steelix"}]
+    assert ("watchdog.back_to_hunt", {"hunt_slug": "brave_steelix"}) in actions.notes
+
+
+async def test_hold_lets_through_a_return_to_the_same_hunt():
+    from datetime import UTC, datetime, timedelta
+
+    from pokeidle_farm.actions import ActionGateway, ActionMode, HuntSelect
+
+    sent: list[dict[str, Any]] = []
+
+    async def send(msg: dict[str, Any]) -> None:
+        sent.append(msg)
+
+    gw = ActionGateway(account_id="a", mode=ActionMode.ENABLED, send=send)
+    gw.hold(
+        "hunt.select", datetime.now(UTC) + timedelta(hours=1), "capture_target", "brave_steelix"
+    )
+    await gw.submit(HuntSelect(slug="brave_steelix"), source="watchdog")
+    assert sent == [{"t": "hunt.select", "slug": "brave_steelix"}]
+    try:
+        await gw.submit(HuntSelect(slug="meowth"), source="watchdog")
+    except ActionBlocked as exc:
+        assert "hold" in exc.reason
+    else:
+        raise AssertionError("trocar de hunt furou a trava")
 
 
 async def test_does_not_touch_an_active_chosen_by_someone_else():

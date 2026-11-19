@@ -4,7 +4,9 @@ Sempre ligado. Resolve o que deixou a luizfsjunior_1 parada a noite de 18 para 1
 
 - **Pokécenter com a equipe caída.** O jogo leva a conta para o Pokécenter quando a equipe cai e
   não volta sozinho se faltarem itens (`autoHuntSemItens`). Com poção e revive na bolsa, a vigia
-  pede `centro.curar`. Com a equipe de pé e `autoVoltarHunt`, o jogo volta para a hunt.
+  pede `centro.curar`. Com a equipe já de pé, manda `hunt.select` da hunt de antes: o jogo nem
+  sempre volta sozinho depois da cura (19/11: curada às 10:15, parada no centro até 11:00, com a
+  vigia curando de novo a cada minuto).
 - **O ativo trocado pela morte.** Na morte, o jogo põe no ativo o próximo da equipe que estiver de
   pé (um Magikarp nv 3 no lugar do Venusaur nv 397). Fora do Pokécenter, a vigia devolve o ativo
   de antes da morte, se ele estiver vivo. Só isso: não mexe num ativo que o usuário ou o
@@ -27,7 +29,7 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..actions import ActionBlocked, CenterHeal, TeamActive
+from ..actions import ActionBlocked, CenterHeal, HuntSelect, TeamActive
 from ..events import Event
 from .base import Plugin, PluginContext
 
@@ -144,9 +146,12 @@ class WatchdogPlugin(Plugin):
             if (
                 now - self.center_since >= self.cfg.heal_after_s
                 and now - self.last_heal >= self.cfg.heal_every_s
-                and self._has_survival_items()
             ):
-                await self._heal()
+                if self._team_down():
+                    if self._has_survival_items():
+                        await self._heal()
+                else:
+                    await self._back_to_hunt()
             return
         self.center_since = None
         await self._maybe_restore_active()
@@ -169,6 +174,24 @@ class WatchdogPlugin(Plugin):
             await self.ctx.actions.note("watchdog.heal_blocked", {"reason": exc.reason})
             return
         await self.ctx.actions.note("watchdog.heal", {"hunt_slug": self.ctx.state.hunt_slug})
+
+    def _team_down(self) -> bool:
+        """Ninguém de pé na equipe (hp conhecido e zero em todos)."""
+        hps = [m.get("hp") for m in self._team() if isinstance(m.get("hp"), int | float)]
+        return not hps or all(hp <= 0 for hp in hps)
+
+    async def _back_to_hunt(self) -> None:
+        self.last_heal = self.clock()
+        slug = self.ctx.state.hunt_slug
+        if not slug or slug == "centro":
+            return
+        try:
+            # a trava da hunt (hunt_hold, capture_target) deixa passar a volta para a mesma hunt
+            await self.ctx.actions.submit(HuntSelect(slug=slug), source=self.name)
+        except ActionBlocked as exc:
+            await self.ctx.actions.note("watchdog.back_blocked", {"reason": exc.reason})
+            return
+        await self.ctx.actions.note("watchdog.back_to_hunt", {"hunt_slug": slug})
 
     async def _maybe_restore_active(self) -> None:
         want = self.active_before_death
