@@ -16,6 +16,7 @@ import { usePanel } from "@/lib/query/hooks";
 import type { Atlas } from "@/lib/sprites";
 import { TeamBuilder, toggleInDraft, useDraft } from "./TeamBuilder";
 import { MonActions } from "./TeamControls";
+import { SellDepot } from "./SellDepot";
 
 const PAGE = 60;
 
@@ -87,6 +88,7 @@ export function Collection({ accountId, profile, atlas, looktypes }: {
             <button type="button" className="small" style={{ marginBottom: ".8rem" }} disabled={!draft}
               onClick={() => setBuilding(true)}>Montar equipe</button>
           )}
+          <SellDepot accountId={accountId} depot={all.filter((m) => placeOf(m) === "depot")} />
           <div className="coll-controls">
             <input type="search" placeholder="Nome ou apelido" value={text} onChange={(e) => { setText(e.target.value); setLimit(PAGE); }} />
             <div className="segmented" role="radiogroup" aria-label="Local">
@@ -139,7 +141,8 @@ export function Collection({ accountId, profile, atlas, looktypes }: {
 
       {sheetMon && (
         <MonSheet mon={sheetMon} atlas={atlas} looktypes={looktypes} active={sheetMon.id === profile.active_pokemon_id} onClose={() => setOpen(null)}>
-          <MonActions accountId={accountId} mon={sheetMon} team={profile.team} isActive={sheetMon.id === profile.active_pokemon_id} />
+          <MonActions accountId={accountId} mon={sheetMon} team={profile.team} isActive={sheetMon.id === profile.active_pokemon_id}
+            inCollection={!!sheetMon.in_collection} />
         </MonSheet>
       )}
     </Panel>

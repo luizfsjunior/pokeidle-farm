@@ -152,3 +152,62 @@ async def test_apply_waits_for_a_break_in_combat_before_going_to_the_center(rig)
     c = await rig.cmd(acc, "team.apply", team=[1, 2], active=1)
     assert c["status"] == "done", c
     assert [w["t"] for w in game.sent].count("centro.ir") == 1  # esperou a folga e mandou uma vez
+
+
+class _Prof:
+    def __init__(self, mons: dict[int, dict[str, Any]]) -> None:
+        self.profile = SimpleNamespace(pokemons=mons, ready=True)
+
+
+def _with_mons(rig, game: Game, mons: dict[int, dict[str, Any]]) -> None:  # type: ignore[no-untyped-def]  # noqa: F811
+    s = rig.sessions[0]
+    s.plugins.running["profile"] = _Prof(mons)
+    orig = game.submit
+
+    async def submit(action, *, source):  # type: ignore[no-untyped-def]
+        await orig(action, source=source)
+        w = action.to_wire()
+        if w["t"] == "colecao.mover":
+            mons[w["pokemonId"]]["colecao"] = w["para"] == "colecao"
+        elif w["t"] == "shop.sellAllPokemons":
+            for pid in [
+                p for p, m in mons.items() if m.get("slot") is None and not m.get("colecao")
+            ]:
+                del mons[pid]
+
+    game.submit = submit  # type: ignore[method-assign]
+
+
+async def test_who_leaves_the_team_goes_to_the_collection(rig):  # noqa: F811
+    acc = farm(rig.store, "farm1")
+    await rig.boot()
+    game = Game([{"id": 1, "slot": 0}, {"id": 2, "slot": 1}], active=1, hunt="h")
+    mons = {1: {"id": 1, "slot": 0}, 2: {"id": 2, "slot": 1}, 7: {"id": 7, "slot": None}}
+    await _wire(rig, game)
+    _with_mons(rig, game, mons)
+    c = await rig.cmd(acc, "team.apply", team=[1, 7], active=1)
+    assert c["status"] == "done", c
+    assert mons[2]["colecao"] is True and not mons[7].get("colecao")
+
+
+async def test_depot_sell_guards(rig):  # noqa: F811
+    acc = farm(rig.store, "farm1")
+    await rig.boot()
+    game = Game([{"id": 1, "slot": 0}], active=1, hunt="h")
+    mons = {
+        1: {"id": 1, "slot": 0},
+        2: {"id": 2, "slot": None, "colecao": True},
+        3: {"id": 3, "slot": None},
+        4: {"id": 4, "slot": None, "shiny": True},
+    }
+    await _wire(rig, game)
+    _with_mons(rig, game, mons)
+    c = await rig.cmd(acc, "depot.sell", expected=1)
+    assert c["status"] == "failed" and "tem 2" in c["error"]
+    c = await rig.cmd(acc, "depot.sell", expected=2)
+    assert c["status"] == "failed" and "shiny" in c["error"]
+    c = await rig.cmd(acc, "collection.move", pokemon_id=4, to="colecao")
+    assert c["status"] == "done", c
+    c = await rig.cmd(acc, "depot.sell", expected=1)
+    assert c["status"] == "done" and c["result"]["sold"] == 1
+    assert set(mons) == {1, 2, 4}
