@@ -30,6 +30,8 @@ from .store.base import AccountRecord, CommandRecord, Store
 log = logging.getLogger(__name__)
 
 MAX_FARM_ACCOUNTS = 4  # Termos, seção 5: 4 por pessoa; a pessoal também roda no worker (ADR 0014)
+# quanto o comando do painel espera o jogo mostrar o efeito (conta-v2.md, seção 2)
+CONFIRM_TIMEOUT_S = 4.0
 
 
 class SessionLike(Protocol):
@@ -194,18 +196,39 @@ class Supervisor:
             applied = await self.live[acc.id].session.restart_plugin(p.plugin)
         return {"enabled": enabled, "applied": "agora" if applied else "na próxima conexão"}
 
-    async def _send_now(self, acc: AccountRecord, action: Any) -> dict[str, Any]:
-        """Manda uma ação do painel pela sessão da conta (precisa estar conectada)."""
+    async def _send_now(
+        self,
+        acc: AccountRecord,
+        action: Any,
+        confirm: Callable[[Any], bool] | None = None,
+        timeout_s: float = CONFIRM_TIMEOUT_S,
+    ) -> dict[str, Any]:
+        """Manda uma ação do painel pela sessão da conta (precisa estar conectada).
+
+        Com `confirm(state_view)`, o comando só fica "feito" quando o estado que volta do jogo
+        mostra o efeito; se o jogo responder com um aviso ou erro, falha com o texto dele
+        (docs/design/conta-v2.md, seção 2).
+        """
         live = self.live.get(acc.id)
-        gateway = getattr(live.session, "gateway", None) if live else None
+        session = live.session if live else None
+        gateway = getattr(session, "gateway", None)
         if not self._is_running(acc.id) or gateway is None:
             raise CommandError("a conta não está conectada")
+        since = time.monotonic()
         try:
             await gateway.submit(action, source="panel")
         except ActionBlocked as exc:
             wait = f" (tente em {exc.wait_s:.0f} s)" if exc.wait_s else ""
             raise CommandError(f"bloqueado: {exc.reason}{wait}") from exc
-        return {"sent": action.to_wire()}
+        out: dict[str, Any] = {"sent": action.to_wire()}
+        waiter = getattr(session, "confirm", None)
+        if confirm is not None and waiter is not None:
+            view = session.state_view
+            problem = await waiter(lambda: confirm(view), since, timeout_s)
+            if problem is not None:
+                raise CommandError(f"o jogo não fez: {problem}")
+            out["confirmed"] = True
+        return out
 
     def _check_hunt_level(self, acc: AccountRecord, slug: str) -> None:
         """O jogo tranca hunt acima do nível do treinador: recusa antes de gravar a trava."""
@@ -226,7 +249,12 @@ class Supervisor:
             p = TeamActiveParams.model_validate(params)
         except ValidationError as exc:
             raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
-        return await self._send_now(acc, TeamActive(pokemon_id=p.pokemon_id))
+        pid = p.pokemon_id
+        return await self._send_now(
+            acc,
+            TeamActive(pokemon_id=pid),
+            confirm=lambda v: (v.active_pokemon or {}).get("id") == pid,
+        )
 
     async def _team_move(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Põe o pokémon num slot da equipe, ou tira (slot null)."""
@@ -234,7 +262,13 @@ class Supervisor:
             p = TeamMoveParams.model_validate(params)
         except ValidationError as exc:
             raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
-        return await self._send_now(acc, TeamMove(pokemon_id=p.pokemon_id, slot=p.slot))
+        pid, slot = p.pokemon_id, p.slot
+
+        def done(v: Any) -> bool:
+            team = {m.get("id"): m.get("slot") for m in (v.team or [])}
+            return pid not in team if slot is None else team.get(pid) == slot
+
+        return await self._send_now(acc, TeamMove(pokemon_id=pid, slot=slot), confirm=done)
 
     async def _hunt_select(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Hunt escolhida pelo painel, travada por `hours` (plugin hunt_hold; painel-fase-3.md)."""

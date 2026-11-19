@@ -603,4 +603,10 @@ class Translator:
             return self._ev("pokecenter", PokecenterData(reason=ev.get("motivo")), ev)
         if k == "ataque":
             return self._ev("attack", {"slot": ev.get("slot"), "hp": ev.get("hpAlvo")}, ev)
+        if k == "aviso":
+            # o texto do aviso diz por que o jogo recusou uma ação ("acesse o Depot no Centro
+            # Pokemon de Cerulean"); antes ia só o tipo (docs/design/conta-v2.md, seção 2)
+            return self._ev(
+                "game.notice", {"msg": ev.get("msg"), "params": ev.get("params") or None}, ev
+            )
         return self._ev(f"battle.{k}", {}, ev)
