@@ -131,7 +131,9 @@ Depois de uma rejeição, o DiuleJR espera 5 min antes de tentar de novo. Em que
 | `compra` | — | confirmação de `shop.buy` |
 | `venda` | — | confirmação de venda |
 
-Também aparecem `aviso`, `marketComprado` e `mktSorteio`, relacionados ao Mercado.
+Também aparecem `aviso`, `marketComprado` e `mktSorteio`, relacionados ao Mercado. O `aviso` dentro de `batalha` (`{"k":"aviso","msg":...}`) é a resposta do jogo a uma ação recusada; o worker grava como `game.notice` com o texto (19/11).
+
+**Depot e Coleção (19/11).** Não existe lista separada do depot: ele é `estado.pokemons` com `slot` nulo (menos o ativo). O welcome já traz todos; o `pkMud` e o `pkFora` mantêm a lista. O botão do Depot (`#centro-depot`) só aparece no Pokécenter, e é por isso que `team.move` só funciona lá.
 
 ## Mensagens cliente → servidor
 
@@ -156,7 +158,10 @@ Também aparecem `aviso`, `marketComprado` e `mktSorteio`, relacionados ao Merca
 | `market.comprar` | `id`, `qtd`, `preco`, `moeda` | comprar um anúncio | ⬜ |
 | `pokemon.evoluir` | `pokemonId`, `alvoId` (espécie de destino) | evolui o pokémon: o servidor confere o nível e gasta a pedra do tipo. A espécie nova chega pelo `estado`. ✅ Enviado pelo worker em 17/11/2026 (plugin `evolve`): Charmander → Charmeleon no nível 55, com Fire Stone | ✅ (worker) |
 | `team.active` | `pokemonId` | troca o pokémon ativo (o de batalha). Lido do `app.js` em 17/11; enviado pelo plugin `team_train` e pelo painel | 🟡 (app.js) |
-| `team.move` | `pokemonId`, `slot` (0 a 4, ou `null` para tirar) | põe o pokémon num slot da equipe ou tira. Lido do `app.js` em 17/11; enviado pelo painel | 🟡 (app.js) |
+| `team.move` | `pokemonId`, `slot` (0 a 4, ou `null` para tirar) | põe o pokémon num slot da equipe ou tira. **Só no Pokécenter** (o Depot é um botão do centro): fora dele o jogo responde `{"k":"aviso","msg":"acesse o Depot no Centro Pokemon de Cerulean"}` e não muda nada (visto em 18/11). Enviado pelo painel | ✅ (18/11) |
+| `centro.ir` | — | vai da hunt para o Pokécenter de Cerulean (o botão "Ir ao Centro"). Lido do `app.js` em 19/11 | 🟡 (app.js) |
+| `centro.curar` | — | cura a equipe no Pokécenter (Enfermeira Joy). Com a equipe de pé e `automation.autoVoltarHunt`, o jogo volta para a hunt. Enviado pela vigia (`watchdog`) e pelo comando `center.heal` | 🟡 (app.js) |
+| `colecao.mover` | `pokemonId`, `para` | marca o pokémon como da Coleção ou do Depot (é uma marca: ele não muda de lugar). Lido do `app.js` em 19/11 | 🟡 (app.js) |
 | `boss.entrar` / `boss.auto` / `boss.sair` | `key` (o boss); `boss.auto` também `ativo` | entra no boss (gasta 1 Bronze Boss Token), liga ou desliga a repetição automática, sai. Lido do `app.js` em 17/11, sem uso ainda | ⬜ |
 | `outland.tier` | `tier` | escolhe o tier da Outland. Lido do `app.js` em 17/11, sem uso ainda | ⬜ |
 | `orbs.painel` | — | carteira de Gemas (somente leitura) | ⬜ |
