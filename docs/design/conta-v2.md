@@ -51,8 +51,14 @@ que muda no worker, no banco e no painel.
   5. define o ativo, volta para a hunt e retoma os plugins.
 - O painel acompanha passo a passo. Se algo falhar no meio, o worker volta para a hunt e diz o que entrou e o que não.
 - Tornar ativo continua instantâneo, porque o jogo aceita fora do Depot.
-- **A levantar no código do jogo:** as mensagens de ir ao Pokécenter de Cerulean e de abrir o Depot (teleporte ou
-  caminho), se as trocas pedem uma ordem, e como o depot é entregue (páginas, filtros).
+- **Levantado no código do jogo (19/11):**
+  - o Depot não é um lugar para onde se anda: é um botão do Pokécenter, e `team.move` só funciona com a conta no
+    Pokécenter;
+  - `centro.ir` leva da hunt ao Pokécenter de Cerulean, e `hunt.select` volta;
+  - a lista do depot já vem inteira no estado (`estado.pokemons` com `slot` nulo), sem páginas.
+
+  O "Aplicar" fica assim: `centro.ir`, esperar o campo do centro, fazer os `team.move`, o `team.active` e o
+  `hunt.select` da hunt de antes.
 
 ## 4. Gasto do restock por orçamento, não por teto fixo
 
