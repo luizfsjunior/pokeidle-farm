@@ -356,3 +356,30 @@ async def test_hunt_above_trainer_level_is_refused(rig):
     assert c["status"] == "failed" and "pede nível 470" in c["error"]
     c = await rig.cmd(acc, "hunt.select", slug="brave_tyranitar", hours=2)
     assert c["status"] == "done"
+
+
+async def test_team_move_fails_with_the_game_notice(rig):
+    from types import SimpleNamespace
+
+    acc = farm(rig.store, "farm1")
+    await rig.boot()
+    s = rig.sessions[0]
+    s.state_view = SimpleNamespace(
+        team=[{"id": 7, "slot": 0}, {"id": 8, "slot": 1}], active_pokemon={"id": 7}
+    )  # type: ignore[attr-defined]
+
+    async def confirm(check, since, within):
+        return None if check() else "acesse o Depot no Centro Pokemon de Cerulean"
+
+    s.confirm = confirm  # type: ignore[attr-defined]
+
+    class Gateway:
+        async def submit(self, action, *, source):  # type: ignore[no-untyped-def]
+            pass
+
+    s.gateway = Gateway()  # type: ignore[attr-defined]
+    c = await rig.cmd(acc, "team.move", pokemon_id=8, slot=None)
+    assert c["status"] == "failed" and "acesse o Depot" in c["error"]
+    s.state_view.team = [{"id": 7, "slot": 0}]  # o jogo tirou: agora confirma
+    c = await rig.cmd(acc, "team.move", pokemon_id=8, slot=None)
+    assert c["status"] == "done" and c["result"]["confirmed"] is True

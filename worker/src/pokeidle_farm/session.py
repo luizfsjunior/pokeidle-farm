@@ -14,6 +14,8 @@ import asyncio
 import contextlib
 import logging
 import random
+import time
+from collections import deque
 from collections.abc import Callable
 from enum import StrEnum
 from typing import Any
@@ -84,6 +86,10 @@ class _Stop(Exception):
         self.reason = reason
 
 
+# avisos do jogo que não são resposta a uma ação (a próxima onda, praça cheia)
+AMBIENT_NOTICES = frozenset({"hunt.ondaEspera", "praca.cheia"})
+
+
 class _Retry(Exception):
     """Reconectar depois de `delay` segundos (None = backoff padrão)."""
 
@@ -117,6 +123,8 @@ class AccountSession:
         self._translator = Translator(account.id, uuid4())
         self._has_lease = False
         self._stopping = asyncio.Event()
+        # respostas recentes do jogo a ações (aviso e erro), para confirmar comandos do painel
+        self.replies: deque[tuple[float, str]] = deque(maxlen=20)
         self._wake = asyncio.Event()  # acorda o backoff (reconexão pedida)
         self._reconnect_requested = False
         self._online_limit_retries = 0
@@ -152,6 +160,30 @@ class AccountSession:
             await self.plugins.stop_all()
             await self.bus.close()
             await self._release_lease()
+
+    async def confirm(
+        self, check: Callable[[], bool], since: float, within: float = 4.0
+    ) -> str | None:
+        """Espera o estado mostrar o efeito de uma ação mandada em `since` (time.monotonic).
+
+        None quando confirmou; senão, o motivo: a resposta do jogo (aviso ou erro) ou "sem
+        confirmação". Um aviso só derruba se o efeito não aparecer logo depois dele (0,5 s),
+        porque o jogo também manda avisos que não têm a ver com a ação.
+        """
+        deadline = since + within
+        reply_at: float | None = None
+        while True:
+            if check():
+                return None
+            now = time.monotonic()
+            reply = next(((t, m) for t, m in reversed(self.replies) if t >= since), None)
+            if reply is not None:
+                reply_at = reply_at or now
+                if now - reply_at >= 0.5:
+                    return reply[1]
+            if now >= deadline:
+                return reply[1] if reply else "sem confirmação do jogo"
+            await asyncio.sleep(0.1)
 
     def stop(self) -> None:
         self._stopping.set()
@@ -311,11 +343,15 @@ class AccountSession:
                 continue
             if isinstance(msg, GameError):
                 self._raise_for_error(msg)
+                self.replies.append((time.monotonic(), f"erro do jogo: {msg.chave}"))
                 await self.bus.publish(self._translator.system("game.error", {"key": msg.chave}))
                 continue
             events = self._translator.translate(msg, raw)
             for ev in events:
                 self.state_view.apply(ev)
+                if ev.type == "game.notice" and isinstance(ev.data.get("msg"), str):
+                    if ev.data["msg"] not in AMBIENT_NOTICES:
+                        self.replies.append((time.monotonic(), ev.data["msg"]))
             self.state_view.server_offset = self._translator.server_offset
             self.state_view.active_pokemon = self._translator.active_profile()
             self.state_view.team = self._translator.team()
