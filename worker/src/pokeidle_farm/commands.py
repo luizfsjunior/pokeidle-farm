@@ -22,16 +22,22 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .actions import ActionBlocked, CenterHeal, TeamActive, TeamMove
+from .actions import ActionBlocked, CenterGo, CenterHeal, HuntSelect, TeamActive, TeamMove
 from .events import Event
 from .plugins.base import Plugin
 from .store.base import AccountRecord, CommandRecord, Store
+from .team_apply import TEAM_SLOTS, Step, plan_moves, team_by_slot
 
 log = logging.getLogger(__name__)
 
 MAX_FARM_ACCOUNTS = 4  # Termos, seção 5: 4 por pessoa; a pessoal também roda no worker (ADR 0014)
 # quanto o comando do painel espera o jogo mostrar o efeito (conta-v2.md, seção 2)
 CONFIRM_TIMEOUT_S = 4.0
+# comandos que demoram mais que o teto geral do CommandLoop
+LONG_TIMEOUTS_S = {"team.apply": 300.0}
+# o que ninguém além do team.apply manda enquanto ele monta a equipe
+APPLY_HOLDS = ("hunt.select", "centro.ir", "centro.curar", "team.move", "team.active", "auto.set")
+APPLY_OWNER = "team_apply"
 
 
 class SessionLike(Protocol):
@@ -276,6 +282,111 @@ class Supervisor:
             acc, CenterHeal(), confirm=lambda v: v.in_center is False, timeout_s=8.0
         )
 
+    async def _step(
+        self,
+        session: Any,
+        action: Any,
+        check: Callable[[Any], bool],
+        *,
+        within: float = CONFIRM_TIMEOUT_S,
+        tries: int = 1,
+    ) -> None:
+        """Manda uma ação do team.apply e espera o efeito; espera o intervalo do gateway se preciso."""
+        view = session.state_view
+        problem: str | None = None
+        attempt = 0
+        while attempt < tries:
+            since = time.monotonic()
+            try:
+                await session.gateway.submit(action, source=APPLY_OWNER)
+            except ActionBlocked as exc:
+                if exc.wait_s is not None and exc.wait_s <= 30:
+                    await asyncio.sleep(exc.wait_s + 0.2)
+                    continue
+                raise CommandError(f"{action.name} bloqueado: {exc.reason}") from exc
+            attempt += 1
+            problem = await session.confirm(lambda: check(view), since, within)
+            if problem is None:
+                return
+        raise CommandError(f"{action.name}: {problem}")
+
+    async def _team_apply(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Aplica a equipe montada no painel: centro, trocas, ativo e volta à hunt (conta-v2.md, 3)."""
+        try:
+            p = TeamApplyParams.model_validate(params)
+        except ValidationError as exc:
+            raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
+        live = self.live.get(acc.id)
+        session = live.session if live else None
+        gateway = getattr(session, "gateway", None)
+        view = getattr(session, "state_view", None)
+        if not self._is_running(acc.id) or gateway is None or view is None:
+            raise CommandError("a conta não está conectada")
+        ids = [x for x in p.team if x is not None]
+        if len(set(ids)) != len(ids):
+            raise CommandError("o mesmo pokémon está em duas vagas")
+        if p.active not in ids:
+            raise CommandError("o ativo tem que estar na equipe")
+
+        current = team_by_slot(view.team)
+        active = (view.active_pokemon or {}).get("id")
+        target = [*p.team, *[None] * (TEAM_SLOTS - len(p.team))]
+        plan = plan_moves(current, active, target, p.active)
+        if not plan:
+            return {"steps": [], "detail": "a equipe já está assim"}
+
+        back = view.hunt_slug if not view.in_center else None
+        saved = {a: gateway.holds[a] for a in APPLY_HOLDS if a in gateway.holds}
+        until = datetime.now(UTC) + timedelta(minutes=6)
+        for a in APPLY_HOLDS:
+            gateway.hold(a, until, APPLY_OWNER, "montar equipe")
+        done: list[str] = []
+        failure: str | None = None
+        try:
+            await gateway.note("team.apply.started", {"steps": [s.label() for s in plan]})
+            if not view.in_center:
+                await self._step(
+                    session, CenterGo(), lambda v: v.in_center is True, within=6.0, tries=8
+                )
+                done.append("foi ao centro")
+            for st in plan:
+                await self._step(session, *self._apply_action(st), within=6.0, tries=2)
+                done.append(st.label())
+        except CommandError as exc:
+            failure = str(exc)
+        finally:
+            if back:
+                try:
+                    await self._step(
+                        session,
+                        HuntSelect(slug=back),
+                        lambda v: v.in_center is False,
+                        within=8.0,
+                        tries=4,
+                    )
+                    done.append(f"voltou para {back}")
+                except CommandError as exc:
+                    failure = failure or str(exc)
+                    done.append(f"não voltou para {back}")
+            gateway.release(APPLY_OWNER)
+            gateway.holds.update(saved)
+            await gateway.note("team.apply.finished", {"done": done, "failed": failure is not None})
+        if failure is not None:
+            raise CommandError(f"{failure}. Feito: {', '.join(done) or 'nada'}")
+        return {"steps": done, "back": back}
+
+    @staticmethod
+    def _apply_action(st: Step) -> tuple[Any, Callable[[Any], bool]]:
+        pid, slot = st.pokemon_id, st.slot
+        if st.kind == "active":
+            return TeamActive(pokemon_id=pid), lambda v: (v.active_pokemon or {}).get("id") == pid
+
+        def placed(v: Any) -> bool:
+            team = team_by_slot(v.team)
+            return pid not in team.values() if slot is None else team.get(slot) == pid
+
+        return TeamMove(pokemon_id=pid, slot=slot), placed
+
     async def _hunt_select(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Hunt escolhida pelo painel, travada por `hours` (plugin hunt_hold; painel-fase-3.md)."""
         try:
@@ -409,6 +520,13 @@ class TeamMoveParams(BaseModel):
     slot: int | None = Field(None, ge=0, le=5)
 
 
+class TeamApplyParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    team: list[int | None] = Field(min_length=1, max_length=TEAM_SLOTS)  # ids por vaga, da 1 à 5
+    active: int = Field(gt=0)
+
+
 class HuntSelectParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -460,6 +578,7 @@ _HANDLERS: dict[str, Handler] = {
     "team.active": Supervisor._team_active,
     "team.move": Supervisor._team_move,
     "center.heal": Supervisor._center_heal,
+    "team.apply": Supervisor._team_apply,
 }
 
 
@@ -524,15 +643,16 @@ class CommandLoop:
     async def _execute(self, cmd: CommandRecord) -> None:
         start = self.clock()
         status, result, error = "done", None, None
+        limit = LONG_TIMEOUTS_S.get(cmd.type, self.timeout_s)
         if self._rate_limited(cmd.account_id):
             status, error = "failed", "rate_limited: mais de 10 comandos por minuto"
         else:
             try:
-                result = await asyncio.wait_for(self.sup.execute(cmd), self.timeout_s)
+                result = await asyncio.wait_for(self.sup.execute(cmd), limit)
             except CommandError as exc:
                 status, error = "failed", str(exc)
             except TimeoutError:
-                status, error = "failed", f"timeout ({self.timeout_s:.0f} s)"
+                status, error = "failed", f"timeout ({limit:.0f} s)"
             except Exception as exc:  # bug num handler não derruba o loop
                 log.exception("comando %s falhou", cmd.type)
                 status, error = "failed", f"erro interno: {type(exc).__name__}"
