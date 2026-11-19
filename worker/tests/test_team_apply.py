@@ -61,8 +61,15 @@ class Game:
     """Gateway e estado de mentira: aplica as ações como o jogo faria."""
 
     def __init__(self, team: list[dict[str, Any]], active: int, hunt: str) -> None:
+        from datetime import UTC, datetime
+
         self.view = SimpleNamespace(
-            team=team, active_pokemon={"id": active}, hunt_slug=hunt, in_center=False
+            team=team,
+            active_pokemon={"id": active},
+            hunt_slug=hunt,
+            in_center=False,
+            combat_free_at=None,
+            server_now=lambda: datetime.now(UTC),
         )
         self.sent: list[dict[str, Any]] = []
         self.holds: dict[str, Any] = {}
@@ -82,7 +89,11 @@ class Game:
         self.sent.append(w)
         v = self.view
         if w["t"] == "centro.ir":
-            v.in_center = True
+            from datetime import UTC, datetime
+
+            # em combate o jogo recusa ("espere Xs sem tomar nem dar dano")
+            if v.combat_free_at is None or v.combat_free_at <= datetime.now(UTC):
+                v.in_center = True
         elif w["t"] == "hunt.select":
             v.in_center, v.hunt_slug = False, w["slug"]
         elif w["t"] == "team.active":
@@ -128,3 +139,16 @@ async def test_apply_rejects_an_active_outside_the_team(rig):  # noqa: F811
     await _wire(rig, Game([{"id": 1, "slot": 0}], active=1, hunt="x"))
     c = await rig.cmd(acc, "team.apply", team=[1], active=5)
     assert c["status"] == "failed" and "ativo" in c["error"]
+
+
+async def test_apply_waits_for_a_break_in_combat_before_going_to_the_center(rig):  # noqa: F811
+    from datetime import UTC, datetime, timedelta
+
+    acc = farm(rig.store, "farm1")
+    await rig.boot()
+    game = Game([{"id": 1, "slot": 0}], active=1, hunt="brave_steelix")
+    game.view.combat_free_at = datetime.now(UTC) + timedelta(seconds=0.4)
+    await _wire(rig, game)
+    c = await rig.cmd(acc, "team.apply", team=[1, 2], active=1)
+    assert c["status"] == "done", c
+    assert [w["t"] for w in game.sent].count("centro.ir") == 1  # esperou a folga e mandou uma vez

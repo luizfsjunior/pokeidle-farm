@@ -316,7 +316,8 @@ class CenterGo(ActionSpec):
     name: ClassVar[str] = "centro.ir"
     description: ClassVar[str] = "Vai ao Pokécenter de Cerulean (onde fica o Depot)"
     result_model: ClassVar[type[BaseModel]] = Ack
-    min_interval_s: ClassVar[float] = 5.0
+    # curto: quem manda espera a folga do combate, que dura poucos segundos entre ondas
+    min_interval_s: ClassVar[float] = 1.0
 
     def to_wire(self) -> dict[str, Any]:
         return {"t": "centro.ir"}

@@ -38,6 +38,9 @@ LONG_TIMEOUTS_S = {"team.apply": 300.0}
 # o que ninguém além do team.apply manda enquanto ele monta a equipe
 APPLY_HOLDS = ("hunt.select", "centro.ir", "centro.curar", "team.move", "team.active", "auto.set")
 APPLY_OWNER = "team_apply"
+# ir ao centro espera uma folga sem dano (estado.centroLivreEm, que cada golpe renova): entre ondas
+CENTER_DEADLINE_S = 150.0
+CENTER_MARGIN_S = 0.3
 
 
 class SessionLike(Protocol):
@@ -342,12 +345,12 @@ class Supervisor:
             gateway.hold(a, until, APPLY_OWNER, "montar equipe")
         done: list[str] = []
         failure: str | None = None
+        went = False
         try:
             await gateway.note("team.apply.started", {"steps": [s.label() for s in plan]})
             if not view.in_center:
-                await self._step(
-                    session, CenterGo(), lambda v: v.in_center is True, within=6.0, tries=8
-                )
+                await self._go_to_center(session)
+                went = True
                 done.append("foi ao centro")
             for st in plan:
                 await self._step(session, *self._apply_action(st), within=6.0, tries=2)
@@ -355,7 +358,7 @@ class Supervisor:
         except CommandError as exc:
             failure = str(exc)
         finally:
-            if back:
+            if back and went:
                 try:
                     await self._step(
                         session,
@@ -374,6 +377,35 @@ class Supervisor:
         if failure is not None:
             raise CommandError(f"{failure}. Feito: {', '.join(done) or 'nada'}")
         return {"steps": done, "back": back}
+
+    async def _go_to_center(self, session: Any) -> None:
+        """`centro.ir` só vale numa folga sem tomar nem dar dano (o `centroLivreEm`, que cada golpe
+        renova). Espera o fim da trava, manda e, se o jogo responder "em combate", espera a próxima
+        folga (entre ondas ela aparece), até CENTER_DEADLINE_S."""
+        view = session.state_view
+        deadline = time.monotonic() + CENTER_DEADLINE_S
+        problem = "sem folga no combate"
+        while time.monotonic() < deadline:
+            lock = getattr(view, "combat_free_at", None)
+            if lock is not None:
+                left = (lock - view.server_now()).total_seconds() + CENTER_MARGIN_S
+                if left > 0:
+                    await asyncio.sleep(min(left, 5.0))
+                    continue
+            since = time.monotonic()
+            try:
+                await session.gateway.submit(CenterGo(), source=APPLY_OWNER)
+            except ActionBlocked as exc:
+                if exc.wait_s is not None and exc.wait_s <= 30:
+                    await asyncio.sleep(exc.wait_s + 0.05)
+                    continue
+                raise CommandError(f"centro.ir bloqueado: {exc.reason}") from exc
+            got = await session.confirm(lambda: view.in_center is True, since, 3.0)
+            if got is None:
+                return
+            problem = got
+            await asyncio.sleep(0.5)
+        raise CommandError(f"centro.ir: {problem} (tentei por {CENTER_DEADLINE_S:.0f} s)")
 
     @staticmethod
     def _apply_action(st: Step) -> tuple[Any, Callable[[Any], bool]]:
