@@ -91,8 +91,44 @@ O foco XP escolhe a hunt por XP/h e gemas/h. Ele passa também a descartar a hun
 - consumo de poção alto demais ou morte recente naquele par ativo × hunt (medido, não simulado);
 - tipos desfavoráveis contra o ativo (a tabela de tipos que a ficha já usa), como critério de desempate.
 
+## 7. Revisão do que fica guardado (o Supabase não pode encher)
+
+O plano grátis tem 0,5 GB. Em 18/11 o banco passou disso: a tabela `events` era 96% do banco, e a maior parte era
+evento que nada lia. Em 19/11, às 09:20, ele já estava em 378 MB de novo: com o worker ainda sem rebuild, os
+`state.patch` somavam 144 MB por dia.
+
+**Regra para qualquer tabela nova:** antes de criar, dizer quantas linhas por dia ela ganha, quanto ocupa e quem lê.
+O que ninguém lê não se grava. O que muda o tempo todo é *atualizado* (upsert numa linha), não *acrescentado*.
+
+### Orçamento por tabela (4 contas)
+
+| Tabela | Como cresce | Guarda | Teto |
+|---|---|---|---|
+| `events` | ~40 mil linhas/dia sem `state.patch` (abates são 25 MB/dia) | abates, capturas e consumo: 4 dias; ruído: 2 dias; o resto: 30 dias | 200 MB |
+| `metric_hourly` | ~750 linhas/dia | tudo (é o histórico de verdade) | 30 MB/ano |
+| `market_prices` / `market_asks` | ~2 mil linhas/dia | 30 dias | 10 MB |
+| `commands` | ~30 linhas/dia | 30 dias (a criar) | 1 MB |
+| `account_profile` | 1 linha por conta, atualizada | a linha atual | 1 MB |
+| catálogo do jogo (`game_*`) | substituído a cada versão do jogo | a versão atual | 10 MB |
+| **novas:** estado ao vivo | 1 linha por conta, atualizada | a linha atual | < 1 MB |
+| **novas:** coleção / mochila | 1 linha por pokémon ou item, atualizada; sai quando o pokémon sai | o estado atual | 5 MB |
+
+O total previsto fica abaixo de 300 MB, com folga para crescer.
+
+### Cuidados
+
+- **O evento cru é o que mais enche.** Antes de gravar um tipo novo de evento por padrão, ele entra em
+  `NOT_PERSISTED` ou numa retenção curta, até alguém precisar dele.
+- **Apagar não diminui o arquivo.** O espaço apagado é reusado, mas o tamanho cobrado só cai com uma reescrita
+  (`VACUUM FULL` ou `CLUSTER`). Com retenção diária, o banco se estabiliza sem reescrita. Reescrever só quando o tamanho
+  já tiver passado do limite.
+- **Realtime não guarda nada,** mas cada atualização gera WAL. Por isso o estado ao vivo junta as mudanças em 1 a 2 s.
+- **Vigiar o tamanho.** Um cartão no painel mostra o tamanho do banco e das 5 maiores tabelas, com alerta a partir
+  de 400 MB. A limpeza diária grava quanto apagou.
+
 ## Ordem sugerida
 
+0. Rebuild do worker para parar o `state.patch` (seção 7).
 1. Comando confirmado pelo jogo e texto dos avisos (seção 2). É pequeno e corrige o "feito que não fez".
 2. Orçamento do restock e a vigia (seções 4 e 5). Evitam outra noite parada.
 3. Levantar no código do jogo as mensagens do Depot.
