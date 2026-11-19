@@ -125,6 +125,8 @@ class AccountSession:
         self._stopping = asyncio.Event()
         # respostas recentes do jogo a ações (aviso e erro), para confirmar comandos do painel
         self.replies: deque[tuple[float, str]] = deque(maxlen=20)
+        self._last_frame = time.monotonic()
+        self._silent = False
         self._wake = asyncio.Event()  # acorda o backoff (reconexão pedida)
         self._reconnect_requested = False
         self._online_limit_retries = 0
@@ -250,24 +252,34 @@ class AccountSession:
             raise _Retry(f"falha ao conectar: {exc!r}") from exc
 
         self._ws = ws
+        self._last_frame = time.monotonic()
+        self._silent = False
         lease_task = asyncio.create_task(self._renew_lease_loop(ws))
+        silence_task = asyncio.create_task(self._silence_watch(ws))
         try:
             await self._handshake(ws, token.token, token.device_id)
             await self._on_ready(ws)
             await self._receive_loop(ws)
+            if self._silent:
+                raise _Retry(f"conexão muda há {self.settings.silent_after_s:.0f} s", delay=1.0)
             if self._reconnect_requested:
                 raise _Retry("reconexão pedida", delay=1.0)
             if not self._stopping.is_set():
                 raise _Retry("conexão encerrada pelo servidor")
         except ConnectionClosed as exc:
+            if self._silent:
+                raise _Retry(
+                    f"conexão muda há {self.settings.silent_after_s:.0f} s", delay=1.0
+                ) from exc
             if self._reconnect_requested:
                 raise _Retry("reconexão pedida", delay=1.0) from exc
             if not self._stopping.is_set():
                 self._raise_for_close(exc)
         finally:
-            lease_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await lease_task
+            for task in (lease_task, silence_task):
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
             self.gateway.send = None
             self._ws = None
             await ws.close()
@@ -327,8 +339,21 @@ class AccountSession:
         configs = await self.store.plugin_configs(self.account.id)
         await self.plugins.start_all(self.bus, configs, self._make_ctx)
 
+    async def _silence_watch(self, ws: ClientConnection) -> None:
+        """Fecha a conexão que ficou aberta e muda (o jogo parou de mandar), para reconectar."""
+        limit = self.settings.silent_after_s
+        while True:
+            await asyncio.sleep(min(30.0, limit / 4))
+            quiet = time.monotonic() - self._last_frame
+            if quiet >= limit:
+                log.warning("[%s] conexão muda há %.0f s: reconectando", self.account.nick, quiet)
+                self._silent = True
+                await ws.close()
+                return
+
     async def _receive_loop(self, ws: ClientConnection) -> None:
         async for frame in ws:
+            self._last_frame = time.monotonic()
             if self._stopping.is_set():
                 return
             msg, raw = codec.decode(frame)

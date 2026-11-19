@@ -113,6 +113,8 @@ def test_translator_tracks_team_slots():
     assert [p["id"] for p in tr.team()] == [1, 2]
     tr._track_pokemon([{"id": 2, "level": 4, "slot": None}])  # saiu da equipe
     tr.pokemon_levels[1] = 357
-    assert tr.team() == [{"id": 1, "speciesId": 3, "level": 357, "slot": 0}]
+    assert [{k: m[k] for k in ("id", "speciesId", "level", "slot")} for m in tr.team()] == [
+        {"id": 1, "speciesId": 3, "level": 357, "slot": 0}
+    ]
     tr._drop_pokemon([1])
     assert tr.team() == []

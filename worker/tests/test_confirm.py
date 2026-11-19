@@ -37,6 +37,4 @@ async def test_confirm_reports_the_game_reply():
 async def test_confirm_ignores_old_replies_and_times_out():
     s = _session()
     s.replies.append((time.monotonic() - 10, "velho"))
-    assert (
-        await s.confirm(lambda: False, time.monotonic(), within=0.3) == "sem confirmação do jogo"
-    )
+    assert await s.confirm(lambda: False, time.monotonic(), within=0.3) == "sem confirmação do jogo"

@@ -22,7 +22,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .actions import ActionBlocked, TeamActive, TeamMove
+from .actions import ActionBlocked, CenterHeal, TeamActive, TeamMove
 from .events import Event
 from .plugins.base import Plugin
 from .store.base import AccountRecord, CommandRecord, Store
@@ -270,6 +270,12 @@ class Supervisor:
 
         return await self._send_now(acc, TeamMove(pokemon_id=pid, slot=slot), confirm=done)
 
+    async def _center_heal(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Cura a equipe no Pokécenter (`centro.curar`); confirma quando a conta sai do centro."""
+        return await self._send_now(
+            acc, CenterHeal(), confirm=lambda v: v.in_center is False, timeout_s=8.0
+        )
+
     async def _hunt_select(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Hunt escolhida pelo painel, travada por `hours` (plugin hunt_hold; painel-fase-3.md)."""
         try:
@@ -453,6 +459,7 @@ _HANDLERS: dict[str, Handler] = {
     "capture.stop": Supervisor._capture_stop,
     "team.active": Supervisor._team_active,
     "team.move": Supervisor._team_move,
+    "center.heal": Supervisor._center_heal,
 }
 
 

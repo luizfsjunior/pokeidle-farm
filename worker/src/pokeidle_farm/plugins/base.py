@@ -59,6 +59,8 @@ class AccountStateView:
     xp_event: dict[str, Any] | None = None
     season: dict[str, Any] | None = None  # estado.diaSazonal ({tipo, fim, chave})
     battle_pass: dict[str, Any] | None = None  # estado.passe ({degrau, ultimo, total...})
+    # no Pokécenter (estado.noCentro / campo do centro): a caça está parada até curar e voltar
+    in_center: bool | None = None
 
     def season_type(self, now: datetime | None = None) -> str | None:
         """O tipo do dia sazonal se ainda vale (no relógio do servidor)."""
@@ -83,13 +85,17 @@ class AccountStateView:
             free = _as_datetime(d.get("switch_free_at"))
             if free is not None:
                 self.switch_free_at = free
+            self.in_center = False
+            return
+        if event.type == "field.init":
+            self.in_center = bool(d.get("is_center"))
             return
         if event.type not in ("state.snapshot", "state.patch"):
             return
         lock = d.get("centro_livre_em")
         if isinstance(lock, int | float):
             self.combat_free_at = datetime.fromtimestamp(lock / 1000, UTC)
-        for name in ("level", "hunt_slug", "gold", "automation"):
+        for name in ("level", "hunt_slug", "gold", "automation", "in_center"):
             if d.get(name) is not None:
                 setattr(self, name, d[name])
         # bolas e itens: merge, porque um patch pode trazer só parte do mapa

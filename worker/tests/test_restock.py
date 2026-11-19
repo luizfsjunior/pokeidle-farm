@@ -240,7 +240,11 @@ async def test_respects_gold_reserve():
 
 
 async def test_respects_hourly_cap():
-    h = await Harness(items=[{"id": 205, "min": 25, "target": 40}], max_gold_per_hour=1_200).start()
+    h = await Harness(
+        items=[{"id": 205, "min": 25, "target": 40}],
+        max_gold_per_hour=1_200,
+        potions_uncapped=False,
+    ).start()
     await h.send_ev(ev("state.patch"))
     (buy,) = h.wires("shop.buy")
     assert buy["qty"] == 2
@@ -248,7 +252,7 @@ async def test_respects_hourly_cap():
     h.now = 120.0
     await h.send_ev(ev("state.patch"))
     assert len(h.wires("shop.buy")) == 1  # teto da hora já gasto
-    assert h.events("restock.failed")[-1]["reason"] == "sem_ouro"
+    assert h.events("restock.failed")[-1]["reason"] == "teto_hora"
     h.now = 3_700.0
     await h.send_ev(ev("state.patch"))
     assert len(h.wires("shop.buy")) == 2  # a hora passou
@@ -294,7 +298,10 @@ async def test_observe_only_reports_without_storm():
 
 async def test_late_confirmation_counts_toward_cap_and_blocks_rebuy():
     h = await Harness(
-        items=[{"id": 205, "min": 25, "target": 40}], confirm_timeout_s=15, max_gold_per_hour=20_000
+        items=[{"id": 205, "min": 25, "target": 40}],
+        confirm_timeout_s=15,
+        max_gold_per_hour=20_000,
+        potions_uncapped=False,
     ).start()
     await h.send_ev(ev("state.patch"))  # compra 20 revives (12.000)
     h.now = 16.0
@@ -326,7 +333,11 @@ async def test_late_window_expires():
 async def test_hourly_cap_survives_restart():
     from datetime import UTC, datetime, timedelta
 
-    h = Harness(items=[{"id": 205, "min": 25, "target": 40}], max_gold_per_hour=1_200)
+    h = Harness(
+        items=[{"id": 205, "min": 25, "target": 40}],
+        max_gold_per_hour=1_200,
+        potions_uncapped=False,
+    )
     now = datetime.now(UTC)
     for minutes_ago, spent in ((30, 1_200), (90, 50_000)):  # a de 90 min não conta
         h.ctx.store.events.append(
@@ -340,7 +351,7 @@ async def test_hourly_cap_survives_restart():
     await h.start()
     await h.send_ev(ev("state.patch"))
     assert h.wires("shop.buy") == []  # o teto já foi gasto antes do reinício
-    assert h.events("restock.failed")[-1]["reason"] == "sem_ouro"
+    assert h.events("restock.failed")[-1]["reason"] == "teto_hora"
     h.now = 31 * 60.0  # a compra de 30 min atrás sai da janela
     await h.send_ev(ev("state.patch"))
     assert h.wires("shop.buy")[0]["qty"] == 2
@@ -467,7 +478,10 @@ async def test_potions_uncapped_ignores_hourly_cap_but_not_reserve():
     await h.kills(1)
     assert h.wires("shop.buy")[0]["qty"] == 100  # 5.000 de ouro, acima do teto de 1.000/h
     capped = Harness(
-        focus="gold_xp_drop", max_gold_per_hour=1_000, items=[{"id": 200, "min": 50, "target": 100}]
+        focus="gold_xp_drop",
+        max_gold_per_hour=1_000,
+        potions_uncapped=False,
+        items=[{"id": 200, "min": 50, "target": 100}],
     )
     capped.state.items = {"200": 0}
     await capped.start()
@@ -483,3 +497,17 @@ async def test_potions_uncapped_ignores_hourly_cap_but_not_reserve():
     await poor.start()
     await poor.kills(1)
     assert poor.wires("shop.buy")[0]["qty"] == 20  # só os 1.000 acima da reserva
+
+
+async def test_out_of_gold_still_says_sem_ouro():
+    h = Harness(items=[{"id": 205, "min": 25, "target": 40}], gold_reserve=100_000)
+    await h.start()
+    await h.send_ev(ev("state.patch"))
+    assert h.wires("shop.buy") == []
+    assert h.events("restock.failed")[-1]["reason"] == "sem_ouro"
+
+
+async def test_survival_items_ignore_the_hourly_cap_by_default():
+    h = await Harness(items=[{"id": 205, "min": 25, "target": 40}], max_gold_per_hour=1).start()
+    await h.send_ev(ev("state.patch"))
+    assert h.wires("shop.buy")[0]["qty"] > 1

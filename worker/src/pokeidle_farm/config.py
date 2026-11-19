@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     # Sessão
     welcome_timeout_s: float = 15.0
     ping_interval_s: float = 30.0
+    # o jogo manda algo a cada poucos segundos (campo, vivo, patches); conexão aberta e muda por
+    # mais que isto é reconectada (18/11: a luizfsjunior ficou 4 h 30 assim; conta-v2.md, seção 5)
+    silent_after_s: float = 300.0
     ping_timeout_s: float = 60.0  # 30 s de intervalo + 60 s de espera ≈ 90 s sem resposta
     reconnect_min_s: float = 10.0
     reconnect_max_s: float = 300.0
