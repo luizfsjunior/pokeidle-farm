@@ -25,7 +25,17 @@ export function ProfileSections({ profile, atlas, looktypes, items, part = "all"
     .map(([id, qty]) => ({ id, qty, info: items.get(id) }))
     .sort((a, b) => (a.info?.category ?? "~").localeCompare(b.info?.category ?? "~") || b.qty - a.qty);
   const balls = Object.entries(profile.balls).sort(([a], [b]) => Number(a) - Number(b));
-  const highlights = profile.top_pokemon.filter((m) => !profile.team.some((t) => t.id === m.id)).slice(0, 12);
+  // no máximo 3 de cada espécie, senão a lista vira 12 Brave Steelix
+  const perSpecies = new Map<string, number>();
+  const highlights = profile.top_pokemon
+    .filter((m) => !profile.team.some((t) => t.id === m.id))
+    .filter((m) => {
+      const key = String(m.species_id ?? m.name ?? m.id);
+      const n = perSpecies.get(key) ?? 0;
+      perSpecies.set(key, n + 1);
+      return n < 3;
+    })
+    .slice(0, 12);
 
   const [open, setOpen] = useState<Mon | null>(null);
   // a ficha lê a versão mais nova do pokémon (o perfil recarrega a cada minuto)
