@@ -201,6 +201,7 @@ class StateSnapshotData(_Data):
     gold: int | None = None
     automation: dict[str, Any] | None = None
     top_catch: dict[str, Any] | None = None
+    in_center: bool | None = None  # estado.noCentro
 
 
 # Campos do patch `estado` que vão para `data` (o patch inteiro fica no `raw`).
@@ -214,6 +215,7 @@ PATCH_FIELDS = {
     "items": "items",
     "automation": "automation",
     "topCatch": "top_catch",
+    "noCentro": "in_center",
 }
 
 # Mensagens de alto volume: viram evento no barramento, mas não são gravadas.
@@ -240,7 +242,17 @@ NOT_PERSISTED = frozenset(
 
 
 # campos do pokémon no `estado` que o simulador de combate usa
-PROFILE_FIELDS = ("speciesId", "level", "xp", "maxHp", "ivs", "quality", "potencia", "shiny")
+PROFILE_FIELDS = (
+    "speciesId",
+    "level",
+    "xp",
+    "hp",
+    "maxHp",
+    "ivs",
+    "quality",
+    "potencia",
+    "shiny",
+)
 
 
 class Translator:
@@ -313,6 +325,9 @@ class Translator:
                         gold=estado.get("gold"),
                         automation=st.automation,
                         top_catch=estado.get("topCatch"),
+                        in_center=estado.get("noCentro")
+                        if isinstance(estado.get("noCentro"), bool)
+                        else None,
                     ),
                     # só o estado da conta; as tabelas do jogo (hunts, mercado...) não são gravadas
                     {"t": raw.get("t"), "estado": estado},
@@ -443,6 +458,8 @@ class Translator:
                     "speciesId": prof.get("speciesId"),
                     "level": self.pokemon_levels.get(pid, prof.get("level")),
                     "slot": slot,
+                    "hp": prof.get("hp"),
+                    "maxHp": prof.get("maxHp"),
                 }
             )
         return sorted(out, key=lambda p: p["slot"])

@@ -291,6 +291,21 @@ class TeamMove(ActionSpec):
         return {"t": "team.move", "pokemonId": self.pokemon_id, "slot": self.slot}
 
 
+class CenterHeal(ActionSpec):
+    """Cura a equipe no Pokécenter (`centro.curar`, o botão da Enfermeira Joy no app.js).
+
+    Com a equipe de pé e `autoVoltarHunt`, o jogo volta sozinho para a hunt.
+    """
+
+    name: ClassVar[str] = "centro.curar"
+    description: ClassVar[str] = "Cura a equipe no Pokécenter"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 30.0
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "centro.curar"}
+
+
 class HuntSelect(ActionSpec):
     name: ClassVar[str] = "hunt.select"
     description: ClassVar[str] = "Troca de hunt (só fora da trava de combate e do trocaLivreEm)"

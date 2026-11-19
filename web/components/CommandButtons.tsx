@@ -4,7 +4,7 @@ import { CommandStatus } from "./CommandStatus";
 import { useCommand } from "@/lib/useCommand";
 import type { Account, CommandType } from "@/lib/types";
 
-/** Ping, Reconectar e Ligar/Desligar, no cabeçalho da página da conta. */
+/** Ping, Reconectar, Curar e Ligar/Desligar, no cabeçalho da página da conta. */
 export function CommandButtons({ account }: { account: Account }) {
   const { send, cmd, error, busy } = useCommand();
   const go = (type: CommandType) => () => {
@@ -16,6 +16,8 @@ export function CommandButtons({ account }: { account: Account }) {
       <div className="row">
         <button className="ghost small" disabled={busy} onClick={go("ping")}>Ping</button>
         <button className="ghost small" disabled={busy || !account.enabled} onClick={go("session.reconnect")}>Reconectar</button>
+        <button className="ghost small" disabled={busy || !account.enabled} onClick={go("center.heal")}
+          title="Cura a equipe no Pokécenter; com a equipe de pé, o jogo volta para a hunt">Curar</button>
         {account.enabled
           ? <button className="ghost small" disabled={busy} onClick={go("account.disable")}>Desligar</button>
           : <button className="small" disabled={busy} onClick={go("account.enable")}>Ligar</button>}
