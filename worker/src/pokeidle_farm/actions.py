@@ -306,6 +306,22 @@ class CenterHeal(ActionSpec):
         return {"t": "centro.curar"}
 
 
+class CenterGo(ActionSpec):
+    """Vai da hunt ao Pokécenter de Cerulean (`centro.ir`, o botão "Ir ao Centro").
+
+    Durante a trava de combate o jogo ignora em silêncio: quem manda confirma pelo `noCentro` e tenta
+    de novo.
+    """
+
+    name: ClassVar[str] = "centro.ir"
+    description: ClassVar[str] = "Vai ao Pokécenter de Cerulean (onde fica o Depot)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 5.0
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "centro.ir"}
+
+
 class HuntSelect(ActionSpec):
     name: ClassVar[str] = "hunt.select"
     description: ClassVar[str] = "Troca de hunt (só fora da trava de combate e do trocaLivreEm)"

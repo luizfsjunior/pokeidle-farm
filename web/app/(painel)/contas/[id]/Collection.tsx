@@ -14,6 +14,7 @@ import { TYPE_PT, TYPES, tierIvSum, tierPotency, tierQuality } from "@/lib/pokem
 import type { Profile } from "@/lib/profile";
 import { usePanel } from "@/lib/query/hooks";
 import type { Atlas } from "@/lib/sprites";
+import { TeamBuilder, toggleInDraft, useDraft } from "./TeamBuilder";
 import { MonActions } from "./TeamControls";
 
 const PAGE = 60;
@@ -44,6 +45,9 @@ export function Collection({ accountId, profile, atlas, looktypes }: {
   const [sort, setSort] = useState<SortKey>("level");
   const [limit, setLimit] = useState(PAGE);
   const [open, setOpen] = useState<CollectionMon | null>(null);
+  const [building, setBuilding] = useState(false);
+  const { draft, update } = useDraft(accountId, profile);
+  const byId = useMemo(() => new Map(all.map((m) => [m.id, m])), [all]);
 
   const counts = useMemo(() => {
     const c: Record<Place, number> = { todos: all.length, equipe: 0, depot: 0, colecao: 0 };
@@ -76,6 +80,13 @@ export function Collection({ accountId, profile, atlas, looktypes }: {
         <p className="muted small">A coleção aparece depois que o worker novo gravar o perfil (até 2 minutos depois do rebuild).</p>
       ) : (
         <>
+          {building && draft ? (
+            <TeamBuilder accountId={accountId} profile={profile} draft={draft} update={update} byId={byId}
+              atlas={atlas} looktypes={looktypes} onClose={() => setBuilding(false)} />
+          ) : (
+            <button type="button" className="small" style={{ marginBottom: ".8rem" }} disabled={!draft}
+              onClick={() => setBuilding(true)}>Montar equipe</button>
+          )}
           <div className="coll-controls">
             <input type="search" placeholder="Nome ou apelido" value={text} onChange={(e) => { setText(e.target.value); setLimit(PAGE); }} />
             <div className="segmented" role="radiogroup" aria-label="Local">
@@ -101,8 +112,10 @@ export function Collection({ accountId, profile, atlas, looktypes }: {
 
           <div className="mons mons-small coll-grid">
             {shown.slice(0, limit).map((m) => (
-              <div key={m.id} className={`mon ${m.id === profile.active_pokemon_id ? "is-active" : ""} ${m.shiny ? "is-shiny" : ""}`}>
-                <button type="button" className="mon-open" onClick={() => setOpen(m)} aria-label={`Ver a ficha de ${m.name ?? "pokémon"}`}>
+              <div key={m.id} className={`mon ${m.id === profile.active_pokemon_id ? "is-active" : ""} ${m.shiny ? "is-shiny" : ""} ${building && draft?.team.includes(m.id) ? "is-drafted" : ""}`}>
+                <button type="button" className="mon-open"
+                  onClick={() => (building && draft ? update(toggleInDraft(draft, m.id)) : setOpen(m))}
+                  aria-label={building ? `Pôr ou tirar ${m.name ?? "pokémon"} da equipe montada` : `Ver a ficha de ${m.name ?? "pokémon"}`}>
                   <Sprite mon={m} atlas={atlas} looktypes={looktypes} size={48} />
                   <span className="mon-name">{m.nickname || m.name || `#${m.species_id ?? "?"}`}{m.shiny && <span aria-label="shiny"> ✨</span>}</span>
                   <span className="mon-meta num">nv {m.level ?? "?"}{m.grade != null && <> · N {num(m.grade)}</>}</span>
