@@ -991,3 +991,9 @@ details[open] > :not(summary), .section-tabs [role="tabpanel"]:not([hidden]) { a
 .builder-diff { margin: .6rem 0 0; padding-left: 1.1rem; }
 .builder-foot { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin-top: .7rem; }
 .mon.is-drafted { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
+
+/* vender o Depot */
+.sell-depot { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .8rem; }
+.sell-warn { color: var(--warning); }
+button.danger { background: var(--critical); color: #1a0006; border-color: var(--critical); }
+button.danger:disabled { opacity: .5; }

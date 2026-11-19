@@ -22,7 +22,16 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .actions import ActionBlocked, CenterGo, CenterHeal, HuntSelect, TeamActive, TeamMove
+from .actions import (
+    ActionBlocked,
+    CenterGo,
+    CenterHeal,
+    CollectionMove,
+    HuntSelect,
+    SellDepot,
+    TeamActive,
+    TeamMove,
+)
 from .events import Event
 from .plugins.base import Plugin
 from .store.base import AccountRecord, CommandRecord, Store
@@ -277,7 +286,13 @@ class Supervisor:
             team = {m.get("id"): m.get("slot") for m in (v.team or [])}
             return pid not in team if slot is None else team.get(pid) == slot
 
-        return await self._send_now(acc, TeamMove(pokemon_id=pid, slot=slot), confirm=done)
+        out = await self._send_now(acc, TeamMove(pokemon_id=pid, slot=slot), confirm=done)
+        if slot is None:
+            try:
+                out["to_collection"] = bool(await self._keep_in_collection(acc, [pid]))
+            except CommandError as exc:  # saiu da equipe; só a marca da Coleção falhou
+                out["to_collection_error"] = str(exc)
+        return out
 
     async def _center_heal(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Cura a equipe no Pokécenter (`centro.curar`); confirma quando a conta sai do centro."""
@@ -355,6 +370,9 @@ class Supervisor:
             for st in plan:
                 await self._step(session, *self._apply_action(st), within=6.0, tries=2)
                 done.append(st.label())
+            left = [pid for pid in current.values() if pid not in ids]
+            for pid in await self._keep_in_collection(acc, left):
+                done.append(f"{pid} na Coleção")
         except CommandError as exc:
             failure = str(exc)
         finally:
@@ -418,6 +436,85 @@ class Supervisor:
             return pid not in team.values() if slot is None else team.get(slot) == pid
 
         return TeamMove(pokemon_id=pid, slot=slot), placed
+
+    def _mons(self, acc: AccountRecord) -> dict[Any, dict[str, Any]] | None:
+        """Todos os pokémons da conta como o jogo manda (equipe, Depot e Coleção), do plugin profile."""
+        live = self.live.get(acc.id)
+        plugins = getattr(live.session, "plugins", None) if live else None
+        prof = getattr(plugins, "running", {}).get("profile") if plugins is not None else None
+        state = getattr(prof, "profile", None)
+        return getattr(state, "pokemons", None) if state is not None and state.ready else None
+
+    async def _keep_in_collection(self, acc: AccountRecord, ids: list[int]) -> list[int]:
+        """Quem sai da equipe vai para a Coleção, para não ser vendido com o Depot."""
+        mons = self._mons(acc) or {}
+        moved: list[int] = []
+        for pid in ids:
+            mon = mons.get(pid)
+            if mon is None or mon.get("colecao"):
+                continue
+            await self._send_now(
+                acc,
+                CollectionMove(pokemon_id=pid, to="colecao"),
+                confirm=lambda _v, pid=pid: bool((mons.get(pid) or {}).get("colecao")),
+            )
+            moved.append(pid)
+        return moved
+
+    async def _collection_move(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Põe o pokémon na Coleção (fica) ou devolve ao Depot (vai na próxima venda)."""
+        try:
+            p = CollectionMoveParams.model_validate(params)
+        except ValidationError as exc:
+            raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
+        mons = self._mons(acc)
+        if mons is None:
+            raise CommandError("a coleção ainda não carregou; tente em alguns segundos")
+        mon = mons.get(p.pokemon_id)
+        if mon is None:
+            raise CommandError("pokémon não encontrado na conta")
+        want = p.to == "colecao"
+        if bool(mon.get("colecao")) == want:
+            return {"detail": "já estava assim"}
+        return await self._send_now(
+            acc,
+            CollectionMove(pokemon_id=p.pokemon_id, to=p.to),
+            confirm=lambda _v: bool((mons.get(p.pokemon_id) or {}).get("colecao")) == want,
+        )
+
+    async def _depot_sell(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Vende o Depot inteiro. Recusa se ele cresceu desde o que o painel mostrou, ou se tem
+        shiny e o pedido não liberou."""
+        try:
+            p = DepotSellParams.model_validate(params)
+        except ValidationError as exc:
+            raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
+        mons = self._mons(acc)
+        if mons is None:
+            raise CommandError("a coleção ainda não carregou; tente em alguns segundos")
+        depot = [m for m in mons.values() if m.get("slot") is None and not m.get("colecao")]
+        if not depot:
+            return {"sold": 0, "detail": "o Depot está vazio"}
+        if len(depot) > p.expected:
+            raise CommandError(
+                f"o Depot tem {len(depot)} e o painel mostrou {p.expected}: confira e venda de novo"
+            )
+        shinies = [m for m in depot if m.get("shiny")]
+        if shinies and not p.allow_shiny:
+            raise CommandError(f"há {len(shinies)} shiny no Depot: mova para a Coleção antes")
+        ids = {m.get("id") for m in depot}
+        view = getattr(self.live[acc.id].session, "state_view", None)
+        gold_before = getattr(view, "gold", None)
+        out = await self._send_now(
+            acc, SellDepot(), confirm=lambda _v: not (ids & set(mons)), timeout_s=10.0
+        )
+        gold_after = getattr(view, "gold", None)
+        gained = (
+            gold_after - gold_before
+            if isinstance(gold_before, int) and isinstance(gold_after, int)
+            else None
+        )
+        return {**out, "sold": len(ids), "gold": gained}
 
     async def _hunt_select(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Hunt escolhida pelo painel, travada por `hours` (plugin hunt_hold; painel-fase-3.md)."""
@@ -559,6 +656,20 @@ class TeamApplyParams(BaseModel):
     active: int = Field(gt=0)
 
 
+class CollectionMoveParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pokemon_id: int = Field(gt=0)
+    to: Literal["colecao", "depot"] = "colecao"
+
+
+class DepotSellParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected: int = Field(ge=0)  # quantos o painel mostrou: não vende se o Depot cresceu
+    allow_shiny: bool = False
+
+
 class HuntSelectParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -611,6 +722,8 @@ _HANDLERS: dict[str, Handler] = {
     "team.move": Supervisor._team_move,
     "center.heal": Supervisor._center_heal,
     "team.apply": Supervisor._team_apply,
+    "collection.move": Supervisor._collection_move,
+    "depot.sell": Supervisor._depot_sell,
 }
 
 

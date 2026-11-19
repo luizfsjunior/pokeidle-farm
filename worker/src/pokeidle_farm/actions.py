@@ -323,6 +323,34 @@ class CenterGo(ActionSpec):
         return {"t": "centro.ir"}
 
 
+class CollectionMove(ActionSpec):
+    """Marca o pokémon como da Coleção ou do Depot (`colecao.mover`, app.js 19/11). É só uma marca:
+    ele não muda de lugar. O Depot é o que o `shop.sellAllPokemons` vende; a Coleção fica."""
+
+    name: ClassVar[str] = "colecao.mover"
+    description: ClassVar[str] = "Marca o pokémon como da Coleção (não é vendido) ou do Depot"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 1.0
+
+    pokemon_id: int
+    to: Literal["colecao", "depot"]
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "colecao.mover", "pokemonId": self.pokemon_id, "para": self.to}
+
+
+class SellDepot(ActionSpec):
+    """Vende todos os pokémons do Depot por ouro (`shop.sellAllPokemons`). Não tem volta."""
+
+    name: ClassVar[str] = "shop.sellAllPokemons"
+    description: ClassVar[str] = "Vende todos os pokémons do Depot (fora equipe e Coleção)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 30.0
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "shop.sellAllPokemons"}
+
+
 class HuntSelect(ActionSpec):
     name: ClassVar[str] = "hunt.select"
     description: ClassVar[str] = "Troca de hunt (só fora da trava de combate e do trocaLivreEm)"

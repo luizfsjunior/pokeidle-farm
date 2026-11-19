@@ -9,11 +9,12 @@ import { useCommand } from "@/lib/useCommand";
 const TEAM_SLOTS = 5;
 
 /** Botões de um pokémon na aba Equipe: tornar ativo, tirar ou pôr na equipe (team.active, team.move). */
-export function MonActions({ accountId, mon, team, isActive }: {
+export function MonActions({ accountId, mon, team, isActive, inCollection }: {
   accountId: string;
   mon: Mon;
   team: Mon[];
   isActive: boolean;
+  inCollection?: boolean; // undefined: não sabe (sem a coleção completa), não mostra o botão
 }) {
   const { send, cmd, error, busy } = useCommand();
   const inTeam = team.some((t) => t.id === mon.id);
@@ -41,6 +42,13 @@ export function MonActions({ accountId, mon, team, isActive }: {
           title={free === undefined ? "A equipe está cheia: tire alguém antes" : undefined}
           onClick={() => void send(accountId, "team.move", { pokemon_id: mon.id, slot: free })}>
           Pôr na equipe
+        </button>
+      )}
+      {!inTeam && inCollection !== undefined && (
+        <button type="button" className="ghost small" disabled={busy}
+          title={inCollection ? "Volta para o Depot e entra na próxima venda" : "Fica guardado: a venda do Depot não leva"}
+          onClick={() => void send(accountId, "collection.move", { pokemon_id: mon.id, to: inCollection ? "depot" : "colecao" })}>
+          {inCollection ? "Mandar para o Depot" : "Guardar na Coleção"}
         </button>
       )}
       <CommandStatus cmd={cmd} error={error} inline />
