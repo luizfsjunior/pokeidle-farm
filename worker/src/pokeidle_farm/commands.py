@@ -287,11 +287,11 @@ class Supervisor:
             return pid not in team if slot is None else team.get(pid) == slot
 
         out = await self._send_now(acc, TeamMove(pokemon_id=pid, slot=slot), confirm=done)
-        if slot is None:
+        if slot is None and p.to is not None:
             try:
-                out["to_collection"] = bool(await self._keep_in_collection(acc, [pid]))
-            except CommandError as exc:  # saiu da equipe; só a marca da Coleção falhou
-                out["to_collection_error"] = str(exc)
+                out["moved_to"] = await self._set_place(acc, {pid: p.to}) and p.to
+            except CommandError as exc:  # saiu da equipe; só a marca de Coleção/Depot falhou
+                out["place_error"] = str(exc)
         return out
 
     async def _center_heal(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
@@ -370,9 +370,10 @@ class Supervisor:
             for st in plan:
                 await self._step(session, *self._apply_action(st), within=6.0, tries=2)
                 done.append(st.label())
-            left = [pid for pid in current.values() if pid not in ids]
-            for pid in await self._keep_in_collection(acc, left):
-                done.append(f"{pid} na Coleção")
+            left = {pid: p.left_to.get(str(pid)) for pid in current.values() if pid not in ids}
+            places = {pid: to for pid, to in left.items() if to is not None}
+            for pid in await self._set_place(acc, places):
+                done.append(f"{pid} {'na Coleção' if places[pid] == 'colecao' else 'no Depot'}")
         except CommandError as exc:
             failure = str(exc)
         finally:
@@ -445,18 +446,22 @@ class Supervisor:
         state = getattr(prof, "profile", None)
         return getattr(state, "pokemons", None) if state is not None and state.ready else None
 
-    async def _keep_in_collection(self, acc: AccountRecord, ids: list[int]) -> list[int]:
-        """Quem sai da equipe vai para a Coleção, para não ser vendido com o Depot."""
+    async def _set_place(self, acc: AccountRecord, places: dict[int, str]) -> list[int]:
+        """Marca cada pokémon como da Coleção ("colecao") ou do Depot ("depot"), quem sai da equipe.
+        Devolve os que mudaram (quem já estava no lugar pedido fica como está)."""
         mons = self._mons(acc) or {}
         moved: list[int] = []
-        for pid in ids:
+        for pid, to in places.items():
             mon = mons.get(pid)
-            if mon is None or mon.get("colecao"):
+            want = to == "colecao"
+            if mon is None or bool(mon.get("colecao")) == want:
                 continue
             await self._send_now(
                 acc,
-                CollectionMove(pokemon_id=pid, to="colecao"),
-                confirm=lambda _v, pid=pid: bool((mons.get(pid) or {}).get("colecao")),
+                CollectionMove(pokemon_id=pid, to=to),  # type: ignore[arg-type]
+                confirm=lambda _v, pid=pid, want=want: (
+                    bool((mons.get(pid) or {}).get("colecao")) == want
+                ),
             )
             moved.append(pid)
         return moved
@@ -647,6 +652,8 @@ class TeamMoveParams(BaseModel):
 
     pokemon_id: int = Field(gt=0)
     slot: int | None = Field(None, ge=0, le=5)
+    # ao tirar (slot null): para onde vai. None deixa a marca como está
+    to: Literal["colecao", "depot"] | None = None
 
 
 class TeamApplyParams(BaseModel):
@@ -654,6 +661,8 @@ class TeamApplyParams(BaseModel):
 
     team: list[int | None] = Field(min_length=1, max_length=TEAM_SLOTS)  # ids por vaga, da 1 à 5
     active: int = Field(gt=0)
+    # quem sai da equipe: id -> "colecao" ou "depot". Quem não está aqui fica com a marca de antes
+    left_to: dict[str, Literal["colecao", "depot"]] = Field(default_factory=dict)
 
 
 class CollectionMoveParams(BaseModel):

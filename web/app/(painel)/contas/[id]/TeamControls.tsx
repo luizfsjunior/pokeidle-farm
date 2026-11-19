@@ -31,10 +31,18 @@ export function MonActions({ accountId, mon, team, isActive, inCollection }: {
             </button>
           )}
           {!isActive && (
-            <button type="button" className="ghost small" disabled={busy}
-              onClick={() => void send(accountId, "team.move", { pokemon_id: mon.id, slot: null })}>
-              Tirar
-            </button>
+            <>
+              <button type="button" className="ghost small" disabled={busy}
+                title="Sai da equipe e fica guardado: a venda do Depot não leva"
+                onClick={() => void send(accountId, "team.move", { pokemon_id: mon.id, slot: null, to: "colecao" })}>
+                Tirar para a Coleção
+              </button>
+              <button type="button" className="ghost small" disabled={busy}
+                title="Sai da equipe e entra na próxima venda do Depot"
+                onClick={() => void send(accountId, "team.move", { pokemon_id: mon.id, slot: null, to: "depot" })}>
+                Tirar para o Depot
+              </button>
+            </>
           )}
         </>
       ) : (

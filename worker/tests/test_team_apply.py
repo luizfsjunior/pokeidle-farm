@@ -178,16 +178,24 @@ def _with_mons(rig, game: Game, mons: dict[int, dict[str, Any]]) -> None:  # typ
     game.submit = submit  # type: ignore[method-assign]
 
 
-async def test_who_leaves_the_team_goes_to_the_collection(rig):  # noqa: F811
+async def test_who_leaves_the_team_goes_where_the_panel_said(rig):  # noqa: F811
     acc = farm(rig.store, "farm1")
     await rig.boot()
     game = Game([{"id": 1, "slot": 0}, {"id": 2, "slot": 1}], active=1, hunt="h")
-    mons = {1: {"id": 1, "slot": 0}, 2: {"id": 2, "slot": 1}, 7: {"id": 7, "slot": None}}
+    game.view.team.append({"id": 3, "slot": 2})
+    mons = {
+        1: {"id": 1, "slot": 0},
+        2: {"id": 2, "slot": 1},
+        3: {"id": 3, "slot": 2, "colecao": True},
+        7: {"id": 7, "slot": None},
+    }
     await _wire(rig, game)
     _with_mons(rig, game, mons)
-    c = await rig.cmd(acc, "team.apply", team=[1, 7], active=1)
+    c = await rig.cmd(
+        acc, "team.apply", team=[1, 7], active=1, left_to={"2": "colecao", "3": "depot"}
+    )
     assert c["status"] == "done", c
-    assert mons[2]["colecao"] is True and not mons[7].get("colecao")
+    assert mons[2]["colecao"] is True and mons[3]["colecao"] is False and not mons[7].get("colecao")
 
 
 async def test_depot_sell_guards(rig):  # noqa: F811
