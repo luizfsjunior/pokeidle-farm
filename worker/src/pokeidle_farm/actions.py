@@ -383,12 +383,15 @@ class ActionGateway:
         ]:
             del self.holds[name]
 
-    def held_by_other(self, action: str, owner: str) -> bool:
+    def held_by_other(self, action: str, owner: str, label: str | None = None) -> bool:
         h = self.holds.get(action)
         if h is None:
             return False
         if h[0] <= datetime.now(UTC):
             del self.holds[action]
+            return False
+        # pedir o mesmo que o dono quer (voltar do centro para a hunt travada) não fura a trava
+        if label is not None and h[2] == label:
             return False
         return h[1] != owner
 
@@ -402,7 +405,8 @@ class ActionGateway:
     async def submit(self, action: ActionSpec, *, source: str) -> None:
         info = {"action": action.name, "source": source, "input": action.model_dump(mode="json")}
 
-        if self.held_by_other(action.name, source):
+        same = getattr(action, "slug", None) if action.name == "hunt.select" else None
+        if self.held_by_other(action.name, source, same):
             until, owner, label = self.holds[action.name]
             left = (until - datetime.now(UTC)).total_seconds()
             await self._record(
