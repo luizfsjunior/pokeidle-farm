@@ -37,7 +37,14 @@ ITEM_PRICES: dict[int, int] = {
     70070: 2_500,  # Golden Potion (50% do HP)
     205: 600,  # Revive (10% do HP)
     206: 5_000,  # Max Revive (100% do HP)
+    # ovos da chocadeira (shared/chocadeira.mjs, 20/11): P2, P3 e P4; o servidor pode mandar outro
+    # preço em estado.itensCompraveis, e aí o jogo cobra o dele
+    70091: 20_000_000,  # Mystery Egg P2 (choca em 6 h)
+    70092: 120_000_000,  # Mystery Egg P3 (12 h)
+    70093: 250_000_000,  # Mystery Egg P4 (24 h)
 }
+# ovo (id da chocadeira) -> item na mochila (shared/chocadeira.mjs e ovo-shiny.mjs)
+EGG_ITEMS: dict[str, int] = {"p2": 70091, "p3": 70092, "p4": 70093, "shiny": 70094}
 
 
 # Cura das poções (items.json: healAmount; Golden Potion: 50% do HP máximo)

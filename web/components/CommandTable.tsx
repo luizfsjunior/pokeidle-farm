@@ -45,6 +45,7 @@ function detail(c: Command): string {
     case "shop.buy": return `${fmtNum(p.qty)} × ${p.kind === "ball" ? "bola" : "item"} ${String(p.id)}${r.cost != null ? ` por ${fmtNum(r.cost)} de ouro` : ""}`;
     case "market.sell": return `${fmtNum(p.qty)} × item ${String(p.item_id)} a ${fmtNum(p.price)} ${p.currency === "gold" ? "de ouro" : "gemas"}`;
     case "market.cancel": return `anúncio ${String(p.listing_id)}`;
+    case "incubator.put": return `ovo ${String(p.egg).toUpperCase()}${r.slot != null ? ` na vaga ${Number(r.slot) + 1}` : ""}`;
     case "ping": return r.state ? `sessão ${String(r.state)}${r.holder ? ` em ${String(r.holder)}` : ""}` : "";
     default: return "";
   }

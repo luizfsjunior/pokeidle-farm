@@ -345,3 +345,49 @@ async def test_place_marks_are_confirmed_by_the_game_reply(rig):  # noqa: F811
     assert c["status"] == "done", c
     assert mons[2]["colecao"] is True and mons[3]["colecao"] is True  # os dois marcados
     assert [w["pokemonId"] for w in game.sent if w["t"] == "colecao.mover"] == [2, 3]
+
+
+async def test_shop_sells_eggs(rig):  # noqa: F811
+    """Os ovos da chocadeira são itens da loja (shared/chocadeira.mjs); o worker recusava."""
+    acc = farm(rig.store, "farm1")
+    await rig.boot()
+    game = Game([{"id": 1, "slot": 0}], active=1, hunt="x")
+    _shop(game)
+    game.view.gold = 25_000_000
+    await _wire(rig, game)
+    c = await rig.cmd(acc, "shop.buy", kind="item", id=70091, qty=1)
+    assert c["status"] == "done" and c["result"]["cost"] == 20_000_000, c
+    c = await rig.cmd(acc, "shop.buy", kind="item", id=70092, qty=1)  # 120 M: não tem ouro
+    assert c["status"] == "failed" and "ouro" in c["error"]
+
+
+async def test_incubator_put_uses_a_free_slot_and_confirms_by_the_reply(rig):  # noqa: F811
+    import time
+
+    acc = farm(rig.store, "farm1")
+    await rig.boot()
+    game = Game([{"id": 1, "slot": 0}], active=1, hunt="x")
+    _shop(game)
+    game.view.items["70091"] = 1
+    await _wire(rig, game)
+    prof = _Prof({1: {"id": 1, "slot": 0}})
+    prof.profile.estado = {"chocadeira": {"total": 2, "ovos": [{"slot": 0, "ovo": "p3"}]}}
+    rig.sessions[0].plugins.running["profile"] = prof
+    session = rig.sessions[0]
+    orig = game.submit
+
+    async def submit(action, *, source):  # type: ignore[no-untyped-def]
+        await orig(action, source=source)
+        if action.to_wire()["t"] == "chocadeira.colocar":
+            session.battle_replies["ovoColocado"] = (time.monotonic(), {"slot": 1, "fim": 123})
+
+    game.submit = submit  # type: ignore[method-assign]
+    c = await rig.cmd(acc, "incubator.put", egg="p2")
+    assert (
+        c["status"] == "done" and c["result"]["slot"] == 1 and c["result"]["hatches_at"] == 123
+    ), c
+    assert game.sent[-1] == {"t": "chocadeira.colocar", "slot": 1, "ovo": "p2"}
+    c = await rig.cmd(acc, "incubator.put", egg="p4")
+    assert c["status"] == "failed" and "não tem o ovo" in c["error"]
+    c = await rig.cmd(acc, "incubator.put", egg="p2", slot=0)
+    assert c["status"] == "failed" and "não está livre" in c["error"]

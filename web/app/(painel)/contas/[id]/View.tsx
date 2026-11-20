@@ -13,6 +13,7 @@ import { TrendChart } from "@/components/TrendChart";
 import { useAccounts, useAtlas, usePanel } from "@/lib/query/hooks";
 import { loadAccount } from "./data";
 import { NewPlugin } from "./NewPlugin";
+import { IncubatorCard } from "./IncubatorCard";
 import { MarketCard } from "./MarketCard";
 import { NowCard } from "./NowCard";
 import { OutlandCard } from "./OutlandCard";
@@ -96,7 +97,8 @@ export function AccountView() {
         <>
           {!d ? loading : profile
             ? <>
-                <Collection accountId={d.account.id} profile={profile} atlas={atlas} looktypes={d.looktypes} />
+                <Collection accountId={d.account.id} profile={profile} atlas={atlas} looktypes={d.looktypes}
+                  training={d.plugins.some((p) => p.plugin === "team_train" && p.enabled)} />
               </>
             : <p className="muted">Sem perfil ainda: ele aparece uns segundos depois de o worker conectar a conta.</p>}
         </>
@@ -107,6 +109,7 @@ export function AccountView() {
             ? <>
                 <ProfileSections part="bag" profile={profile} items={d.items} restock={restockItems(d.plugins)} />
                 <ShopCard accountId={d.account.id} profile={profile} />
+                <IncubatorCard accountId={d.account.id} profile={profile} />
                 <MarketCard accountId={d.account.id} profile={profile} items={d.items}
                   sellerActive={d.plugins.some((p) => p.plugin === "seller" && p.enabled && p.config.dry_run === false)} />
               </>

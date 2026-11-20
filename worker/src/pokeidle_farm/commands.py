@@ -28,6 +28,7 @@ from .actions import (
     CenterHeal,
     CollectionMove,
     HuntSelect,
+    IncubatorPut,
     MarketCancel,
     MarketCreate,
     SellDepot,
@@ -35,7 +36,7 @@ from .actions import (
     TeamActive,
     TeamMove,
 )
-from .catalog import BALLS, ITEM_PRICES
+from .catalog import BALLS, EGG_ITEMS, ITEM_PRICES
 from .events import Event
 from .plugins.base import Plugin
 from .profile import set_travado
@@ -678,6 +679,34 @@ class Supervisor:
             confirm=lambda v: int(((v.items or {}).get(key, 0)) or 0) < have,
         )
 
+    async def _incubator_put(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Põe um ovo da mochila numa vaga livre da chocadeira (estado.chocadeira {total, ovos})."""
+        p = _parse(IncubatorPutParams, params)
+        view = self._view(acc)
+        items = getattr(view, "items", None) or {}
+        if int(items.get(str(EGG_ITEMS[p.egg]), 0) or 0) < 1:
+            raise CommandError(f"a mochila não tem o ovo {p.egg}")
+        state = self._profile(acc)
+        choc = (state.estado.get("chocadeira") if state is not None else None) or {}
+        total = int(choc.get("total") or 1)
+        busy = {o.get("slot") for o in choc.get("ovos") or [] if isinstance(o, dict)}
+        slot = p.slot
+        if slot is None:
+            slot = next((s for s in range(total) if s not in busy), None)
+            if slot is None:
+                raise CommandError(f"a chocadeira está cheia ({total} vagas)")
+        elif slot >= total or slot in busy:
+            raise CommandError(f"a vaga {slot + 1} não está livre")
+        session = self.live[acc.id].session
+        since = time.monotonic()
+        out = await self._send_now(
+            acc,
+            IncubatorPut(slot=slot, ovo=p.egg),
+            confirm=lambda _v: _replied(session, "ovoColocado", since) is not None,
+        )
+        reply = _replied(session, "ovoColocado", since) or {}
+        return {**out, "slot": slot, "egg": p.egg, "hatches_at": reply.get("fim")}
+
     async def _market_cancel(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Cancela um anúncio da conta. O jogo não responde: o item volta pela mochila."""
         p = _parse(MarketCancelParams, params)
@@ -796,6 +825,13 @@ class MarketSellParams(BaseModel):
     currency: Literal["orb", "gold"] = "orb"
 
 
+class IncubatorPutParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    egg: Literal["p2", "p3", "p4", "shiny"]
+    slot: int | None = Field(None, ge=0, le=5)  # None: a primeira vaga livre
+
+
 class MarketCancelParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -903,6 +939,7 @@ _HANDLERS: dict[str, Handler] = {
     "shop.buy": Supervisor._shop_buy,
     "market.sell": Supervisor._market_sell,
     "market.cancel": Supervisor._market_cancel,
+    "incubator.put": Supervisor._incubator_put,
     "hunt.select": Supervisor._hunt_select,
     "hunt.release": Supervisor._hunt_release,
     "capture.start": Supervisor._capture_start,
