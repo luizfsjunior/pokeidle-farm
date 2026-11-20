@@ -578,3 +578,15 @@ async def test_switch_retries_soon_after_a_disconnect():
     await h.start()
     sw = h.plugin.switch
     assert h.selects() == [] and sw.retry_at == h.now + timedelta(seconds=5)
+
+
+async def test_plan_without_catalog_does_not_count_as_a_plan():
+    """20/11: depois de reconectar, o plano "sem_catalogo" adiava o próximo em 15 min."""
+    h = Harness(dry_run=False, objective="xp", hunt_slug="caterpie")
+    h.ctx.catalog = None
+    await h.start()
+    assert h.events("gems.plan")[-1]["reason"] == "sem_catalogo"
+    assert h.plugin._last_plan_at is None
+    h.ctx.catalog = CATALOG
+    await h.plugin.on_event(Event(account_id=uuid4(), session_id=uuid4(), type="kill", data={}))
+    assert h.events("gems.plan")[-1]["reason"] == "interval"  # já no próximo abate

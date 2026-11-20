@@ -306,11 +306,13 @@ class GemsPlugin(Plugin):
         return taken
 
     async def _plan(self, reason: str) -> None:
-        self._last_plan_at = self.now()
         cat, species = self.ctx.catalog, self.ctx.species
         if cat is None or species is None or not cat.hunts:
+            # não conta como plano: tenta de novo no próximo abate (20/11: depois de reconectar, o
+            # plano seguinte só vinha 15 min depois, e o painel ficava sem o card)
             await self.ctx.actions.note("gems.plan", {"reason": "sem_catalogo", "target": None})
             return
+        self._last_plan_at = self.now()
         season = self.ctx.state.season_type()
         # o plano não espera o simulador: usa o que está em cache e aquece o resto em segundo
         # plano, fora do lock; quando termina, planeja de novo (refatoracao-2026-11-20, 2.3)
