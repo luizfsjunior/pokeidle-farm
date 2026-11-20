@@ -1075,3 +1075,8 @@ button.danger:disabled { opacity: .5; }
 .incubator { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: .5rem; }
 .incubator li { display: grid; gap: .25rem; padding: .6rem .7rem; border: 1px dashed var(--border); border-radius: 8px; }
 .incubator li.is-busy { border-style: solid; border-color: var(--accent); }
+@media (max-width: 720px) {
+  /* as 4 ferramentas da vaga numa linha só (no celular a seta "›" quebrava sozinha) */
+  .builder-tools { flex-wrap: nowrap; gap: .15rem; }
+  .builder-tools button { padding: .1rem .35rem; font-size: .78rem; min-width: 0; }
+}
