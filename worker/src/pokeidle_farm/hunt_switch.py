@@ -25,6 +25,8 @@ from datetime import datetime, timedelta
 from .actions import ActionBlocked, HuntSelect
 from .plugins.base import PluginContext
 
+RECONNECT_RETRY_S = 5.0
+
 
 class HuntSwitcher:
     def __init__(
@@ -129,6 +131,8 @@ class HuntSwitcher:
             await self.ctx.actions.submit(HuntSelect(slug=slug), source=self.source)
         except ActionBlocked as exc:
             wait = exc.wait_s if exc.wait_s is not None else self.retry_s
+            if exc.reason == "not_connected":
+                wait = min(wait, RECONNECT_RETRY_S)  # a sessão volta em ~10 s: não espera o retry_s
             self.retry_at = now + timedelta(seconds=wait)
             self._schedule(self.retry_at)
             return

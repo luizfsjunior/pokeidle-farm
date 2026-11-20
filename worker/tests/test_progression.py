@@ -343,3 +343,19 @@ async def test_evolve_plugin_waits_for_species_and_can_be_off():
     await early.start(ctx2)
     await early.on_event(ev)
     assert sent == []
+
+
+async def test_no_plan_when_the_trainer_is_past_the_goal():
+    """20/11: a conta nível 439 com marco 150 gravava um progress.plan vazio a cada reinício."""
+    sent: list[dict[str, Any]] = []
+    ctx = _ctx(439, {}, sent)
+    notes: list[str] = []
+
+    async def note(t: str, _d: dict[str, Any]) -> None:
+        notes.append(t)
+
+    ctx.actions.note = note  # type: ignore[method-assign]
+    p = Progress(ctx, source="gems", now=lambda: NOW, goal=150)
+    p.maybe_plan("start")
+    await p.task
+    assert notes == [] and p.last_plan_at is None

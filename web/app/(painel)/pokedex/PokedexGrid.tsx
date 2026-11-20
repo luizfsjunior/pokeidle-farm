@@ -2,13 +2,11 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { CaptureForm, CaptureStatus, type ActiveCapture } from "@/components/Capture";
-import { CommandStatus } from "@/components/CommandStatus";
 import { Hint } from "@/components/Page";
 import { Matchups, Moves, PvpRange, StatBars, StatRadar, TypeChips } from "@/components/SpeciesFacts";
 import { Sprite } from "@/components/Sprite";
 import { RARITY_PT, captureChance, captureFactor, loadGameRules, loadSpeciesInfo, RULES_VERSION } from "@/lib/pokemon";
 import { usePanel } from "@/lib/query/hooks";
-import { useCommand } from "@/lib/useCommand";
 import { ago, num } from "@/lib/format";
 import type { Atlas } from "@/lib/sprites";
 
@@ -321,7 +319,7 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
                   {huntsBySpecies.get(sel.species_id)!.map((h) => (
                     <li key={h.slug}>
                       <span>{h.name ?? h.slug} <span className="muted num">nv {num(h.level)}</span></span>
-                      {accountId && <GoHunt accountId={accountId} slug={h.slug} need={h.level} level={level} />}
+                      <HuntLock need={h.level} level={level} />
                     </li>
                   ))}
                 </ul>
@@ -362,7 +360,7 @@ function OtherForms({ sel, species, huntsBySpecies, accountId, onPick, level }: 
             {huntsBySpecies.get(f.species_id)!.map((h) => (
               <li key={h.slug}>
                 <span>{h.name ?? h.slug} <span className="muted num">nv {num(h.level)}{h.region ? ` · ${h.region}` : ""}</span></span>
-                {accountId && <GoHunt accountId={accountId} slug={h.slug} need={h.level} level={level} />}
+                <HuntLock need={h.level} level={level} />
               </li>
             ))}
           </ul>
@@ -434,18 +432,11 @@ function CaptureTable({ rules, factor, estimated }: { rules: NonNullable<Awaited
   );
 }
 
-/** "Ir para esta hunt" por 2 h (comando hunt.select; docs/design/painel-fase-3.md). */
-function GoHunt({ accountId, slug, need, level }: { accountId: string; slug: string; need: number; level: number | null }) {
-  const { send, cmd, error, busy } = useCommand();
-  if (level != null && need > level) {
-    return <span className="go-hunt small warn-text" title="O jogo tranca área acima do nível do treinador">trancada: faltam {num(need - level)} níveis</span>;
-  }
-  return (
-    <span className="go-hunt">
-      <button type="button" className="ghost small" disabled={busy} onClick={() => void send(accountId, "hunt.select", { slug, hours: 2 })}>
-        Ir por 2 h
-      </button>
-      <CommandStatus cmd={cmd} error={error} inline />
-    </span>
-  );
+/**
+ * Só o aviso de hunt trancada: o "Ir por 2 h" saiu daqui (refatoracao-2026-11-20, 4.1). Ir para uma hunt é a hunt
+ * manual da aba Agora ou da página Hunts; mirar na espécie é o "Capturar" logo abaixo.
+ */
+function HuntLock({ need, level }: { need: number; level: number | null }) {
+  if (level == null || need <= level) return null;
+  return <span className="go-hunt small warn-text" title="O jogo tranca área acima do nível do treinador">trancada: faltam {num(need - level)} níveis</span>;
 }

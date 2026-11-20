@@ -195,6 +195,8 @@ class Progress:
             )
             if not ok
         ]
+        if isinstance(st.level, int) and st.level >= self.goal:
+            return  # já passou do marco: o plano até ele não diz nada (só a evolução continua)
         if missing:  # tenta de novo no próximo abate (o intervalo só conta planos gravados)
             self.ctx.log.info("progress: sem plano ainda, falta %s", ", ".join(missing))
             return

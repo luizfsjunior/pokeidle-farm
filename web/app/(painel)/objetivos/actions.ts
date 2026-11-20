@@ -31,7 +31,22 @@ export async function createGoal(_prev: string | null, form: FormData): Promise<
     metric = String(form.get("metric") ?? "");
     if (!metric) return "Escolha a métrica.";
   } else {
-    const species = String(form.get("species") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    const typed = String(form.get("species") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    // a espécie tem que existir no jogo e fica gravada como o jogo escreve: um erro de digitação
+    // ("Tyranitat", 17/11) fazia o objetivo nunca contar nada
+    const species: string[] = [];
+    if (typed.length) {
+      // ilike sem curinga: igual, sem diferenciar maiúsculas (vírgula, parênteses e * quebrariam o filtro)
+      const { data: known, error: spErr } = await supabase.from("game_species").select("name")
+        .or(typed.map((t) => `name.ilike.${t.replace(/[,()*%_]/g, "")}`).join(","));
+      if (spErr) return `Não consegui conferir as espécies: ${spErr.message}`;
+      const names = (known ?? []).map((r) => String(r.name));
+      for (const t of typed) {
+        const hit = names.find((n) => n.toLowerCase() === t.toLowerCase());
+        if (!hit) return `Espécie não encontrada no jogo: "${t}". Confira o nome (como aparece na Pokédex).`;
+        species.push(hit);
+      }
+    }
     const shiny = String(form.get("shiny") ?? "");
     const minIvs: Record<string, number> = {};
     for (const st of IV_STATS) {

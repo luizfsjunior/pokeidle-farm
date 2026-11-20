@@ -468,13 +468,7 @@ class Supervisor:
                 continue
             if moved:  # o gateway segura 1 s entre marcações: espera em vez de falhar
                 await asyncio.sleep(CollectionMove.min_interval_s + 0.05)
-            await self._send_now(
-                acc,
-                CollectionMove(pokemon_id=pid, to=to),  # type: ignore[arg-type]
-                confirm=lambda _v, pid=pid, want=want: (
-                    bool((mons.get(pid) or {}).get("colecao")) == want
-                ),
-            )
+            await self._mark_place(acc, mons, pid, want)
             moved.append(pid)
         return moved
 
@@ -500,11 +494,27 @@ class Supervisor:
         want = p.to == "colecao"
         if bool(mon.get("colecao")) == want:
             return {"detail": "já estava assim"}
-        return await self._send_now(
+        return await self._mark_place(acc, mons, p.pokemon_id, want)
+
+    async def _mark_place(
+        self, acc: AccountRecord, mons: dict[Any, dict[str, Any]], pid: int, want: bool
+    ) -> dict[str, Any]:
+        """Uma marca de Coleção/Depot. O jogo responde `batalha` k "colecao" e só muda a marca no
+        estado depois: esperar a marca dava "sem confirmação" numa marcação feita (19 e 20/11, no
+        fim do team.apply, que parava ali e não marcava os outros)."""
+        session = self.live[acc.id].session
+        since = time.monotonic()
+        out = await self._send_now(
             acc,
-            CollectionMove(pokemon_id=p.pokemon_id, to=p.to),
-            confirm=lambda _v: bool((mons.get(p.pokemon_id) or {}).get("colecao")) == want,
+            CollectionMove(pokemon_id=pid, to="colecao" if want else "depot"),
+            confirm=lambda _v: (
+                _replied(session, "colecao", since) is not None
+                or bool((mons.get(pid) or {}).get("colecao")) == want
+            ),
         )
+        if pid in mons:  # os próximos comandos já leem a marca nova
+            mons[pid]["colecao"] = want
+        return out
 
     async def _depot_sell(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Vende o Depot inteiro. Recusa se ele cresceu desde o que o painel mostrou, ou se tem
@@ -527,18 +537,24 @@ class Supervisor:
         if shinies and not p.allow_shiny:
             raise CommandError(f"há {len(shinies)} shiny no Depot: mova para a Coleção antes")
         ids = {m.get("id") for m in depot}
-        view = getattr(self.live[acc.id].session, "state_view", None)
-        gold_before = getattr(view, "gold", None)
+        session = self.live[acc.id].session
+        since = time.monotonic()
+
+        def sold() -> dict[str, Any] | None:
+            return _replied(session, "venda", since)
+
+        # o jogo confirma com um `batalha` k "venda" (qtd, ganho) e só tira os pokémons do estado
+        # depois: esperar eles sumirem dava "sem confirmação" numa venda feita (20/11: 305 por 16 M)
         out = await self._send_now(
-            acc, SellDepot(), confirm=lambda _v: not (ids & set(mons)), timeout_s=10.0
+            acc,
+            SellDepot(),
+            confirm=lambda _v: sold() is not None or not (ids & set(mons)),
+            timeout_s=10.0,
         )
-        gold_after = getattr(view, "gold", None)
-        gained = (
-            gold_after - gold_before
-            if isinstance(gold_before, int) and isinstance(gold_after, int)
-            else None
-        )
-        return {**out, "sold": len(ids), "gold": gained}
+        sale = sold() or {}
+        for pid in ids:  # vendidos: fora da coleção que os próximos comandos leem
+            mons.pop(pid, None)
+        return {**out, "sold": sale.get("qtd", len(ids)), "gold": sale.get("ganho")}
 
     async def _hunt_select(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Hunt escolhida pelo painel, travada por `hours` (plugin hunt_hold; painel-fase-3.md)."""
@@ -729,6 +745,12 @@ class Supervisor:
             for name, _, _ in writes:  # restock antes: o rank confere o foco dele ao subir
                 applied = await session.restart_plugin(name) and applied
         return {"focus": p.focus, "applied": "agora" if applied else "na próxima conexão"}
+
+
+def _replied(session: Any, kind: str, since: float) -> dict[str, Any] | None:
+    """A resposta `batalha` desse tipo depois de `since` (sessões de teste sem o registro: None)."""
+    replied = getattr(session, "replied", None)
+    return replied(kind, since) if replied is not None else None
 
 
 def _parse[M: BaseModel](model: type[M], params: dict[str, Any]) -> M:
@@ -979,6 +1001,11 @@ class FakeSession:
         self.state = State.READY
         self._stopping = asyncio.Event()
         self.reconnects = 0
+        self.battle_replies: dict[str, tuple[float, dict[str, Any]]] = {}
+
+    def replied(self, kind: str, since: float) -> dict[str, Any] | None:
+        got = self.battle_replies.get(kind)
+        return got[1] if got is not None and got[0] >= since else None
 
     @property
     def plugins(self) -> Any:

@@ -52,6 +52,9 @@ export async function speciesLooktypes(supabase: SupabaseClient, ids: number[]):
 export function itemIconUrl(icon: string | null | undefined): string | null {
   if (!icon) return null;
   if (icon.startsWith("http")) return icon;
+  // "/assets/markitems/x.png" e "/assets/stones/x.png" do catálogo moram em /assets/site/assets/ (20/11: Revive,
+  // Small Potion e Metal Stone sem ícone); "/img/..." e "/assets/site/..." valem como vêm
+  if (icon.startsWith("/assets/") && !icon.startsWith("/assets/site/")) return `${GAME_SITE}/assets/site${icon}`;
   if (icon.startsWith("/")) return GAME_SITE + icon;
   return GAME_SITE + (icon.includes("/") ? `/assets/${icon}` : `/assets/site/assets/items/${icon}`);
 }

@@ -72,7 +72,7 @@ export function HuntDrawerProvider({ hunts, accounts, defaultAccount, atlas, loo
             </div>
             <div className="drawer-body">
               <div className="action-box">
-                <strong>Trocar para esta hunt</strong>
+                <strong>Hunt manual</strong>
                 <div className="row">
                   <select value={account} onChange={(e) => setAccount(e.target.value)} aria-label="Conta">
                     {accounts.map((a) => <option key={a.id} value={a.id} disabled={!a.enabled}>{a.nick}{a.enabled ? "" : " (desligada)"}</option>)}
@@ -89,7 +89,7 @@ export function HuntDrawerProvider({ hunts, accounts, defaultAccount, atlas, loo
                   </button>
                 )}
                 <CommandStatus cmd={cmd} error={error} />
-                <p className="small muted" style={{ margin: 0 }}>Os plugins não trocam de hunt durante o prazo.</p>
+                <p className="small muted" style={{ margin: 0 }}>Um desvio: o modo não troca de hunt durante o prazo e volta depois. Encerra uma captura em andamento.</p>
               </div>
 
               {account && (
