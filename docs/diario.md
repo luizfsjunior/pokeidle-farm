@@ -39,6 +39,9 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 - **Coleção**: é `automation.pokemonTravado` (app.js), não um campo do pokémon; o painel mostrava "Coleção 0" e a
   venda do Depot contava 2 a mais. Venda testada na `_1`: 96 por 2,76 M; loja e Mercado testados (compra, anúncio,
   cancelamento).
+- **Quarta rodada**: ovos na Loja e chocadeira no painel (`incubator.put`); alerta do treino some quando a troca sai;
+  "Tornar ativo" respeita o treino ligado; o plano "sem_catalogo" da reconexão não conta como plano (o card sumia por
+  até 15 min); revisão no celular (390 px) sem nada vazando, montagem e alvos de toque ajustados. 396 testes.
 - **`not_connected` investigado**: quedas reais e curtas (o worker volta em ~10 s); no dia, o jogo reiniciando
   (`code=1012`, 15:07) e as 4 contas caindo juntas às 09:27 (rede ou proxy).
 
