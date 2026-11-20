@@ -9,6 +9,8 @@ export function commandSummary(c: Command): string {
   if (c.type === "ping") return `${base} — sessão ${String(r.state)}${r.holder ? ` em ${String(r.holder)}` : ""}`;
   if (c.type === "plugin.set" || c.type === "focus.set" || c.type === "hunt.release" || c.type === "capture.stop" || c.type === "capture.start") return `${base} — vale ${String(r.applied)}`;
   if (c.type === "hunt.select") return `${base} — ${String(r.slug)} até ${new Date(String(r.until)).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}, vale ${String(r.applied)}`;
+  if (c.type === "shop.buy" && typeof r.cost === "number") return `${base} — ${r.cost.toLocaleString("pt-BR")} de ouro`;
+  if (c.type === "collection.move" && typeof r.moved === "number") return `${base} — ${r.moved} marcados`;
   return base;
 }
 

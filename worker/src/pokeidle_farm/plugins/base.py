@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar, Literal
 from uuid import UUID
@@ -61,6 +61,23 @@ class AccountStateView:
     battle_pass: dict[str, Any] | None = None  # estado.passe ({degrau, ultimo, total...})
     # no Pokécenter (estado.noCentro / campo do centro): a caça está parada até curar e voltar
     in_center: bool | None = None
+    # quem o team_train quer treinar (id): o foco XP planeja a hunt para ele (refatoracao-2026-11-20, 2.5)
+    train_target: int | None = None
+    # (pokémon, hunt) -> até quando é perigoso (tempestade de revive vista pela vigia, 2.4)
+    danger: dict[tuple[Any, str], datetime] = field(default_factory=dict)
+
+    def is_dangerous(self, pokemon_id: Any, slug: str | None, now: datetime | None = None) -> bool:
+        if not slug:
+            return False
+        until = self.danger.get((pokemon_id, slug))
+        return until is not None and until > (now or datetime.now(UTC))
+
+    def mon(self, pokemon_id: Any) -> dict[str, Any] | None:
+        """O perfil de um membro da equipe (o ativo, se for ele: tem o nível mais novo)."""
+        active = self.active_pokemon or {}
+        if active.get("id") == pokemon_id:
+            return active
+        return next((m for m in self.team or [] if m.get("id") == pokemon_id), None)
 
     def season_type(self, now: datetime | None = None) -> str | None:
         """O tipo do dia sazonal se ainda vale (no relógio do servidor)."""

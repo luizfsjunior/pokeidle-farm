@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Alerts } from "@/components/Alerts";
 import { CommandStatus } from "@/components/CommandStatus";
 import { Icon } from "@/components/icons";
 import { Ld, LdBlock } from "@/components/Loading";
@@ -60,6 +61,7 @@ export function OverviewView() {
           return (
             <TrainerCard key={a.id} account={a} profile={d.profiles.get(a.id)} atlas={atlas} looktypes={d.looktypes}
               href={`/contas/${a.id}`} compact>
+              <Alerts items={d.alerts.get(a.id)} compact />
               <div className="today">
                 <div className="today-title small secondary">
                   Por hora hoje{mins ? ` · ${num(mins / 60)} h ativas` : ""} · {ago(d.lastSeen.get(a.id))}

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadAlerts, type Alert } from "@/lib/alerts";
 import { loadProfiles, speciesOf, type Profile } from "@/lib/profile";
 import { rankLine } from "@/lib/rank";
 import { speciesLooktypes } from "@/lib/sprites";
@@ -18,6 +19,7 @@ export type Overview = {
   lastSeen: Map<string, string>;
   ranks: Map<string, { species: number | null; target: string | null }>;
   totals: Map<string, Totals>;
+  alerts: Map<string, Alert[]>;
   err: string | null;
 };
 
@@ -34,8 +36,9 @@ export async function loadOverview(supabase: SupabaseClient): Promise<Overview> 
   const lastSeen = new Map<string, string>();
   const ranks = new Map<string, { species: number | null; target: string | null }>();
 
-  const [profiles] = await Promise.all([
+  const [profiles, alerts] = await Promise.all([
     loadProfiles(supabase, accounts.map((a) => a.id)),
+    loadAlerts(supabase, accounts.map((a) => a.id)),
     ...accounts.map(async (a) => {
       if (rankOn.has(a.id)) ranks.set(a.id, await rankLine(supabase, a.id));
       const { data } = await supabase
@@ -53,7 +56,7 @@ export async function loadOverview(supabase: SupabaseClient): Promise<Overview> 
     totals.set(r.account_id, t);
   }
   return {
-    accounts, profiles, looktypes, lastSeen, ranks, totals,
+    accounts, profiles, looktypes, lastSeen, ranks, totals, alerts,
     err: accountsRes.error?.message ?? dailyRes.error?.message ?? null,
   };
 }

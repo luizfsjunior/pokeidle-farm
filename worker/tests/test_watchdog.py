@@ -150,3 +150,34 @@ async def test_no_kills_alert_once():
     await p.check()
     await p.check()
     assert [n[0] for n in actions.notes].count("watchdog.no_kills") == 1
+
+
+async def test_revive_storm_marks_the_hunt_and_restores_the_strongest():
+    """20/11: o nv 20 virou ativo na hunt nv 260 e o jogo reviveu ele em loop por uma hora."""
+    p, actions, state, clock = await _plugin(revive_storm=4, revive_window_s=60)
+    state.danger = {}
+    state.active_pokemon = {"id": MAGIKARP}
+    for _ in range(3):
+        clock[0] += 5
+        await p.on_event(_ev("battle.revive"))
+    assert actions.sent == []  # 3 em 15 s: ainda não
+    clock[0] += 5
+    await p.on_event(_ev("battle.revive"))
+    assert actions.sent == [{"t": "team.active", "pokemonId": VENUSAUR}]
+    storm = [d for t, d in actions.notes if t == "watchdog.revive_storm"]
+    assert storm == [{"hunt_slug": "brave_steelix", "active_id": MAGIKARP, "revives": 4}]
+    assert (MAGIKARP, "brave_steelix") in state.danger
+    # mais revives logo depois, mesmo par: não repete
+    for _ in range(4):
+        clock[0] += 1
+        await p.on_event(_ev("battle.revive"))
+    assert len([t for t, _ in actions.notes if t == "watchdog.revive_storm"]) == 1
+
+
+async def test_spread_out_revives_are_not_a_storm():
+    p, actions, state, clock = await _plugin(revive_storm=4, revive_window_s=60)
+    state.danger = {}
+    for _ in range(10):
+        clock[0] += 30  # um revive a cada 30 s: no máximo 2 na janela
+        await p.on_event(_ev("battle.revive"))
+    assert not [t for t, _ in actions.notes if t == "watchdog.revive_storm"]

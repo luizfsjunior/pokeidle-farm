@@ -12,8 +12,8 @@ import { TrainerCard } from "@/components/TrainerCard";
 import { TrendChart } from "@/components/TrendChart";
 import { useAccounts, useAtlas, usePanel } from "@/lib/query/hooks";
 import { loadAccount } from "./data";
-import { TeamTrainCard } from "./TeamControls";
 import { NewPlugin } from "./NewPlugin";
+import { MarketCard } from "./MarketCard";
 import { NowCard } from "./NowCard";
 import { OutlandCard } from "./OutlandCard";
 import { PlanCard } from "./PlanCard";
@@ -21,10 +21,11 @@ import { PluginEditor } from "./PluginEditor";
 import { ProfileSections } from "./ProfileSections";
 import { Collection } from "./Collection";
 import { RankCard } from "./RankCard";
+import { ShopCard } from "./ShopCard";
 
 /**
- * Página da conta em 3 abas (docs/design/painel-ux-v2.md, seção 3): Agora (o que ela está fazendo e as ações),
- * Pokémons (equipe, coleção, mochila) e Ajustes (plugins e comandos).
+ * Página da conta em 4 abas (docs/design/painel-ux-v2.md, seção 3, e refatoracao-2026-11-20.md, 4): Agora (modo,
+ * desvio, plano e alertas), Pokémons (a lista, a montagem da equipe), Itens (mochila, loja e Mercado) e Ajustes.
  */
 export function AccountView() {
   const { id } = useParams<{ id: string }>();
@@ -51,6 +52,7 @@ export function AccountView() {
       <SectionTabs tabs={[
         { id: "agora", label: "Agora" },
         { id: "pokemons", label: "Pokémons" },
+        { id: "itens", label: "Itens" },
         { id: "ajustes", label: "Ajustes" },
       ]}>
         {/* Agora */}
@@ -60,10 +62,11 @@ export function AccountView() {
           )}
           {d && (
             <NowCard accountId={d.account.id} plugins={d.plugins} capture={d.capture} hold={d.hold} hunts={d.huntOptions}
-              huntSlug={profile?.hunt_slug ?? null} trainerLevel={profile?.level ?? null} enabled={d.account.enabled} />
+              huntSlug={profile?.hunt_slug ?? null} trainerLevel={profile?.level ?? null} enabled={d.account.enabled}
+              team={profile?.team ?? []} activeId={profile?.active_pokemon_id ?? null} alerts={d.alerts} />
           )}
-          {d && <PlanCard plan={d.gemsPlan} progress={d.progress} />}
-          {d && <TeamTrainCard accountId={d.account.id} plugins={d.plugins} team={profile?.team ?? []} />}
+          {d && <PlanCard plan={d.gemsPlan} progress={d.progress} huntSlug={profile?.hunt_slug ?? null} hold={d.hold}
+            capture={d.capture} />}
           {d?.outland && <OutlandCard data={d.outland} progress={d.progress} />}
           {d?.rank && (
             <>
@@ -73,7 +76,7 @@ export function AccountView() {
           )}
           {d && profile && (
             <Fold title="Bônus e passe">
-              <ProfileSections part="status" profile={profile} atlas={atlas} looktypes={d.looktypes} items={d.items} />
+              <ProfileSections part="status" profile={profile} items={d.items} />
             </Fold>
           )}
           {d && profile && (
@@ -93,16 +96,27 @@ export function AccountView() {
         <>
           {!d ? loading : profile
             ? <>
-                <ProfileSections part="collection" profile={profile} atlas={atlas} looktypes={d.looktypes} items={d.items} accountId={d.account.id} />
                 <Collection accountId={d.account.id} profile={profile} atlas={atlas} looktypes={d.looktypes} />
               </>
             : <p className="muted">Sem perfil ainda: ele aparece uns segundos depois de o worker conectar a conta.</p>}
         </>
 
+        {/* Itens */}
+        <>
+          {!d ? loading : profile
+            ? <>
+                <ProfileSections part="bag" profile={profile} items={d.items} restock={restockItems(d.plugins)} />
+                <ShopCard accountId={d.account.id} profile={profile} />
+                <MarketCard accountId={d.account.id} profile={profile} items={d.items}
+                  sellerActive={d.plugins.some((p) => p.plugin === "seller" && p.enabled && p.config.dry_run === false)} />
+              </>
+            : <p className="muted">Sem perfil ainda.</p>}
+        </>
+
         {/* Ajustes */}
         <>
-          <Panel title="Plugins" meta="JSON" hint={<>A telemetria e o perfil são sempre ligados. O worker valida antes de gravar e
-            reinicia o plugin na hora. Campos: <code>restock</code> em fase-3-reposicao.md, <code>rank</code> em fase-3b-rank-ligado.md.</>}>
+          <Panel title="Plugins" hint={<>A telemetria, o perfil e a vigia são sempre ligados. Modo, desvio e treino se ajustam na aba
+            Agora; aqui é para ligar ou desligar à mão. O worker valida a config antes de gravar e reinicia o plugin na hora.</>}>
             <div className="stack">
               {!d && loading}
               {d?.plugins.map((p) => (
@@ -123,4 +137,10 @@ export function AccountView() {
       </SectionTabs>
     </>
   );
+}
+
+/** As regras do restock (mínimo e alvo por item), para a mochila mostrar o que é reposto. */
+function restockItems(plugins: { plugin: string; config: Record<string, unknown> }[]) {
+  const items = plugins.find((p) => p.plugin === "restock")?.config.items;
+  return Array.isArray(items) ? (items as { id: number; min?: number; target?: number }[]) : [];
 }

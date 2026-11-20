@@ -20,7 +20,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Protocol
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from .actions import (
     ActionBlocked,
@@ -28,10 +28,14 @@ from .actions import (
     CenterHeal,
     CollectionMove,
     HuntSelect,
+    MarketCancel,
+    MarketCreate,
     SellDepot,
+    ShopBuy,
     TeamActive,
     TeamMove,
 )
+from .catalog import BALLS, ITEM_PRICES
 from .events import Event
 from .plugins.base import Plugin
 from .store.base import AccountRecord, CommandRecord, Store
@@ -261,6 +265,14 @@ class Supervisor:
                 f"a hunt {slug} pede nível {hunt.level} e a conta está no {level}: o jogo tranca"
             )
 
+    def _check_hunt_species(self, acc: AccountRecord, slug: str, species_id: int) -> None:
+        """Capturar o X numa hunt que não é dele gasta bola à toa (20/11: Totodile na `larvitar`)."""
+        live = self.live.get(acc.id)
+        catalog = getattr(live.session if live else None, "catalog", None)
+        hunt = catalog.hunts.get(slug) if catalog is not None else None
+        if hunt is not None and hunt.species_id != species_id:
+            raise CommandError(f"a hunt {slug} não é da espécie {species_id}")
+
     async def _team_active(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Troca o pokémon ativo (docs/design/team-train.md)."""
         try:
@@ -354,7 +366,6 @@ class Supervisor:
             return {"steps": [], "detail": "a equipe já está assim"}
 
         back = view.hunt_slug if not view.in_center else None
-        saved = {a: gateway.holds[a] for a in APPLY_HOLDS if a in gateway.holds}
         until = datetime.now(UTC) + timedelta(minutes=6)
         for a in APPLY_HOLDS:
             gateway.hold(a, until, APPLY_OWNER, "montar equipe")
@@ -390,8 +401,7 @@ class Supervisor:
                 except CommandError as exc:
                     failure = failure or str(exc)
                     done.append(f"não voltou para {back}")
-            gateway.release(APPLY_OWNER)
-            gateway.holds.update(saved)
+            gateway.release(APPLY_OWNER)  # as travas dos outros (hunt_hold, captura) ficam
             await gateway.note("team.apply.finished", {"done": done, "failed": failure is not None})
         if failure is not None:
             raise CommandError(f"{failure}. Feito: {', '.join(done) or 'nada'}")
@@ -456,6 +466,8 @@ class Supervisor:
             want = to == "colecao"
             if mon is None or bool(mon.get("colecao")) == want:
                 continue
+            if moved:  # o gateway segura 1 s entre marcações: espera em vez de falhar
+                await asyncio.sleep(CollectionMove.min_interval_s + 0.05)
             await self._send_now(
                 acc,
                 CollectionMove(pokemon_id=pid, to=to),  # type: ignore[arg-type]
@@ -475,6 +487,13 @@ class Supervisor:
         mons = self._mons(acc)
         if mons is None:
             raise CommandError("a coleção ainda não carregou; tente em alguns segundos")
+        if p.pokemon_ids:  # em lote, pela tabela do painel (refatoracao-2026-11-20, 4.2)
+            missing = [pid for pid in p.pokemon_ids if pid not in mons]
+            if missing:
+                raise CommandError(f"pokémon não encontrado na conta: {missing[:5]}")
+            moved = await self._set_place(acc, {pid: p.to for pid in p.pokemon_ids})
+            return {"moved": len(moved), "to": p.to}
+        assert p.pokemon_id is not None
         mon = mons.get(p.pokemon_id)
         if mon is None:
             raise CommandError("pokémon não encontrado na conta")
@@ -529,6 +548,10 @@ class Supervisor:
             raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
         self._check_hunt_level(acc, p.slug)
         until = datetime.now(UTC) + timedelta(hours=p.hours)
+        # um desvio por vez (refatoracao-2026-11-20, 3): a hunt manual encerra a captura
+        configs = await self.store.plugin_configs(acc.id)
+        if configs.get("capture_target", (False, {}))[0]:
+            await self._plugin_set(acc, {"plugin": "capture_target", "enabled": False})
         out = await self._plugin_set(
             acc,
             {
@@ -551,6 +574,7 @@ class Supervisor:
         except ValidationError as exc:
             raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
         self._check_hunt_level(acc, p.hunt_slug)
+        self._check_hunt_species(acc, p.hunt_slug, p.species_id)
         now = datetime.now(UTC)
         until = now + timedelta(hours=p.hours) if p.hours else None
         config = {
@@ -576,6 +600,54 @@ class Supervisor:
             return {"enabled": False, "applied": "nada a parar"}
         return await self._plugin_set(acc, {"plugin": "capture_target", "enabled": False})
 
+    # --- loja e Mercado pelo painel (refatoracao-2026-11-20, seção 5) -------------------------
+
+    def _view(self, acc: AccountRecord) -> Any:
+        live = self.live.get(acc.id)
+        return getattr(live.session if live else None, "state_view", None)
+
+    async def _shop_buy(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Compra na loja do NPC. Confere o ouro antes e confirma pelo estoque que volta do jogo."""
+        p = _parse(ShopBuyParams, params)
+        price = BALLS[p.id].price if p.kind == "ball" and p.id in BALLS else ITEM_PRICES.get(p.id)
+        if price is None:
+            raise CommandError(f"a loja não vende o {p.kind} {p.id}")
+        view = self._view(acc)
+        gold = getattr(view, "gold", None)
+        cost = price * p.qty
+        if isinstance(gold, int | float) and cost > gold:
+            raise CommandError(f"custa {cost} de ouro e a conta tem {int(gold)}")
+        key = str(p.id)
+
+        def stock(v: Any) -> int:
+            bag = (v.balls if p.kind == "ball" else v.items) or {}
+            return int(bag.get(key, 0) or 0)
+
+        before = stock(view) if view is not None else 0
+        out = await self._send_now(
+            acc, ShopBuy(kind=p.kind, id=p.id, qty=p.qty), confirm=lambda v: stock(v) > before
+        )
+        return {**out, "cost": cost}
+
+    async def _market_sell(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Anuncia um item no Mercado. Confirma pelo item saindo da mochila."""
+        p = _parse(MarketSellParams, params)
+        view = self._view(acc)
+        key = str(p.item_id)
+        have = int(((getattr(view, "items", None) or {}).get(key, 0)) or 0)
+        if view is not None and have < p.qty:
+            raise CommandError(f"a mochila tem {have} desse item, menos que {p.qty}")
+        return await self._send_now(
+            acc,
+            MarketCreate(itemId=p.item_id, qtd=p.qty, preco=p.price, moeda=p.currency),
+            confirm=lambda v: int(((v.items or {}).get(key, 0)) or 0) < have,
+        )
+
+    async def _market_cancel(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Cancela um anúncio da conta. O jogo não responde: o item volta pela mochila."""
+        p = _parse(MarketCancelParams, params)
+        return await self._send_now(acc, MarketCancel(id=p.listing_id))
+
     async def _focus_set(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Foco da conta (captura, ouro-xp-drop, rank ou gemas): restock, rank e gems juntos.
 
@@ -591,9 +663,18 @@ class Supervisor:
         rank_fields = dict(p.rank or {})
         fallback_focus = rank_fields.pop("fallback_focus", None)
 
-        # gemas e XP: o restock só cuida de poções (bolas desligadas); o gems escolhe a hunt
-        restock_focus = "gold_xp_drop" if p.focus in ("gems", "xp") else p.focus
-        restock_cfg = {**configs.get("restock", (True, {}))[1], "focus": restock_focus}
+        # "bola em tudo" (catch_all) é uma opção de qualquer modo, não um foco (refatoracao, 3):
+        # o restock com focus "capture". O foco "capture" antigo vira ouro e drop + bola em tudo.
+        # Sem catch_all no comando, mantém o que estava.
+        current_restock = configs.get("restock", (True, {}))[1]
+        catch_all = p.catch_all
+        if catch_all is None:
+            catch_all = p.focus == "capture" or current_restock.get("focus") == "capture"
+        if p.focus == "rank":
+            restock_focus = "rank"  # o rank escolhe a bola; o fallback_focus vale sem alvo
+        else:
+            restock_focus = "capture" if catch_all else "gold_xp_drop"
+        restock_cfg = {**current_restock, "focus": restock_focus}
         # foco XP: poção sem teto por hora (o ouro é só para sobreviver; decisão de 16/11)
         if p.focus == "xp":
             restock_cfg["potions_uncapped"] = True
@@ -618,6 +699,15 @@ class Supervisor:
             writes.append(("gems", True, gems_cfg))
         elif "gems" in configs:
             writes.append(("gems", False, configs["gems"][1]))
+        # treinar a equipe é opção do XP (o foco leva a conta para a hunt de quem treina, 2.5);
+        # fora dele o team_train desliga: trocaria o ativo sem ninguém mudar a hunt
+        if p.focus == "xp" and p.train is not None:
+            train_cfg = {**configs.get("team_train", (False, {}))[1]}
+            if p.train.target_level is not None:
+                train_cfg["target_level"] = p.train.target_level
+            writes.append(("team_train", p.train.enabled, train_cfg))
+        elif p.focus != "xp" and configs.get("team_train", (False, {}))[0]:
+            writes.append(("team_train", False, configs["team_train"][1]))
 
         for name, _, cfg in writes:
             cls = self.available.get(name)
@@ -639,6 +729,36 @@ class Supervisor:
             for name, _, _ in writes:  # restock antes: o rank confere o foco dele ao subir
                 applied = await session.restart_plugin(name) and applied
         return {"focus": p.focus, "applied": "agora" if applied else "na próxima conexão"}
+
+
+def _parse[M: BaseModel](model: type[M], params: dict[str, Any]) -> M:
+    try:
+        return model.model_validate(params)
+    except ValidationError as exc:
+        raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
+
+
+class ShopBuyParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["ball", "item"]
+    id: int = Field(gt=0)
+    qty: int = Field(ge=1, le=10_000)
+
+
+class MarketSellParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    item_id: int = Field(gt=0)
+    qty: int = Field(ge=1, le=100_000)
+    price: int = Field(ge=1, le=100_000_000)  # por unidade
+    currency: Literal["orb", "gold"] = "orb"
+
+
+class MarketCancelParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    listing_id: int | str
 
 
 class TeamActiveParams(BaseModel):
@@ -668,8 +788,15 @@ class TeamApplyParams(BaseModel):
 class CollectionMoveParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    pokemon_id: int = Field(gt=0)
+    pokemon_id: int | None = Field(None, gt=0)
+    pokemon_ids: list[int] | None = Field(None, min_length=1, max_length=100)
     to: Literal["colecao", "depot"] = "colecao"
+
+    @model_validator(mode="after")
+    def _one_of(self) -> CollectionMoveParams:
+        if (self.pokemon_id is None) == (self.pokemon_ids is None):
+            raise ValueError("mande pokemon_id ou pokemon_ids")
+        return self
 
 
 class DepotSellParams(BaseModel):
@@ -697,6 +824,13 @@ class CaptureStartParams(BaseModel):
     hours: float | None = Field(None, ge=0.25, le=72)
 
 
+class TrainParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
+    target_level: int | None = Field(None, ge=2, le=100_000)
+
+
 class FocusSetParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -705,6 +839,8 @@ class FocusSetParams(BaseModel):
     rank: dict[str, Any] | None = None
     # campos do gems (max_market_share, hysteresis...)
     gems: dict[str, Any] | None = None
+    catch_all: bool | None = None  # jogar a melhor bola que se paga em todo selvagem
+    train: TrainParams | None = None  # só no foco XP
 
 
 class PluginSetParams(BaseModel):
@@ -723,6 +859,9 @@ _HANDLERS: dict[str, Handler] = {
     "session.reconnect": Supervisor._reconnect,
     "plugin.set": Supervisor._plugin_set,
     "focus.set": Supervisor._focus_set,
+    "shop.buy": Supervisor._shop_buy,
+    "market.sell": Supervisor._market_sell,
+    "market.cancel": Supervisor._market_cancel,
     "hunt.select": Supervisor._hunt_select,
     "hunt.release": Supervisor._hunt_release,
     "capture.start": Supervisor._capture_start,

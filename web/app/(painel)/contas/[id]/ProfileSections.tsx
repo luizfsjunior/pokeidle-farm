@@ -1,200 +1,95 @@
 "use client";
 
-import { useState } from "react";
 import { ItemIcon } from "@/components/ItemIcon";
-import { MonSheet } from "@/components/MonSheet";
-import { Sprite } from "@/components/Sprite";
 import { num } from "@/lib/format";
-import { tierIvSum, tierPotency, tierQuality } from "@/lib/pokemon";
-import { gameDay, type Mon, type Profile } from "@/lib/profile";
-import { BALL_ICONS, BALL_NAMES, GAME_SITE, itemIconUrl, type Atlas } from "@/lib/sprites";
-import { MonActions } from "./TeamControls";
+import { gameDay, type Profile } from "@/lib/profile";
+import { BALL_ICONS, BALL_NAMES, GAME_SITE, itemIconUrl } from "@/lib/sprites";
 
 export type ItemInfo = { name: string; category: string | null; icon: string | null };
+type RestockItem = { id: number; min?: number; target?: number };
 
-/** Equipe, coleção e mochila da conta, do `account_profile`. */
-export function ProfileSections({ profile, atlas, looktypes, items, part = "all", accountId }: {
-  part?: "all" | "status" | "collection";
-  accountId?: string; // com ele, os botões de equipe (tornar ativo, pôr e tirar)
+/**
+ * Passe e bônus (aba Agora) ou a mochila (aba Pokémons). A equipe e os destaques saíram: repetiam a lista de
+ * pokémons (refatoracao-2026-11-20, 4.2).
+ */
+export function ProfileSections({ profile, items, part, restock = [] }: {
+  part: "status" | "bag";
   profile: Profile;
-  atlas: Atlas | null;
-  looktypes: Map<number, number>;
   items: Map<string, ItemInfo>;
+  restock?: RestockItem[]; // o que o restock mantém (mínimo e alvo por item)
 }) {
   const bag = Object.entries(profile.items)
     .map(([id, qty]) => ({ id, qty, info: items.get(id) }))
     .sort((a, b) => (a.info?.category ?? "~").localeCompare(b.info?.category ?? "~") || b.qty - a.qty);
   const balls = Object.entries(profile.balls).sort(([a], [b]) => Number(a) - Number(b));
-  // no máximo 3 de cada espécie, senão a lista vira 12 Brave Steelix
-  const perSpecies = new Map<string, number>();
-  const highlights = profile.top_pokemon
-    .filter((m) => !profile.team.some((t) => t.id === m.id))
-    .filter((m) => {
-      const key = String(m.species_id ?? m.name ?? m.id);
-      const n = perSpecies.get(key) ?? 0;
-      perSpecies.set(key, n + 1);
-      return n < 3;
-    })
-    .slice(0, 12);
-
-  const [open, setOpen] = useState<Mon | null>(null);
-  // a ficha lê a versão mais nova do pokémon (o perfil recarrega a cada minuto)
-  const all = [...profile.team, ...profile.top_pokemon, ...profile.shinies];
-  const sheetMon = open ? all.find((m) => m.id === open.id) ?? open : null;
+  const rules = new Map(restock.map((r) => [String(r.id), r]));
   const pass = profile.extra?.passe;
   const ex = profile.extra ?? {};
-  return (
-    <>
-      {part !== "collection" && pass?.degrau != null && (
-        <section className="card">
-          <div className="spread">
-            <h2 style={{ margin: 0 }}>Passe de batalha</h2>
-            <span className={`small ${pass.ultimo === gameDay() ? "secondary" : "warn-text"}`}>
-              {pass.ultimo === gameDay() ? "Prêmio de hoje resgatado" : "Prêmio de hoje ainda não resgatado"}
-            </span>
-          </div>
-          <ol className="pass-track" aria-label={`Dia ${pass.degrau} de 30`}>
-            {Array.from({ length: 30 }, (_, i) => (
-              <li key={i} className={i < (pass.degrau ?? 0) ? "done" : undefined} title={`Dia ${i + 1}`} />
-            ))}
-          </ol>
-          <p className="muted small" style={{ margin: ".5rem 0 0" }}>
-            Dia {pass.degrau} de 30 · {num(pass.total ?? 0)} resgates · {num(pass.ciclos ?? 0)} trilhas completas
-            {pass.vipAte && pass.vipAte > Date.now() ? " · trilha premium ativa" : ""}
-          </p>
-        </section>
-      )}
-
-      {part !== "collection" && <ExtrasCard ex={ex} />}
-      {part !== "status" && (<>
-
-      <section className="card">
-        <h2>Equipe</h2>
-        {profile.team.length === 0 ? (
-          <p className="muted small">Nenhum pokémon na equipe.</p>
-        ) : (
-          <div className="mons">
-            {profile.team.map((m) => (
-              <MonTile key={m.id} mon={m} atlas={atlas} looktypes={looktypes} active={m.id === profile.active_pokemon_id} onOpen={setOpen}>
-                {accountId && <MonActions accountId={accountId} mon={m} team={profile.team} isActive={m.id === profile.active_pokemon_id} />}
-              </MonTile>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="card">
-        <h2>Coleção</h2>
-        <div className="collection">
-          <Figure value={profile.pokemon_count} label="pokémons" />
-          <Figure value={profile.shiny_count} label="shiny" />
-          <Figure value={profile.dex_caught} label="espécies capturadas" />
-          <Figure value={profile.dex_seen} label="espécies vistas" />
-        </div>
-        {highlights.length > 0 && (
-          <>
-            <h3>Mais fortes fora da equipe</h3>
-            <div className="mons mons-small">
-              {highlights.map((m) => (
-                <MonTile key={m.id} mon={m} atlas={atlas} looktypes={looktypes} small onOpen={setOpen}>
-                  {accountId && <MonActions accountId={accountId} mon={m} team={profile.team} isActive={false} />}
-                </MonTile>
+  if (part === "status") {
+    return (
+      <>
+        {pass?.degrau != null && (
+          <section className="card">
+            <div className="spread">
+              <h2 style={{ margin: 0 }}>Passe de batalha</h2>
+              <span className={`small ${pass.ultimo === gameDay() ? "secondary" : "warn-text"}`}>
+                {pass.ultimo === gameDay() ? "Prêmio de hoje resgatado" : "Prêmio de hoje ainda não resgatado"}
+              </span>
+            </div>
+            <ol className="pass-track" aria-label={`Dia ${pass.degrau} de 30`}>
+              {Array.from({ length: 30 }, (_, i) => (
+                <li key={i} className={i < (pass.degrau ?? 0) ? "done" : undefined} title={`Dia ${i + 1}`} />
               ))}
-            </div>
-          </>
+            </ol>
+            <p className="muted small" style={{ margin: ".5rem 0 0" }}>
+              Dia {pass.degrau} de 30 · {num(pass.total ?? 0)} resgates · {num(pass.ciclos ?? 0)} trilhas completas
+              {pass.vipAte && pass.vipAte > Date.now() ? " · trilha premium ativa" : ""}
+            </p>
+          </section>
         )}
-        {profile.shinies.length > 0 && (
-          <>
-            <h3>Shinies</h3>
-            <div className="mons mons-small">
-              {profile.shinies.map((m) => <MonTile key={m.id} mon={m} atlas={atlas} looktypes={looktypes} small onOpen={setOpen} />)}
-            </div>
-          </>
-        )}
-      </section>
-
-      <section className="card">
-        <h2>Mochila</h2>
-        {balls.length > 0 && (
-          <ul className="bag bag-balls">
-            {balls.map(([id, qty]) => (
-              <li key={id}>
-                <ItemIcon src={BALL_ICONS[id] ? GAME_SITE + BALL_ICONS[id] : null} name={BALL_NAMES[id] ?? `Ball ${id}`} />
-                <span className="bag-name">{BALL_NAMES[id] ?? `Ball #${id}`}</span>
-                <span className="bag-qty num">{num(qty)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {bag.length === 0 ? (
-          <p className="muted small">Mochila vazia.</p>
-        ) : (
-          <ul className="bag">
-            {bag.map(({ id, qty, info }) => (
+        <ExtrasCard ex={ex} />
+      </>
+    );
+  }
+  return (
+    <section className="card">
+      <div className="spread">
+        <h2 style={{ margin: 0 }}>Mochila</h2>
+        <span className="small muted">alvo = o que a reposição automática mantém</span>
+      </div>
+      {balls.length > 0 && (
+        <ul className="bag bag-balls">
+          {balls.map(([id, qty]) => (
+            <li key={id}>
+              <ItemIcon src={BALL_ICONS[id] ? GAME_SITE + BALL_ICONS[id] : null} name={BALL_NAMES[id] ?? `Ball ${id}`} />
+              <span className="bag-name">{BALL_NAMES[id] ?? `Ball #${id}`}</span>
+              <span className="bag-qty num">{num(qty)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {bag.length === 0 ? (
+        <p className="muted small">Mochila vazia.</p>
+      ) : (
+        <ul className="bag">
+          {bag.map(({ id, qty, info }) => {
+            const rule = rules.get(id);
+            const stone = /stone$/i.test(info?.name ?? "") && !/fragment/i.test(info?.name ?? "");
+            return (
               <li key={id} title={info?.category ?? undefined}>
                 <ItemIcon src={itemIconUrl(info?.icon)} name={info?.name ?? id} />
-                <span className="bag-name">{info?.name ?? `Item #${id}`}</span>
-                <span className="bag-qty num">{num(qty)}</span>
+                <span className="bag-name">
+                  {info?.name ?? `Item #${id}`}
+                  {rule?.target != null && <span className="small muted"> · alvo {num(rule.target)} (repõe abaixo de {num(rule.min ?? 0)})</span>}
+                  {stone && <span className="small muted"> · vale ~2 gemas no Mercado</span>}
+                </span>
+                <span className={`bag-qty num ${rule?.min != null && qty < rule.min ? "warn-text" : ""}`}>{num(qty)}</span>
               </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      </>)}
-      {sheetMon && (
-        <MonSheet mon={sheetMon} atlas={atlas} looktypes={looktypes} active={sheetMon.id === profile.active_pokemon_id} onClose={() => setOpen(null)}>
-          {accountId && (
-            <MonActions accountId={accountId} mon={sheetMon} team={profile.team} isActive={sheetMon.id === profile.active_pokemon_id} />
-          )}
-        </MonSheet>
+            );
+          })}
+        </ul>
       )}
-    </>
-  );
-}
-
-function MonTile({ mon, atlas, looktypes, active, small, children, onOpen }: {
-  children?: React.ReactNode;
-  onOpen?: (m: Mon) => void;
-  mon: Mon;
-  atlas: Atlas | null;
-  looktypes: Map<number, number>;
-  active?: boolean;
-  small?: boolean;
-}) {
-  const hp = mon.hp != null && mon.max_hp ? Math.max(0, Math.min(1, mon.hp / mon.max_hp)) : null;
-  return (
-    <div className={`mon ${active ? "is-active" : ""} ${mon.shiny ? "is-shiny" : ""}`}>
-      <button type="button" className="mon-open" onClick={() => onOpen?.(mon)} aria-label={`Ver a ficha de ${mon.name ?? "pokémon"}`}>
-        <Sprite mon={mon} atlas={atlas} looktypes={looktypes} size={small ? 48 : 72} />
-        <span className="mon-name">
-          {mon.name ?? `#${mon.species_id ?? "?"}`}
-          {mon.shiny && <span aria-label="shiny" title="Shiny"> ✨</span>}
-        </span>
-        <span className="mon-meta num">nv {mon.level ?? "?"}{mon.power != null && <> · poder {num(mon.power, { compact: true })}</>}</span>
-        {!small && (
-          <span className="mon-selos num">
-            {mon.potency != null && <span className={`mini-selo tier-${tierPotency(mon.potency)}`}>P{mon.potency}</span>}
-            {mon.iv_sum != null && <span className={`mini-selo tier-${tierIvSum(mon.iv_sum)}`}>IV {mon.iv_sum}</span>}
-            {mon.quality != null && <span className={`mini-selo tier-${tierQuality(mon.quality)}`}>Q {num(mon.quality)}</span>}
-          </span>
-        )}
-      </button>
-      {!small && hp != null && (
-        <div className="hpbar" aria-label={`HP ${Math.round(hp * 100)}%`}>
-          <span style={{ width: `${hp * 100}%` }} className={hp < 0.3 ? "low" : undefined} />
-        </div>
-      )}
-      {children}
-    </div>
-  );
-}
-
-function Figure({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="figure">
-      <span className="figure-value num">{num(value)}</span>
-      <span className="figure-label">{label}</span>
-    </div>
+    </section>
   );
 }
 

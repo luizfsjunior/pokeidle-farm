@@ -75,11 +75,13 @@ class Game:
         self.holds: dict[str, Any] = {}
 
     def hold(self, action, until, owner, label=None):  # type: ignore[no-untyped-def]
-        self.holds[action] = (until, owner, label)
+        self.holds.setdefault(action, {})[owner] = (until, label)
 
     def release(self, owner, action=None):  # type: ignore[no-untyped-def]
-        for a in [a for a, h in self.holds.items() if h[1] == owner]:
-            del self.holds[a]
+        for a in list(self.holds):
+            self.holds[a].pop(owner, None)
+            if not self.holds[a]:
+                del self.holds[a]
 
     async def note(self, type_, data):  # type: ignore[no-untyped-def]
         pass
@@ -118,7 +120,7 @@ async def test_apply_goes_to_center_swaps_and_returns(rig):  # noqa: F811
     acc = farm(rig.store, "farm1")
     await rig.boot()
     game = Game([{"id": 1, "slot": 0}, {"id": 2, "slot": 1}], active=1, hunt="brave_steelix")
-    game.holds["hunt.select"] = ("x", "hunt_hold", "brave_steelix")
+    game.holds["hunt.select"] = {"hunt_hold": ("x", "brave_steelix")}
     await _wire(rig, game)
     c = await rig.cmd(acc, "team.apply", team=[2, 7], active=7)
     assert c["status"] == "done", c
@@ -128,9 +130,7 @@ async def test_apply_goes_to_center_swaps_and_returns(rig):  # noqa: F811
     }
     assert sorted((m["slot"], m["id"]) for m in game.view.team) == [(0, 2), (1, 7)]
     assert game.view.active_pokemon == {"id": 7} and game.view.in_center is False
-    assert game.holds == {
-        "hunt.select": ("x", "hunt_hold", "brave_steelix")
-    }  # trava da hunt de volta
+    assert game.holds == {"hunt.select": {"hunt_hold": ("x", "brave_steelix")}}  # a do outro fica
 
 
 async def test_apply_rejects_an_active_outside_the_team(rig):  # noqa: F811
@@ -219,3 +219,59 @@ async def test_depot_sell_guards(rig):  # noqa: F811
     c = await rig.cmd(acc, "depot.sell", expected=1)
     assert c["status"] == "done" and c["result"]["sold"] == 1
     assert set(mons) == {1, 2, 4}
+    # em lote: a 2 e a 4 voltam para o Depot
+    c = await rig.cmd(acc, "collection.move", pokemon_ids=[2, 4], to="depot")
+    assert c["status"] == "done" and c["result"] == {"moved": 2, "to": "depot"}, c
+    assert not mons[2].get("colecao") and not mons[4].get("colecao")
+    c = await rig.cmd(acc, "collection.move", pokemon_id=2, pokemon_ids=[4])
+    assert c["status"] == "failed" and "params" in c["error"]
+
+
+# --- loja e Mercado pelo painel (refatoracao-2026-11-20, seção 5) -------------------------------
+
+
+def _shop(game: Game) -> None:
+    game.view.gold, game.view.balls, game.view.items = 10_000, {"4": 5}, {"200": 3, "777": 10}
+    orig = game.submit
+
+    async def submit(action, *, source):  # type: ignore[no-untyped-def]
+        await orig(action, source=source)
+        w, v = action.to_wire(), game.view
+        if w["t"] == "shop.buy":
+            bag = v.balls if w["kind"] == "ball" else v.items
+            bag[str(w["id"])] = bag.get(str(w["id"]), 0) + w["qty"]
+        elif w["t"] == "market.criar":
+            v.items[str(w["itemId"])] -= w["qtd"]
+
+    game.submit = submit  # type: ignore[method-assign]
+
+
+async def test_shop_buy_checks_gold_and_confirms_the_stock(rig):  # noqa: F811
+    acc = farm(rig.store, "farm1")
+    await rig.boot()
+    game = Game([{"id": 1, "slot": 0}], active=1, hunt="x")
+    _shop(game)
+    await _wire(rig, game)
+    c = await rig.cmd(acc, "shop.buy", kind="ball", id=4, qty=10)
+    assert c["status"] == "done" and c["result"]["cost"] == 1300, c
+    assert game.view.balls["4"] == 15
+    c = await rig.cmd(acc, "shop.buy", kind="item", id=205, qty=100)  # 60.000 de ouro
+    assert c["status"] == "failed" and "ouro" in c["error"]
+    c = await rig.cmd(acc, "shop.buy", kind="item", id=999, qty=1)
+    assert c["status"] == "failed" and "não vende" in c["error"]
+
+
+async def test_market_sell_and_cancel(rig):  # noqa: F811
+    acc = farm(rig.store, "farm1")
+    await rig.boot()
+    game = Game([{"id": 1, "slot": 0}], active=1, hunt="x")
+    _shop(game)
+    await _wire(rig, game)
+    c = await rig.cmd(acc, "market.sell", item_id=777, qty=4, price=30)
+    assert c["status"] == "done", c
+    assert game.sent[-1]["t"] == "market.criar" and game.sent[-1]["preco"] == 30
+    assert game.view.items["777"] == 6
+    c = await rig.cmd(acc, "market.sell", item_id=777, qty=50, price=30)
+    assert c["status"] == "failed" and "mochila" in c["error"]
+    c = await rig.cmd(acc, "market.cancel", listing_id=123)
+    assert c["status"] == "done" and game.sent[-1] == {"t": "market.cancelar", "id": 123}

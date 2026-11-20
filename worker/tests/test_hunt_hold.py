@@ -44,7 +44,7 @@ async def test_gateway_hold_blocks_others_until_it_ends():
     assert sent == [{"t": "hunt.select", "slug": "kabuto"}]
     gw.release_hunt("gems")  # só o dono solta
     assert "hunt.select" in gw.holds
-    gw.holds["hunt.select"] = (datetime.now(UTC) - timedelta(seconds=1), "hunt_hold", "kabuto")
+    gw.holds["hunt.select"]["hunt_hold"] = (datetime.now(UTC) - timedelta(seconds=1), "kabuto")
     gw.limiter._last.clear()  # type: ignore[union-attr]
     await gw.submit(HuntSelect(slug="meowth"), source="gems")  # prazo vencido: passa
     assert "hunt.select" not in gw.holds and sent[-1]["slug"] == "meowth"
@@ -75,7 +75,7 @@ async def test_plugin_holds_switches_and_releases_on_stop():
     cfg = HuntHoldConfig(slug="kabuto", until=datetime.now(UTC) + timedelta(hours=2))
     ctx = ctx_for(gw, cfg)
     await plugin.start(ctx)
-    assert gw.holds["hunt.select"][2] == "kabuto"
+    assert gw.hold_of("hunt.select") == (cfg.until, "hunt_hold", "kabuto")
     assert sent == [{"t": "hunt.select", "slug": "kabuto"}]
     await plugin.on_event(
         Event(
@@ -121,5 +121,27 @@ async def test_hunt_commands_write_the_plugin_config():
         assert c["status"] == "failed" and "params inválidos" in c["error"]
         c = await rig.cmd(acc, "hunt.release")
         assert c["status"] == "done" and rig.store.configs[acc.id]["hunt_hold"][0] is False
+        # um desvio por vez: a hunt manual encerra a captura em andamento
+        started = datetime.now(UTC).isoformat()
+        cap = {"species_id": 140, "hunt_slug": "kabuto", "started_at": started}
+        rig.store.configs[acc.id]["capture_target"] = (True, cap)
+        c = await rig.cmd(acc, "hunt.select", slug="kabuto", hours=1)
+        assert c["status"] == "done", c
+        assert rig.store.configs[acc.id]["capture_target"][0] is False
     finally:
         await rig.close()
+
+
+async def test_two_owners_hold_together_and_release_separately():
+    """Antes a segunda trava apagava a primeira, e soltar uma soltava a outra (20/11)."""
+    gw, _sent, _rec = gateway()
+    later = datetime.now(UTC) + timedelta(hours=1)
+    gw.hold("hunt.select", later, "capture_target", "totodile")
+    gw.hold("hunt.select", later, "hunt_hold", "rhydon")
+    assert gw.held_by_other("hunt.select", "gems")
+    assert gw.held_by_other("hunt.select", "hunt_hold")  # a captura ainda segura
+    gw.release("hunt_hold")
+    assert gw.held_by_other("hunt.select", "gems")  # a da captura continua
+    assert not gw.held_by_other("hunt.select", "gems", "totodile")  # a mesma hunt passa
+    gw.release("capture_target")
+    assert not gw.holds

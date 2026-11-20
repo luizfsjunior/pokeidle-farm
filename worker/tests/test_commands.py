@@ -383,3 +383,26 @@ async def test_team_move_fails_with_the_game_notice(rig):
     s.state_view.team = [{"id": 7, "slot": 0}]  # o jogo tirou: agora confirma
     c = await rig.cmd(acc, "team.move", pokemon_id=8, slot=None)
     assert c["status"] == "done" and c["result"]["confirmed"] is True
+
+
+async def test_focus_set_catch_all_and_train(rig):
+    """refatoracao-2026-11-20, 3: bola em tudo é opção de qualquer modo; treinar só no XP."""
+    acc = farm(rig.store, "farm1")
+    rig.store.configs[acc.id] = {"restock": (True, {"focus": "gold_xp_drop"})}
+    await rig.boot()
+    c = await rig.cmd(
+        acc, "focus.set", focus="xp", catch_all=True, train={"enabled": True, "target_level": 250}
+    )
+    assert c["status"] == "done", c["error"]
+    cfg = rig.store.configs[acc.id]
+    assert cfg["restock"][1]["focus"] == "capture"  # bola em tudo, mesmo no XP
+    assert cfg["gems"][1]["objective"] == "xp"
+    assert cfg["team_train"] == (True, {"target_level": 250})
+    # sem catch_all: mantém o que estava
+    c = await rig.cmd(acc, "focus.set", focus="xp")
+    assert rig.store.configs[acc.id]["restock"][1]["focus"] == "capture"
+    assert rig.store.configs[acc.id]["team_train"][0] is True  # sem train: não mexe
+    c = await rig.cmd(acc, "focus.set", focus="gold_xp_drop", catch_all=False)
+    cfg = rig.store.configs[acc.id]
+    assert cfg["restock"][1]["focus"] == "gold_xp_drop"
+    assert cfg["team_train"] == (False, {"target_level": 250})  # fora do XP, desliga

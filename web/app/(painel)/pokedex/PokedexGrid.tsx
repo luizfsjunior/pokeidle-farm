@@ -305,7 +305,8 @@ export function PokedexGrid({ species, hunts, dex, atlas, hasProfile, accountId,
                   : (
                     <>
                       {capture && <p className="small muted" style={{ margin: 0 }}>Já há uma captura em andamento ({capture.species_name}); começar outra troca o alvo.</p>}
-                      <CaptureForm accountId={accountId} speciesId={sel.species_id} speciesName={sel.name ?? `#${sel.species_id}`}
+                      {/* key: sem ela a hunt escolhida da espécie anterior ficava no estado (20/11) */}
+                      <CaptureForm key={`${sel.species_id}-${accountId}`} accountId={accountId} speciesId={sel.species_id} speciesName={sel.name ?? `#${sel.species_id}`}
                         hunts={huntsBySpecies.get(sel.species_id) ?? []} balls={balls} level={level} />
                     </>
                   )

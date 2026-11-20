@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { HuntHold, HuntOption } from "@/components/HuntPicker";
+import { loadAlerts } from "@/lib/alerts";
 import { loadActiveCapture } from "@/lib/capture";
 import { loadAllHunts } from "@/lib/catalog";
 import { loadProfiles, speciesOf } from "@/lib/profile";
@@ -22,7 +23,7 @@ const withAt = <T,>(r: { data: { received_at: unknown; data: unknown } | null })
 
 /** Tudo da página da conta numa ida só (as consultas que não dependem umas das outras vão juntas). */
 export async function loadAccount(supabase: SupabaseClient, id: string) {
-  const [accountRes, configs, cmds, profiles, potentialRes, huntsRes, capture, dailyRes] = await Promise.all([
+  const [accountRes, configs, cmds, profiles, potentialRes, huntsRes, capture, dailyRes, alerts] = await Promise.all([
     supabase.from("accounts").select("id, nick, role, enabled, status").eq("id", id).maybeSingle<Account>(),
     supabase.from("strategy_configs").select("plugin, enabled, config").eq("account_id", id).order("plugin"),
     supabase.from("commands").select("*").eq("account_id", id).order("created_at", { ascending: false }).limit(20),
@@ -32,6 +33,7 @@ export async function loadAccount(supabase: SupabaseClient, id: string) {
     loadActiveCapture(supabase, id),
     supabase.from("account_profile_daily").select("day, level, xp, gold, gems, diamonds, pokemon_count, dex_caught")
       .eq("account_id", id).order("day", { ascending: true }).limit(90),
+    loadAlerts(supabase, [id]),
   ]);
   const account = accountRes.data;
   if (!account) return null;
@@ -58,6 +60,7 @@ export async function loadAccount(supabase: SupabaseClient, id: string) {
 
   return {
     account, plugins, profile, looktypes, items, rank, capture, hold,
+    alerts: alerts.get(id) ?? [],
     commands: (cmds.data ?? []) as Command[],
     huntOptions: huntsRes.data,
     daily: (dailyRes.data ?? []) as Daily[],
