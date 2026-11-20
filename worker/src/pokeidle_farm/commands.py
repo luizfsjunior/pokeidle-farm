@@ -20,7 +20,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Protocol
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from .actions import (
     ActionBlocked,
@@ -462,6 +462,8 @@ class Supervisor:
             want = to == "colecao"
             if mon is None or bool(mon.get("colecao")) == want:
                 continue
+            if moved:  # o gateway segura 1 s entre marcações: espera em vez de falhar
+                await asyncio.sleep(CollectionMove.min_interval_s + 0.05)
             await self._send_now(
                 acc,
                 CollectionMove(pokemon_id=pid, to=to),  # type: ignore[arg-type]
@@ -481,6 +483,13 @@ class Supervisor:
         mons = self._mons(acc)
         if mons is None:
             raise CommandError("a coleção ainda não carregou; tente em alguns segundos")
+        if p.pokemon_ids:  # em lote, pela tabela do painel (refatoracao-2026-11-20, 4.2)
+            missing = [pid for pid in p.pokemon_ids if pid not in mons]
+            if missing:
+                raise CommandError(f"pokémon não encontrado na conta: {missing[:5]}")
+            moved = await self._set_place(acc, {pid: p.to for pid in p.pokemon_ids})
+            return {"moved": len(moved), "to": p.to}
+        assert p.pokemon_id is not None
         mon = mons.get(p.pokemon_id)
         if mon is None:
             raise CommandError("pokémon não encontrado na conta")
@@ -697,8 +706,15 @@ class TeamApplyParams(BaseModel):
 class CollectionMoveParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    pokemon_id: int = Field(gt=0)
+    pokemon_id: int | None = Field(None, gt=0)
+    pokemon_ids: list[int] | None = Field(None, min_length=1, max_length=100)
     to: Literal["colecao", "depot"] = "colecao"
+
+    @model_validator(mode="after")
+    def _one_of(self) -> CollectionMoveParams:
+        if (self.pokemon_id is None) == (self.pokemon_ids is None):
+            raise ValueError("mande pokemon_id ou pokemon_ids")
+        return self
 
 
 class DepotSellParams(BaseModel):

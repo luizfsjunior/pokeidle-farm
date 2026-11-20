@@ -22,8 +22,8 @@ import { Collection } from "./Collection";
 import { RankCard } from "./RankCard";
 
 /**
- * Página da conta em 3 abas (docs/design/painel-ux-v2.md, seção 3): Agora (o que ela está fazendo e as ações),
- * Pokémons (equipe, coleção, mochila) e Ajustes (plugins e comandos).
+ * Página da conta em 4 abas (docs/design/painel-ux-v2.md, seção 3, e refatoracao-2026-11-20.md, 4): Agora (modo,
+ * desvio, plano e alertas), Pokémons (a lista, a montagem da equipe), Itens (mochila, loja e Mercado) e Ajustes.
  */
 export function AccountView() {
   const { id } = useParams<{ id: string }>();
@@ -50,6 +50,7 @@ export function AccountView() {
       <SectionTabs tabs={[
         { id: "agora", label: "Agora" },
         { id: "pokemons", label: "Pokémons" },
+        { id: "itens", label: "Itens" },
         { id: "ajustes", label: "Ajustes" },
       ]}>
         {/* Agora */}
@@ -73,7 +74,7 @@ export function AccountView() {
           )}
           {d && profile && (
             <Fold title="Bônus e passe">
-              <ProfileSections part="status" profile={profile} atlas={atlas} looktypes={d.looktypes} items={d.items} />
+              <ProfileSections part="status" profile={profile} items={d.items} />
             </Fold>
           )}
           {d && profile && (
@@ -93,10 +94,16 @@ export function AccountView() {
         <>
           {!d ? loading : profile
             ? <>
-                <ProfileSections part="collection" profile={profile} atlas={atlas} looktypes={d.looktypes} items={d.items} accountId={d.account.id} />
                 <Collection accountId={d.account.id} profile={profile} atlas={atlas} looktypes={d.looktypes} />
               </>
             : <p className="muted">Sem perfil ainda: ele aparece uns segundos depois de o worker conectar a conta.</p>}
+        </>
+
+        {/* Itens */}
+        <>
+          {!d ? loading : profile
+            ? <ProfileSections part="bag" profile={profile} items={d.items} restock={restockItems(d.plugins)} />
+            : <p className="muted">Sem perfil ainda.</p>}
         </>
 
         {/* Ajustes */}
@@ -123,4 +130,10 @@ export function AccountView() {
       </SectionTabs>
     </>
   );
+}
+
+/** As regras do restock (mínimo e alvo por item), para a mochila mostrar o que é reposto. */
+function restockItems(plugins: { plugin: string; config: Record<string, unknown> }[]) {
+  const items = plugins.find((p) => p.plugin === "restock")?.config.items;
+  return Array.isArray(items) ? (items as { id: number; min?: number; target?: number }[]) : [];
 }

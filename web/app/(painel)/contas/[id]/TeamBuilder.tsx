@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CommandStatus } from "@/components/CommandStatus";
+import { TypeChip } from "@/components/SpeciesFacts";
 import { Sprite } from "@/components/Sprite";
 import type { CollectionMon } from "@/lib/collection";
+import { num } from "@/lib/format";
 import type { Profile } from "@/lib/profile";
 import { supabaseBrowser, usePanel } from "@/lib/query/hooks";
 import type { Atlas } from "@/lib/sprites";
@@ -68,18 +70,52 @@ export function toggleInDraft(d: Draft, id: number): Draft {
 }
 
 /**
- * "Montar equipe" (docs/design/conta-v2.md, seção 3): 5 vagas e o ativo. Clicar na coleção põe ou tira;
- * "Aplicar" manda o team.apply, que vai ao Pokécenter, troca, define o ativo e volta para a hunt.
+ * Sugestão de equipe (refatoracao-2026-11-20, 4.2): o ativo fica, e as outras vagas vão para os melhores por
+ * Qualidade e depois Nota, um por espécie.
  */
-export function TeamBuilder({ accountId, profile, draft, update, byId, atlas, looktypes, onClose }: {
+export function suggestDraft(d: Draft, all: CollectionMon[]): Draft {
+  const keep = d.active != null ? all.find((m) => m.id === d.active) : undefined;
+  const picked: CollectionMon[] = keep ? [keep] : [];
+  const species = new Set(picked.map((m) => m.species_id));
+  const ranked = [...all].sort((a, b) => (b.quality ?? 0) - (a.quality ?? 0) || (b.grade ?? 0) - (a.grade ?? 0) || a.id - b.id);
+  for (const m of ranked) {
+    if (picked.length >= TEAM_SLOTS) break;
+    if (species.has(m.species_id) || picked.includes(m)) continue;
+    picked.push(m);
+    species.add(m.species_id);
+  }
+  const team = Array.from({ length: TEAM_SLOTS }, (_, i) => picked[i]?.id ?? null);
+  return { team, active: keep?.id ?? team[0] };
+}
+
+const avg = (xs: (number | undefined)[]) => {
+  const v = xs.filter((x): x is number => typeof x === "number");
+  return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null;
+};
+
+function SlotTypes({ m, types }: { m: CollectionMon | undefined; types: Map<number, [string, string | null]> | undefined }) {
+  const t = m?.species_id != null ? types?.get(m.species_id) : undefined;
+  if (!t) return null;
+  return <span className="builder-types">{[t[0], t[1]].filter((x): x is string => !!x).map((x) => <TypeChip key={x} type={x} />)}</span>;
+}
+
+/**
+ * "Montar equipe" (docs/design/conta-v2.md, seção 3, e refatoracao-2026-11-20, 4.2): 5 vagas e o ativo, fixas
+ * no topo enquanto a lista rola. Escolher é pela ficha ou pela tabela; "Aplicar" manda o team.apply, que vai ao
+ * Pokécenter, troca, define o ativo e volta para a hunt.
+ */
+export function TeamBuilder({ accountId, profile, draft, update, byId, all, types, atlas, looktypes, onClose, onOpen }: {
   accountId: string;
   profile: Profile;
   draft: Draft;
   update: (d: Draft) => void;
   byId: Map<number, CollectionMon>;
+  all: CollectionMon[];
+  types: Map<number, [string, string | null]> | undefined;
   atlas: Atlas | null;
   looktypes: Map<number, number>;
   onClose: () => void;
+  onOpen: (m: CollectionMon) => void;
 }) {
   const { send, cmd, error, busy } = useCommand();
   const now = useMemo(() => draftFromProfile(profile), [profile]);
@@ -99,6 +135,18 @@ export function TeamBuilder({ accountId, profile, draft, update, byId, atlas, lo
   }, [draft, now, byId]);
 
   const filled = draft.team.filter((x) => x != null).length;
+  const sum = (d: Draft) => {
+    const ms = d.team.map((id) => (id != null ? byId.get(id) : undefined)).filter((m): m is CollectionMon => !!m);
+    return { q: avg(ms.map((m) => m.quality)), g: avg(ms.map((m) => m.grade)), iv: avg(ms.map((m) => m.iv_sum)) };
+  };
+  const before = sum(now);
+  const after = sum(draft);
+  const cmp = (label: string, a: number | null, b: number | null) => (
+    <span>
+      {label} {a == null ? "—" : num(a)}
+      {a !== b && <> → <strong className={b != null && a != null && b < a ? "warn-text" : "good-text"}>{b == null ? "—" : num(b)}</strong></>}
+    </span>
+  );
   const canApply = filled > 0 && draft.active != null && draft.team.includes(draft.active) && changes.length > 0;
   const swap = (i: number, j: number) => {
     if (j < 0 || j >= TEAM_SLOTS) return;
@@ -115,10 +163,12 @@ export function TeamBuilder({ accountId, profile, draft, update, byId, atlas, lo
   };
 
   return (
-    <div className="builder">
+    <div className="builder builder-sticky">
       <div className="builder-head">
         <strong>Montar equipe</strong>
-        <span className="muted small">Clique na coleção para pôr ou tirar. ★ escolhe o ativo.</span>
+        <span className="muted small">Abra um pokémon (ou use a tabela) para pôr ou tirar.</span>
+        <button type="button" className="ghost small" onClick={() => update(suggestDraft(draft, all))}
+          title="Mantém o ativo e completa com os melhores por Qualidade e Nota, um por espécie">Sugerir</button>
         <button type="button" className="ghost small" onClick={() => update(now)} disabled={changes.length === 0}>Voltar ao atual</button>
         <button type="button" className="ghost small" onClick={onClose}>Fechar</button>
       </div>
@@ -129,15 +179,23 @@ export function TeamBuilder({ accountId, profile, draft, update, byId, atlas, lo
             <li key={i} className={`builder-slot ${id == null ? "is-empty" : ""} ${id != null && id === draft.active ? "is-active" : ""} ${id !== now.team[i] ? "is-changed" : ""}`}>
               {id == null ? <span className="muted small">Vaga {i + 1} vazia</span> : (
                 <>
-                  {m && <Sprite mon={m} atlas={atlas} looktypes={looktypes} size={40} />}
-                  <span className="mon-name">{name(id)}</span>
-                  <span className="mon-meta num">nv {m?.level ?? "?"}</span>
+                  <button type="button" className="builder-mon" onClick={() => m && onOpen(m)} title="Abrir a ficha">
+                    {m && <Sprite mon={m} atlas={atlas} looktypes={looktypes} size={40} />}
+                    <span className="mon-name">{name(id)}</span>
+                    {id === draft.active && <span className="badge ready">ativo</span>}
+                    <span className="mon-meta num">nv {m?.level ?? "?"}</span>
+                    <SlotTypes m={m} types={types} />
+                    <span className="mon-meta num">
+                      Q {m?.quality != null ? num(m.quality) : "—"} · N {m?.grade != null ? num(m.grade) : "—"} · IV {m?.iv_sum ?? "—"}
+                    </span>
+                  </button>
                   <span className="builder-tools">
-                    <button type="button" className="icon" aria-label="Para a esquerda" onClick={() => swap(i, i - 1)} disabled={i === 0}>‹</button>
-                    <button type="button" className="icon" aria-label="Tornar ativo" aria-pressed={id === draft.active}
-                      onClick={() => update({ ...draft, active: id })}>★</button>
-                    <button type="button" className="icon" aria-label="Tirar da vaga" onClick={() => update(toggleInDraft(draft, id))}>×</button>
-                    <button type="button" className="icon" aria-label="Para a direita" onClick={() => swap(i, i + 1)} disabled={i === TEAM_SLOTS - 1}>›</button>
+                    <button type="button" className="ghost small" aria-label="Para a esquerda" onClick={() => swap(i, i - 1)} disabled={i === 0}>‹</button>
+                    {id !== draft.active && (
+                      <button type="button" className="ghost small" onClick={() => update({ ...draft, active: id })}>Ativo</button>
+                    )}
+                    <button type="button" className="ghost small" onClick={() => update(toggleInDraft(draft, id))}>Tirar</button>
+                    <button type="button" className="ghost small" aria-label="Para a direita" onClick={() => swap(i, i + 1)} disabled={i === TEAM_SLOTS - 1}>›</button>
                   </span>
                 </>
               )}
@@ -145,6 +203,12 @@ export function TeamBuilder({ accountId, profile, draft, update, byId, atlas, lo
           );
         })}
       </ol>
+      <div className="builder-summary small">
+        <span className="muted">Média da equipe:</span>
+        {cmp("Q", before.q, after.q)}
+        {cmp("Nota", before.g, after.g)}
+        {cmp("IV", before.iv, after.iv)}
+      </div>
       {changes.length > 0 ? (
         <ul className="builder-diff small">{changes.map((c) => <li key={c}>{c}</li>)}</ul>
       ) : <p className="muted small">Igual à equipe de agora.</p>}

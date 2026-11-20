@@ -219,3 +219,9 @@ async def test_depot_sell_guards(rig):  # noqa: F811
     c = await rig.cmd(acc, "depot.sell", expected=1)
     assert c["status"] == "done" and c["result"]["sold"] == 1
     assert set(mons) == {1, 2, 4}
+    # em lote: a 2 e a 4 voltam para o Depot
+    c = await rig.cmd(acc, "collection.move", pokemon_ids=[2, 4], to="depot")
+    assert c["status"] == "done" and c["result"] == {"moved": 2, "to": "depot"}, c
+    assert not mons[2].get("colecao") and not mons[4].get("colecao")
+    c = await rig.cmd(acc, "collection.move", pokemon_id=2, pokemon_ids=[4])
+    assert c["status"] == "failed" and "params" in c["error"]

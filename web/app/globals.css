@@ -1023,3 +1023,35 @@ button.danger:disabled { opacity: .5; }
 .more-menu-list button { justify-content: flex-start; text-align: left; width: 100%; }
 .more-menu-list hr { border: 0; border-top: 1px solid var(--grid); margin: .2rem 0; width: 100%; }
 .danger-text { color: var(--critical) !important; }
+/* aba Pokémons (refatoracao-2026-11-20, 4.2) */
+.coll-summary { margin: 0 0 .7rem; }
+.coll-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .8rem; }
+.coll-actions .sell-depot { margin: 0; }
+.builder-sticky { position: sticky; top: 0; z-index: 20; box-shadow: 0 10px 24px #0008; }
+.builder-mon { display: grid; justify-items: center; gap: .1rem; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; width: 100%; }
+.builder-types { display: flex; flex-wrap: wrap; gap: .2rem; justify-content: center; }
+.builder-tools { flex-wrap: wrap; justify-content: center; margin-top: .25rem; }
+.builder-tools button { min-height: 32px; padding: .1rem .5rem; }
+.builder-summary { display: flex; flex-wrap: wrap; gap: .3rem 1rem; margin-top: .6rem; }
+@media (max-width: 720px) { .builder-sticky { position: static; } }
+.mon { position: relative; }
+.mon-check { position: absolute; top: .35rem; left: .35rem; width: 18px; height: 18px; z-index: 1; accent-color: var(--accent); }
+.batch-bar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; padding: .5rem .7rem; margin-bottom: .7rem;
+  border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-soft); }
+.mon-table-wrap { max-height: 70vh; overflow: auto; }
+.mon-table { font-size: .84rem; }
+.mon-table th, .mon-table td { padding: .3rem .4rem; white-space: nowrap; }
+.mon-table thead th { position: sticky; top: 0; background: var(--surface-2); z-index: 2; }
+.mon-table thead tr.sub-head th { top: 2rem; }
+.mon-table th.group-head { text-align: center; color: var(--text-muted); font-weight: 500; }
+.mon-table .col-iv { background: color-mix(in srgb, var(--link) 5%, transparent); }
+.mon-table .col-stat { background: color-mix(in srgb, var(--good) 5%, transparent); }
+.mon-table td.is-best { color: var(--accent); font-weight: 700; }
+.mon-table tr.is-active td { box-shadow: inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent); }
+.mon-table tr.is-drafted td { background: var(--accent-soft); }
+.mon-table .col-sel { width: 28px; }
+.mon-table .col-types { display: flex; gap: .2rem; }
+.mon-cell { display: flex; align-items: center; gap: .45rem; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; text-align: left; }
+.mon-cell > span { display: grid; }
+.th-sort { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; min-height: 0; }
+.th-sort.is-on { color: var(--accent); }
