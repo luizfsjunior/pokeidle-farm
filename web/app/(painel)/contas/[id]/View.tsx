@@ -108,8 +108,8 @@ export function AccountView() {
 
         {/* Ajustes */}
         <>
-          <Panel title="Plugins" meta="JSON" hint={<>A telemetria e o perfil são sempre ligados. O worker valida antes de gravar e
-            reinicia o plugin na hora. Campos: <code>restock</code> em fase-3-reposicao.md, <code>rank</code> em fase-3b-rank-ligado.md.</>}>
+          <Panel title="Plugins" hint={<>A telemetria, o perfil e a vigia são sempre ligados. Modo, desvio e treino se ajustam na aba
+            Agora; aqui é para ligar ou desligar à mão. O worker valida a config antes de gravar e reinicia o plugin na hora.</>}>
             <div className="stack">
               {!d && loading}
               {d?.plugins.map((p) => (

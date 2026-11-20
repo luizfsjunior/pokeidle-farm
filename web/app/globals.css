@@ -1055,3 +1055,10 @@ button.danger:disabled { opacity: .5; }
 .mon-cell > span { display: grid; }
 .th-sort { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; min-height: 0; }
 .th-sort.is-on { color: var(--accent); }
+/* aba Ajustes (refatoracao-2026-11-20, 4.3) */
+.plugin-row { border: 1px solid var(--grid); border-radius: 8px; padding: .6rem .75rem; display: grid; gap: .4rem; }
+.plugin-head { display: flex; flex-wrap: wrap; gap: .5rem 1rem; justify-content: space-between; align-items: flex-start; }
+.plugin-hint { display: block; }
+.plugin-toggle { gap: .4rem; }
+.plugin-advanced > summary { cursor: pointer; }
+.plugin-advanced textarea { min-height: 8rem; font-family: ui-monospace, monospace; font-size: .8rem; }

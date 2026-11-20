@@ -78,8 +78,14 @@ export function applyOptimistic(qc: QueryClient, accountId: string, type: Comman
     qc.setQueryData(["account", accountId], (d: unknown) => {
       const data = d as { plugins?: { plugin: string; enabled: boolean; config: Obj }[] } | undefined;
       if (!data?.plugins) return d;
-      const row = { plugin: params.plugin as string, enabled: params.enabled !== false, config: (params.config as Obj) ?? {} };
-      const plugins = data.plugins.some((p) => p.plugin === row.plugin)
+      // sem config no comando, o worker mantém a de antes (ligar/desligar pela aba Ajustes)
+      const old = data.plugins.find((p) => p.plugin === params.plugin);
+      const row = {
+        plugin: params.plugin as string,
+        enabled: typeof params.enabled === "boolean" ? params.enabled : old?.enabled ?? true,
+        config: (params.config as Obj | undefined) ?? old?.config ?? {},
+      };
+      const plugins = old
         ? data.plugins.map((p) => (p.plugin === row.plugin ? { ...p, ...row } : p))
         : [...data.plugins, row];
       touched = true;
