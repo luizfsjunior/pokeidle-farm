@@ -320,6 +320,9 @@ class GemsPlugin(Plugin):
         if season and seasonal:
             normal = self._model_rates(cat, species, None, compute=False)
             missing += self._model_missing()
+        # plano sem o simulador completo: grava, mas não troca de hunt (as hunts sem previsão saem pelo
+        # nível e trocavam à toa; 20/11: Ampharos e, 30 s depois, Wooper). O plano do model_ready troca
+        self._warming = bool(missing)
         if missing:
             self._warm_model(season)
         rate = rates_for(
@@ -552,6 +555,8 @@ class GemsPlugin(Plugin):
         if slug is None or slug == current:
             await self.switch.go(slug)
             return
+        if getattr(self, "_warming", False) and current is not None:
+            return  # espera o simulador: o plano completo vem logo (model_ready)
         if self._acting:
             await self.switch.go(slug)
         elif slug != self._would:

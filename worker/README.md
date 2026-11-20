@@ -106,7 +106,8 @@ Ver [docs/design/refatoracao-2026-11-20.md](../docs/design/refatoracao-2026-11-2
   em 3 min (o jogo revive em batalha e a conta nunca vai ao centro), marca o par (pokémon, hunt) como perigoso em
   `state.danger` por 6 h e volta o ativo para o mais forte. O `gems` e o `team_train` evitam os pares perigosos.
 - **Plano sem travar**: o `gems` usa só o que o simulador já tem em cache (por faixa de 10 níveis) e simula o resto
-  numa thread fora do lock; quando termina, planeja de novo (`reason: "model_ready"`).
+  numa thread fora do lock; quando termina, planeja de novo (`reason: "model_ready"`). O plano feito antes disso é
+  gravado mas não troca de hunt: sem a previsão, as hunts altas saíam pelo nível e a conta trocava duas vezes.
 
 Ordem segura para ligar algo novo: primeiro com `ACTION_MODE=observe_only`, conferindo os `action.blocked`
 na tabela `events`; depois `ACTION_MODE=enabled` (com "d") e `docker compose up -d --force-recreate`, porque
