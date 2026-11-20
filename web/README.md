@@ -21,8 +21,8 @@ a última conta escolhida (`localStorage`, chave `pf-conta`).
     Qualidade, Nota, IVs, stats; `MonTable.tsx`); seleção em lote para Coleção/Depot (`collection.move` com
     `pokemon_ids`); **Montar equipe** fixo no topo, com a média da equipe, Sugerir e a ficha aberta por clique
     (`team.apply`); vender o Depot.
-  - **Itens**: mochila (com o mínimo e o alvo do `restock`), **Loja** (`shop.buy` e o gasto automático das últimas
-    24 h) e **Mercado** (anúncios abertos com `market.cancel`, anunciar com `market.sell`).
+  - **Itens**: mochila (com o mínimo e o alvo do `restock`), **Loja** (`shop.buy`, inclusive os ovos, e o gasto
+    automático das últimas 24 h), **Chocadeira** (vagas, quanto falta, `incubator.put`) e **Mercado** (anúncios abertos com `market.cancel`, anunciar com `market.sell`).
   - **Ajustes**: os plugins com nome legível e ligar/desligar; o JSON fica em "Avançado". Últimos comandos.
 - **Pokédex** (`/pokedex`): catálogo do jogo cruzado com a Pokédex da conta (as formas de mesmo nome num card),
   ficha da espécie, chance de captura por bola e o botão de capturar (`capture.start`).

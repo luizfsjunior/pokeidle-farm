@@ -13,6 +13,7 @@ import { TrendChart } from "@/components/TrendChart";
 import { useAccounts, useAtlas, usePanel } from "@/lib/query/hooks";
 import { loadAccount } from "./data";
 import { NewPlugin } from "./NewPlugin";
+import { IncubatorCard } from "./IncubatorCard";
 import { MarketCard } from "./MarketCard";
 import { NowCard } from "./NowCard";
 import { OutlandCard } from "./OutlandCard";
@@ -107,6 +108,7 @@ export function AccountView() {
             ? <>
                 <ProfileSections part="bag" profile={profile} items={d.items} restock={restockItems(d.plugins)} />
                 <ShopCard accountId={d.account.id} profile={profile} />
+                <IncubatorCard accountId={d.account.id} profile={profile} />
                 <MarketCard accountId={d.account.id} profile={profile} items={d.items}
                   sellerActive={d.plugins.some((p) => p.plugin === "seller" && p.enabled && p.config.dry_run === false)} />
               </>

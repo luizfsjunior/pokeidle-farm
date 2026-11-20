@@ -225,6 +225,22 @@ class MarketCreate(ActionSpec):
         }
 
 
+class IncubatorPut(ActionSpec):
+    """Põe um ovo numa vaga da chocadeira (app.js `colocarOvo`, 20/11). Choca sozinho no fim do
+    tempo (`batalha` k "ovoChocou"); a resposta da colocação é `batalha` k "ovoColocado"."""
+
+    name: ClassVar[str] = "chocadeira.colocar"
+    description: ClassVar[str] = "Põe um ovo (p2, p3, p4 ou shiny) numa vaga da chocadeira"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 5.0
+
+    slot: int = Field(ge=0, le=5)
+    ovo: Literal["p2", "p3", "p4", "shiny"]
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "chocadeira.colocar", "slot": self.slot, "ovo": self.ovo}
+
+
 class MarketCancel(ActionSpec):
     name: ClassVar[str] = "market.cancelar"
     description: ClassVar[str] = "Cancela um anúncio próprio no Mercado"
