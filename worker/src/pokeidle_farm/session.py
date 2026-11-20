@@ -125,9 +125,10 @@ class AccountSession:
         self._stopping = asyncio.Event()
         # respostas recentes do jogo a ações (aviso e erro), para confirmar comandos do painel
         self.replies: deque[tuple[float, str]] = deque(maxlen=20)
-        # a última venda do Depot (`batalha` k "venda": qtd e ganho), com o time.monotonic: o
-        # depot.sell confirma por ela, porque os pokémons vendidos não saem do estado na hora
-        self.last_sale: tuple[float, dict[str, Any]] | None = None
+        # a última resposta `batalha` de cada tipo ("venda", "colecao"...), com o time.monotonic e o
+        # frame: o jogo confirma assim ações que não mudam o estado na hora (a venda do Depot, a
+        # marca de Coleção), e os comandos do painel esperam por ela (20/11)
+        self.battle_replies: dict[str, tuple[float, dict[str, Any]]] = {}
         self._last_frame = time.monotonic()
         self._silent = False
         self._wake = asyncio.Event()  # acorda o backoff (reconexão pedida)
@@ -138,6 +139,11 @@ class AccountSession:
         self.catalog: HuntCatalog | None = None
         self._species = species or (lambda: None)
         self._bg: set[asyncio.Task[Any]] = set()
+
+    def replied(self, kind: str, since: float) -> dict[str, Any] | None:
+        """O frame da última resposta `batalha` desse tipo que chegou depois de `since`."""
+        got = self.battle_replies.get(kind)
+        return got[1] if got is not None and got[0] >= since else None
 
     # --- ciclo principal ----------------------------------------------------
 
@@ -377,8 +383,8 @@ class AccountSession:
             events = self._translator.translate(msg, raw)
             for ev in events:
                 self.state_view.apply(ev)
-                if ev.type == "battle.venda":
-                    self.last_sale = (time.monotonic(), dict(ev.raw))
+                if ev.type.startswith("battle."):
+                    self.battle_replies[ev.type[7:]] = (time.monotonic(), dict(ev.raw))
                 if ev.type == "game.notice" and isinstance(ev.data.get("msg"), str):
                     if ev.data["msg"] not in AMBIENT_NOTICES:
                         self.replies.append((time.monotonic(), ev.data["msg"]))
