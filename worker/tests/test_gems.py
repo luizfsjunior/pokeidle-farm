@@ -566,3 +566,15 @@ async def test_plan_without_the_full_model_does_not_switch():
     h.plugin._model_missing = lambda: 0  # type: ignore[method-assign]
     await h.plugin._locked(lambda: h.plugin._plan("model_ready"))
     assert h.selects() == [h.events("gems.plan")[-1]["target"]["slug"]]
+
+
+async def test_switch_retries_soon_after_a_disconnect():
+    """20/11 14:16: a sessão caiu por 12 s e a troca só tentaria de novo depois de 60 s."""
+    import asyncio
+
+    h = Harness(dry_run=False)
+    h.ctx.actions.send = None  # desconectada: o gateway recusa com not_connected
+    h.plugin.sleep = lambda _s: asyncio.Event().wait()  # o timer não acorda (relógio parado)
+    await h.start()
+    sw = h.plugin.switch
+    assert h.selects() == [] and sw.retry_at == h.now + timedelta(seconds=5)
