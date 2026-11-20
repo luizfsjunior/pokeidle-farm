@@ -203,8 +203,16 @@ def test_model_rates_orders_by_type_and_caches():
     assert out["horsea"] > 3 * out["charmander"]
     m._cache["horsea"] = 1.0
     assert m.rates(hunts, PROFILE, RAW, WELCOME_RULES, max_level=24)["horsea"] == 1.0  # cache
-    up = {**PROFILE, "level": 24}
-    assert m.rates(hunts, up, RAW, WELCOME_RULES, max_level=24)["horsea"] > 1.0  # subiu: recalcula
+    same_band = {**PROFILE, "level": 24}  # 23 e 24 estão na faixa 20-29: o cache vale
+    assert m.rates(hunts, same_band, RAW, WELCOME_RULES, max_level=24)["horsea"] == 1.0
+    up = {**PROFILE, "level": 31}
+    assert (
+        m.rates(hunts, up, RAW, WELCOME_RULES, max_level=24)["horsea"] > 1.0
+    )  # outra faixa: recalcula
+    # sem simular: devolve o que está em cache e conta o que falta
+    fresh = ModelRates(n_kills=60)
+    assert fresh.rates(hunts, PROFILE, RAW, WELCOME_RULES, max_level=24, compute=False) == {}
+    assert fresh.missing == 2
     assert m.rates(hunts, None, RAW, WELCOME_RULES) == {}
     assert m.rates(hunts, PROFILE, RAW, {}) == {}  # sem tabela de tipos
 

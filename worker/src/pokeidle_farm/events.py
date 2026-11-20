@@ -446,7 +446,8 @@ class Translator:
             self.pokemon_levels.pop(pid, None)
 
     def team(self) -> list[dict[str, Any]]:
-        """A equipe por slot: [{id, speciesId, level, slot}] (para o team_train)."""
+        """A equipe por slot: o perfil de cada membro (speciesId, level, ivs, quality...) com id e
+        slot. O perfil inteiro serve ao simulador, que planeja a hunt para quem vai treinar."""
         out = []
         for pid, prof in self.pokemon_profiles.items():
             slot = prof.get("slot")
@@ -454,6 +455,7 @@ class Translator:
                 continue
             out.append(
                 {
+                    **prof,
                     "id": pid,
                     "speciesId": prof.get("speciesId"),
                     "level": self.pokemon_levels.get(pid, prof.get("level")),

@@ -78,7 +78,10 @@ class PaceBook:
             return kph
         lvl0 = self.level_of(slug)
         cap = self.cap()
-        if lvl0 is None or cap is None or kph >= NEAR_CAP * cap:
+        if lvl0 is None or cap is None:
+            return kph
+        # perto do teto o ritmo não sobe com o dano; para um ativo mais fraco ele cai (20/11)
+        if kph >= NEAR_CAP * cap and level_now >= lvl0:
             return kph
         return min(cap, kph * damage_factor(level_now) / damage_factor(lvl0))
 

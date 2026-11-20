@@ -394,35 +394,55 @@ class ActionGateway:
     record: Recorder | None = None  # publica action.* no barramento
     limiter: RateLimiter | None = None
 
-    # travas pedidas pelo painel: ação -> (até, dono, rótulo). Enquanto vale, só o dono manda aquela
-    # ação; a dos outros é bloqueada com wait_s até o fim, e eles tentam de novo depois. Usada pela
-    # hunt escolhida (hunt_hold: hunt.select) e pelo alvo de captura (capture_target: hunt.select e
-    # auto.set). Ver docs/design/painel-fase-3.md e docs/design/captura-alvo.md.
-    holds: dict[str, tuple[datetime, str, str | None]] = field(default_factory=dict)
+    # travas: ação -> {dono: (até, rótulo)}. Enquanto vale, a ação de quem não é dono é bloqueada
+    # com wait_s até o fim, e ele tenta de novo depois. Vários donos convivem (antes era um por ação e
+    # a segunda trava apagava a primeira; refatoracao-2026-11-20, 2.6). Usada pela hunt escolhida
+    # (hunt_hold), pelo alvo de captura (capture_target) e pelo team.apply.
+    holds: dict[str, dict[str, tuple[datetime, str | None]]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.limiter = self.limiter or RateLimiter()
 
     def hold(self, action: str, until: datetime, owner: str, label: str | None = None) -> None:
-        self.holds[action] = (until, owner, label)
+        self.holds.setdefault(action, {})[owner] = (until, label)
 
     def release(self, owner: str, action: str | None = None) -> None:
-        for name in [
-            a for a, h in self.holds.items() if h[1] == owner and (action is None or a == action)
-        ]:
-            del self.holds[name]
+        for name in [a for a in self.holds if action is None or a == action]:
+            self.holds[name].pop(owner, None)
+            if not self.holds[name]:
+                del self.holds[name]
+
+    def _others(self, action: str, owner: str) -> dict[str, tuple[datetime, str | None]]:
+        """As travas válidas de outros donos (as vencidas saem)."""
+        owners = self.holds.get(action)
+        if not owners:
+            return {}
+        now = datetime.now(UTC)
+        for o in [o for o, (until, _) in owners.items() if until <= now]:
+            del owners[o]
+        if not owners:
+            del self.holds[action]
+            return {}
+        return {o: h for o, h in owners.items() if o != owner}
 
     def held_by_other(self, action: str, owner: str, label: str | None = None) -> bool:
-        h = self.holds.get(action)
-        if h is None:
+        others = self._others(action, owner)
+        if not others:
             return False
-        if h[0] <= datetime.now(UTC):
-            del self.holds[action]
+        # pedir o mesmo que um dono quer (voltar do centro para a hunt travada) não fura a trava
+        if label is not None and any(h[1] == label for h in others.values()):
             return False
-        # pedir o mesmo que o dono quer (voltar do centro para a hunt travada) não fura a trava
-        if label is not None and h[2] == label:
-            return False
-        return h[1] != owner
+        return True
+
+    def hold_of(
+        self, action: str, owner: str | None = None
+    ) -> tuple[datetime, str, str | None] | None:
+        """A trava que vence por último (de outro dono, com `owner`): (até, dono, rótulo)."""
+        owners = self._others(action, owner) if owner is not None else self.holds.get(action, {})
+        if not owners:
+            return None
+        o, (until, label) = max(owners.items(), key=lambda x: x[1][0])
+        return until, o, label
 
     # compatibilidade com o hunt_hold
     def hold_hunt(self, slug: str, until: datetime, owner: str) -> None:
@@ -436,7 +456,7 @@ class ActionGateway:
 
         same = getattr(action, "slug", None) if action.name == "hunt.select" else None
         if self.held_by_other(action.name, source, same):
-            until, owner, label = self.holds[action.name]
+            until, owner, label = self.hold_of(action.name, source) or (datetime.now(UTC), "", None)
             left = (until - datetime.now(UTC)).total_seconds()
             await self._record(
                 "action.blocked",

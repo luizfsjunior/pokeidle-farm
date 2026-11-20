@@ -75,11 +75,13 @@ class Game:
         self.holds: dict[str, Any] = {}
 
     def hold(self, action, until, owner, label=None):  # type: ignore[no-untyped-def]
-        self.holds[action] = (until, owner, label)
+        self.holds.setdefault(action, {})[owner] = (until, label)
 
     def release(self, owner, action=None):  # type: ignore[no-untyped-def]
-        for a in [a for a, h in self.holds.items() if h[1] == owner]:
-            del self.holds[a]
+        for a in list(self.holds):
+            self.holds[a].pop(owner, None)
+            if not self.holds[a]:
+                del self.holds[a]
 
     async def note(self, type_, data):  # type: ignore[no-untyped-def]
         pass
@@ -118,7 +120,7 @@ async def test_apply_goes_to_center_swaps_and_returns(rig):  # noqa: F811
     acc = farm(rig.store, "farm1")
     await rig.boot()
     game = Game([{"id": 1, "slot": 0}, {"id": 2, "slot": 1}], active=1, hunt="brave_steelix")
-    game.holds["hunt.select"] = ("x", "hunt_hold", "brave_steelix")
+    game.holds["hunt.select"] = {"hunt_hold": ("x", "brave_steelix")}
     await _wire(rig, game)
     c = await rig.cmd(acc, "team.apply", team=[2, 7], active=7)
     assert c["status"] == "done", c
@@ -128,9 +130,7 @@ async def test_apply_goes_to_center_swaps_and_returns(rig):  # noqa: F811
     }
     assert sorted((m["slot"], m["id"]) for m in game.view.team) == [(0, 2), (1, 7)]
     assert game.view.active_pokemon == {"id": 7} and game.view.in_center is False
-    assert game.holds == {
-        "hunt.select": ("x", "hunt_hold", "brave_steelix")
-    }  # trava da hunt de volta
+    assert game.holds == {"hunt.select": {"hunt_hold": ("x", "brave_steelix")}}  # a do outro fica
 
 
 async def test_apply_rejects_an_active_outside_the_team(rig):  # noqa: F811

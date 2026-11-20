@@ -330,6 +330,10 @@ def test_pace_projects_rate_to_active_level():
     assert pace.projected("nidoran", None) == pytest.approx(100)
     assert pace.projected("geodude", 40) == pytest.approx(1100)
     assert pace.projected("nidoran", 200) == pytest.approx(1100)  # limitado ao teto
+    # ativo mais fraco que o medido: cai pelo fator de dano mesmo perto do teto (20/11)
+    assert pace.projected("geodude", 10) == pytest.approx(
+        1100 * damage_factor(10) / damage_factor(23)
+    )
     # abates da sessão entram no nível médio
     for minute in range(3):
         pace.add_kill("nidoran", NOW + timedelta(minutes=minute), 30)
@@ -498,4 +502,54 @@ async def test_xp_focus_replans_when_the_active_changes():
     await h.plugin.on_event(patch)  # primeiro estado: só registra o ativo
     h.ctx.state.active_pokemon = {"id": 8, "speciesId": 10, "level": 3}  # o team_train trocou
     await h.plugin.on_event(patch)
+    assert h.events("gems.plan")[-1]["reason"] == "active_changed"
+
+
+# --- refatoracao-2026-11-20: hunt que o pokémon aguenta, treino e hunt perigosa ----------
+
+
+async def test_xp_focus_caps_hunt_level_by_the_planned_pokemon():
+    h = Harness(dry_run=False, objective="xp", hunt_slug="caterpie", level=200, max_over_active=3)
+    h.ctx.state.active_pokemon = {"id": 7, "speciesId": 129, "level": 6}
+    await h.start()
+    plan = h.events("gems.plan")[-1]
+    # nível 6 + 3 = 9: Butterfree e Tauros (nível 10) ficam de fora
+    assert {o["slug"] for o in plan["options"]} == {"caterpie", "metapod", "magikarp"}
+
+
+async def test_xp_focus_plans_for_the_training_target():
+    h = Harness(dry_run=False, objective="xp", hunt_slug="caterpie", level=200, max_over_active=0)
+    h.ctx.state.active_pokemon = {"id": 7, "speciesId": 128, "level": 150}
+    h.ctx.state.team = [
+        {"id": 7, "speciesId": 128, "level": 150, "slot": 0},
+        {"id": 8, "speciesId": 129, "level": 1, "slot": 1},
+    ]
+    h.ctx.state.train_target = 8  # o team_train quer treinar o Magikarp nv 1
+    await h.start()
+    plan = h.events("gems.plan")[-1]
+    assert {o["slug"] for o in plan["options"]} == {"caterpie", "magikarp"}  # só nível 1
+
+
+async def test_xp_focus_skips_hunts_marked_dangerous_for_the_pokemon():
+    h = Harness(dry_run=False, objective="xp", hunt_slug="caterpie")
+    h.ctx.state.active_pokemon = {"id": 7, "speciesId": 129, "level": 50}
+    h.ctx.state.danger[(7, "butterfree")] = NOW + timedelta(hours=1)
+    await h.start()
+    plan = h.events("gems.plan")[-1]
+    assert "butterfree" not in {o["slug"] for o in plan["options"]}
+    assert plan["target"]["slug"] != "butterfree"
+
+
+async def test_retarget_replans():
+    h = await Harness(dry_run=False, objective="xp", hunt_slug="caterpie").start()
+    await h.plugin.on_event(
+        Event(account_id=uuid4(), session_id=uuid4(), type="state.patch", data={})
+    )
+    n = len(h.events("gems.plan"))
+    h.ctx.state.team = [{"id": 8, "speciesId": 129, "level": 1, "slot": 0}]
+    h.ctx.state.train_target = 8
+    await h.plugin.on_event(
+        Event(account_id=uuid4(), session_id=uuid4(), type="state.patch", data={})
+    )
+    assert len(h.events("gems.plan")) == n + 1
     assert h.events("gems.plan")[-1]["reason"] == "active_changed"

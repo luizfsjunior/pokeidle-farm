@@ -14,6 +14,13 @@ Sempre ligado. Resolve o que deixou a luizfsjunior_1 parada a noite de 18 para 1
 - **Mortes repetidas na mesma hunt.** Duas mortes em `deadly_window_s` viram o alerta
   `watchdog.dangerous_hunt`, para o painel e para a escolha de hunt (seção 6).
 - **Sem abates.** Fora do Pokécenter e sem abater por `no_kills_s`, alerta `watchdog.no_kills`.
+- **Tempestade de revives** (refatoracao-2026-11-20, 2.4). Com revive na bolsa o jogo revive o
+  ativo em batalha (`battle.revive`) e a conta nunca vai ao Pokécenter: em 20/11 um Totodile nv 20
+  numa hunt nv 260 morreu a cada 1-2 s por uma hora (~1,4 M de ouro em revives), e a trava de
+  combate, sempre renovada, segurava qualquer troca de hunt. Com `revive_storm` revives em
+  `revive_window_s`, a vigia grava `watchdog.revive_storm`, marca o par (pokémon, hunt) como perigoso
+  em `state.danger` (o foco XP e o team_train evitam) e devolve o ativo para o mais forte da equipe
+  (a troca de ativo sai mesmo em combate).
 
 A conexão aberta e muda é da sessão (`Settings.silent_after_s`), não deste plugin.
 """
@@ -25,6 +32,7 @@ import contextlib
 import time
 from collections import deque
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -48,6 +56,9 @@ class WatchdogConfig(BaseModel):
     deadly_window_s: float = Field(30 * 60.0, ge=60)
     no_kills_s: float = Field(10 * 60.0, ge=60)
     restore_active: bool = True
+    revive_storm: int = Field(8, ge=2)  # revives na janela que viram tempestade
+    revive_window_s: float = Field(180.0, ge=10)
+    danger_ttl_s: float = Field(6 * 3600.0, ge=60)  # quanto tempo o par fica marcado
 
 
 class WatchdogPlugin(Plugin):
@@ -64,6 +75,7 @@ class WatchdogPlugin(Plugin):
         "state.snapshot",
         "state.patch",
         "battle.autoHuntSemItens",
+        "battle.revive",
     }
     always_on: ClassVar[bool] = True
 
@@ -80,6 +92,9 @@ class WatchdogPlugin(Plugin):
         self.last_active: Any = None
         self.deaths: deque[tuple[float, str | None]] = deque(maxlen=10)
         self.dangerous_noted: set[str] = set()
+        self.wall: Callable[[], datetime] = lambda: datetime.now(UTC)
+        self.revives: deque[float] = deque(maxlen=200)
+        self.storm_at: dict[tuple[Any, str | None], float] = {}
 
     async def start(self, ctx: PluginContext) -> None:
         await super().start(ctx)
@@ -116,6 +131,8 @@ class WatchdogPlugin(Plugin):
             hunt = self.ctx.state.hunt_slug
             self.deaths.append((now, hunt))
             await self._maybe_dangerous(now, hunt)
+        elif t == "battle.revive":
+            await self._maybe_storm(now)
         elif t == "battle.autoHuntSemItens":
             await self.ctx.actions.note(
                 "watchdog.no_items", {"hunt_slug": self.ctx.state.hunt_slug}
@@ -224,3 +241,41 @@ class WatchdogPlugin(Plugin):
                 "watchdog.dangerous_hunt",
                 {"hunt_slug": hunt, "deaths": len(recent), "active_id": self.active_before_death},
             )
+
+    async def _maybe_storm(self, now: float) -> None:
+        window = self.cfg.revive_window_s
+        self.revives.append(now)
+        while self.revives and now - self.revives[0] > window:
+            self.revives.popleft()
+        if len(self.revives) < self.cfg.revive_storm:
+            return
+        active, hunt = self._active_id(), self.ctx.state.hunt_slug
+        key = (active, hunt)
+        last = self.storm_at.get(key)
+        if last is not None and now - last < window:
+            return
+        self.storm_at[key] = now
+        if hunt:
+            self.ctx.state.danger[key] = self.wall() + timedelta(seconds=self.cfg.danger_ttl_s)
+        await self.ctx.actions.note(
+            "watchdog.revive_storm",
+            {"hunt_slug": hunt, "active_id": active, "revives": len(self.revives)},
+        )
+        self.revives.clear()
+        await self._restore_strongest(active)
+
+    async def _restore_strongest(self, active: Any) -> None:
+        team = [m for m in self._team() if isinstance(m.get("level"), int)]
+        if not team:
+            return
+        best = max(team, key=lambda m: (m["level"], -(m.get("slot") or 0)))
+        if best.get("id") == active:
+            return
+        try:
+            await self.ctx.actions.submit(TeamActive(pokemon_id=best["id"]), source=self.name)
+        except ActionBlocked as exc:
+            await self.ctx.actions.note("watchdog.restore_blocked", {"reason": exc.reason})
+            return
+        await self.ctx.actions.note(
+            "watchdog.restore_strongest", {"pokemon_id": best["id"], "was": active}
+        )

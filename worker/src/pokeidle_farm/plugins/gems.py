@@ -65,6 +65,10 @@ class GemsConfig(BaseModel):
     switch_confirm_s: float = Field(15.0, gt=0)
     switch_retry_s: float = Field(60.0, ge=0)
     max_switches_per_hour: int = Field(6, ge=1)
+    # foco XP: só hunts de nível <= nível do pokémon planejado + isto (refatoracao-2026-11-20, 2.2).
+    # shortcut: regra por nível, não sobrevivência simulada; trocar quando o simulador devolver o
+    # dano tomado por abate
+    max_over_active: int = Field(10, ge=0, le=1000)
 
 
 class GemsPlugin(Plugin):
@@ -147,6 +151,11 @@ class GemsPlugin(Plugin):
             first.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await first
+        warm = getattr(self, "_warm", None)
+        if warm is not None and not warm.done():
+            warm.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await warm
         await self.switch.stop()
         await self.progress.stop()
         type(self)._claims.pop(self.ctx.account_id, None)
@@ -262,6 +271,10 @@ class GemsPlugin(Plugin):
                 getattr(self, "_active_now", None) is not None and active_now != self._active_now
             )
             self._active_now = active_now
+            # o team_train escolheu outro para treinar: a hunt boa é a dele (refatoracao, 2.5)
+            target_now = self.ctx.state.train_target
+            retarget = hasattr(self, "_target_seen") and self._target_seen != target_now
+            self._target_seen = target_now
             if self._seeking and (await self.progress.stones()).get(self._seeking, 0) > 0:
                 await self.ctx.actions.note(
                     "progress.stone_found", {"stone": self._seeking, "hunt": self.switch.current}
@@ -274,7 +287,7 @@ class GemsPlugin(Plugin):
                 await self._plan("level_up")
                 if self.cfg.objective == "xp":
                     self.progress.maybe_plan("level_up")
-            elif swapped and self.cfg.objective == "xp":
+            elif (swapped or retarget) and self.cfg.objective == "xp":
                 await self._plan("active_changed")
                 self.progress.maybe_plan("evolved")
             elif evolved and self.cfg.objective == "xp":
@@ -299,16 +312,24 @@ class GemsPlugin(Plugin):
             await self.ctx.actions.note("gems.plan", {"reason": "sem_catalogo", "target": None})
             return
         season = self.ctx.state.season_type()
-        seasonal = await asyncio.to_thread(self._model_rates, cat, species, season)
+        # o plano não espera o simulador: usa o que está em cache e aquece o resto em segundo
+        # plano, fora do lock; quando termina, planeja de novo (refatoracao-2026-11-20, 2.3)
+        seasonal = self._model_rates(cat, species, season, compute=False)
+        missing = self._model_missing()
+        normal: dict[str, float] = {}
+        if season and seasonal:
+            normal = self._model_rates(cat, species, None, compute=False)
+            missing += self._model_missing()
+        if missing:
+            self._warm_model(season)
         rate = rates_for(
             {s: h.level for s, h in cat.hunts.items()},
             self._pace,
             self._default_kph,
-            self.ctx.state.active_level,
+            self._planned_level(),
             seasonal,
         )
-        if season and seasonal:  # o ritmo medido é de dias normais: corrige pelo simulador
-            normal = await asyncio.to_thread(self._model_rates, cat, species, None)
+        if season and seasonal and normal:  # o ritmo medido é de dias normais: corrige
             rate = season_adjust(rate, normal, seasonal)
         if self.cfg.objective == "xp":
             await self._plan_xp(reason, cat, rate)
@@ -371,8 +392,31 @@ class GemsPlugin(Plugin):
                 return True
         return False
 
-    def _model_rates(self, cat: Any, species: Any, season: str | None = None) -> dict[str, float]:
-        """Previsão do simulador de combate para o ativo (vazia se faltar dado)."""
+    # --- quem o plano atende ------------------------------------------------------------
+
+    def _planned(self) -> dict[str, Any] | None:
+        """O pokémon para quem a hunt é escolhida: quem o team_train quer treinar, senão o ativo."""
+        st = self.ctx.state
+        target = st.mon(st.train_target) if st.train_target is not None else None
+        return target or st.active_pokemon
+
+    def _planned_level(self) -> int | None:
+        lvl = (self._planned() or {}).get("level")
+        return lvl if isinstance(lvl, int) else self.ctx.state.active_level
+
+    def _max_hunt_level(self) -> int | None:
+        """Teto de nível das hunts: o do treinador e, no foco XP, o que o pokémon aguenta."""
+        top = self._level or None
+        mon_level = self._planned_level()
+        if self.cfg.objective == "xp" and isinstance(mon_level, int):
+            cap = mon_level + self.cfg.max_over_active
+            top = min(top, cap) if top else cap
+        return top
+
+    def _model_rates(
+        self, cat: Any, species: Any, season: str | None = None, compute: bool = True
+    ) -> dict[str, float]:
+        """Previsão do simulador de combate para o pokémon planejado (vazia se faltar dado)."""
         if not self.cfg.use_model:
             return {}
         if not hasattr(self, "_model"):
@@ -381,22 +425,53 @@ class GemsPlugin(Plugin):
         try:
             return self._model.rates(
                 {s: (h.level, h.species_id) for s, h in cat.hunts.items()},
-                self.ctx.state.active_pokemon,
+                self._planned(),
                 getattr(species, "raw", {}) or {},
                 getattr(cat, "rules", {}) or {},
-                max_level=self._level or None,
+                max_level=self._max_hunt_level(),
                 season=season,
+                compute=compute,
             )
         except Exception:  # o modelo nunca derruba o plano: cai no ritmo por nível
             self.ctx.log.exception("simulador de combate falhou")
             return {}
+
+    def _model_missing(self) -> int:
+        model = getattr(self, "_model", None)
+        return model.missing if model is not None else 0
+
+    def _warm_model(self, season: str | None) -> None:
+        """Simula numa thread o que falta no cache e planeja de novo quando acabar (uma por vez)."""
+        task = getattr(self, "_warm", None)
+        if task is not None and not task.done():
+            return
+        cat, species = self.ctx.catalog, self.ctx.species
+
+        async def run() -> None:
+            try:
+                await asyncio.to_thread(self._model_rates, cat, species, season, True)
+                if season:
+                    await asyncio.to_thread(self._model_rates, cat, species, None, True)
+                await self._locked(lambda: self._plan("model_ready"))
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.ctx.log.exception("gems: aquecer o simulador falhou")
+
+        self._warm = asyncio.get_running_loop().create_task(run())
 
     async def _plan_xp(self, reason: str, cat: Any, rate: dict[str, tuple[float, str]]) -> None:
         """Foco XP: a hunt de maior XP/h projetada (ritmo pelo nível do ativo × XP por abate).
 
         Perto do nível de evoluir e sem a pedra do tipo, a hunt que mais dropa essa pedra por hora
         (abates/h × chance pelo estágio do selvagem), até a pedra cair."""
-        options = xp_options(cat, self._level, rate, self._xp)
+        planned = (self._planned() or {}).get("id")
+        unsafe = {s for s in cat.hunts if self.ctx.state.is_dangerous(planned, s, self.now())}
+        options = [
+            o
+            for o in xp_options(cat, self._max_hunt_level() or self._level, rate, self._xp)
+            if o.slug not in unsafe
+        ]
         best = options[0] if options and options[0].xp_per_hour > 0 else None
         current = self.switch.current
         here = next((o for o in options if o.slug == current), None)

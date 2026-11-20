@@ -261,6 +261,14 @@ class Supervisor:
                 f"a hunt {slug} pede nível {hunt.level} e a conta está no {level}: o jogo tranca"
             )
 
+    def _check_hunt_species(self, acc: AccountRecord, slug: str, species_id: int) -> None:
+        """Capturar o X numa hunt que não é dele gasta bola à toa (20/11: Totodile na `larvitar`)."""
+        live = self.live.get(acc.id)
+        catalog = getattr(live.session if live else None, "catalog", None)
+        hunt = catalog.hunts.get(slug) if catalog is not None else None
+        if hunt is not None and hunt.species_id != species_id:
+            raise CommandError(f"a hunt {slug} não é da espécie {species_id}")
+
     async def _team_active(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Troca o pokémon ativo (docs/design/team-train.md)."""
         try:
@@ -354,7 +362,6 @@ class Supervisor:
             return {"steps": [], "detail": "a equipe já está assim"}
 
         back = view.hunt_slug if not view.in_center else None
-        saved = {a: gateway.holds[a] for a in APPLY_HOLDS if a in gateway.holds}
         until = datetime.now(UTC) + timedelta(minutes=6)
         for a in APPLY_HOLDS:
             gateway.hold(a, until, APPLY_OWNER, "montar equipe")
@@ -390,8 +397,7 @@ class Supervisor:
                 except CommandError as exc:
                     failure = failure or str(exc)
                     done.append(f"não voltou para {back}")
-            gateway.release(APPLY_OWNER)
-            gateway.holds.update(saved)
+            gateway.release(APPLY_OWNER)  # as travas dos outros (hunt_hold, captura) ficam
             await gateway.note("team.apply.finished", {"done": done, "failed": failure is not None})
         if failure is not None:
             raise CommandError(f"{failure}. Feito: {', '.join(done) or 'nada'}")
@@ -529,6 +535,10 @@ class Supervisor:
             raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
         self._check_hunt_level(acc, p.slug)
         until = datetime.now(UTC) + timedelta(hours=p.hours)
+        # um desvio por vez (refatoracao-2026-11-20, 3): a hunt manual encerra a captura
+        configs = await self.store.plugin_configs(acc.id)
+        if configs.get("capture_target", (False, {}))[0]:
+            await self._plugin_set(acc, {"plugin": "capture_target", "enabled": False})
         out = await self._plugin_set(
             acc,
             {
@@ -551,6 +561,7 @@ class Supervisor:
         except ValidationError as exc:
             raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
         self._check_hunt_level(acc, p.hunt_slug)
+        self._check_hunt_species(acc, p.hunt_slug, p.species_id)
         now = datetime.now(UTC)
         until = now + timedelta(hours=p.hours) if p.hours else None
         config = {
@@ -591,9 +602,18 @@ class Supervisor:
         rank_fields = dict(p.rank or {})
         fallback_focus = rank_fields.pop("fallback_focus", None)
 
-        # gemas e XP: o restock só cuida de poções (bolas desligadas); o gems escolhe a hunt
-        restock_focus = "gold_xp_drop" if p.focus in ("gems", "xp") else p.focus
-        restock_cfg = {**configs.get("restock", (True, {}))[1], "focus": restock_focus}
+        # "bola em tudo" (catch_all) é uma opção de qualquer modo, não um foco (refatoracao, 3):
+        # o restock com focus "capture". O foco "capture" antigo vira ouro e drop + bola em tudo.
+        # Sem catch_all no comando, mantém o que estava.
+        current_restock = configs.get("restock", (True, {}))[1]
+        catch_all = p.catch_all
+        if catch_all is None:
+            catch_all = p.focus == "capture" or current_restock.get("focus") == "capture"
+        if p.focus == "rank":
+            restock_focus = "rank"  # o rank escolhe a bola; o fallback_focus vale sem alvo
+        else:
+            restock_focus = "capture" if catch_all else "gold_xp_drop"
+        restock_cfg = {**current_restock, "focus": restock_focus}
         # foco XP: poção sem teto por hora (o ouro é só para sobreviver; decisão de 16/11)
         if p.focus == "xp":
             restock_cfg["potions_uncapped"] = True
@@ -618,6 +638,15 @@ class Supervisor:
             writes.append(("gems", True, gems_cfg))
         elif "gems" in configs:
             writes.append(("gems", False, configs["gems"][1]))
+        # treinar a equipe é opção do XP (o foco leva a conta para a hunt de quem treina, 2.5);
+        # fora dele o team_train desliga: trocaria o ativo sem ninguém mudar a hunt
+        if p.focus == "xp" and p.train is not None:
+            train_cfg = {**configs.get("team_train", (False, {}))[1]}
+            if p.train.target_level is not None:
+                train_cfg["target_level"] = p.train.target_level
+            writes.append(("team_train", p.train.enabled, train_cfg))
+        elif p.focus != "xp" and configs.get("team_train", (False, {}))[0]:
+            writes.append(("team_train", False, configs["team_train"][1]))
 
         for name, _, cfg in writes:
             cls = self.available.get(name)
@@ -697,6 +726,13 @@ class CaptureStartParams(BaseModel):
     hours: float | None = Field(None, ge=0.25, le=72)
 
 
+class TrainParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
+    target_level: int | None = Field(None, ge=2, le=100_000)
+
+
 class FocusSetParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -705,6 +741,8 @@ class FocusSetParams(BaseModel):
     rank: dict[str, Any] | None = None
     # campos do gems (max_market_share, hysteresis...)
     gems: dict[str, Any] | None = None
+    catch_all: bool | None = None  # jogar a melhor bola que se paga em todo selvagem
+    train: TrainParams | None = None  # só no foco XP
 
 
 class PluginSetParams(BaseModel):
