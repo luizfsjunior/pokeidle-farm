@@ -998,3 +998,28 @@ details[open] > :not(summary), .section-tabs [role="tabpanel"]:not([hidden]) { a
 button.danger { background: var(--critical); color: #1a0006; border-color: var(--critical); }
 button.danger:disabled { opacity: .5; }
 .builder-leaving { display: flex; flex-wrap: wrap; gap: .4rem 1rem; align-items: center; margin-top: .6rem; }
+
+/* refatoração de 20/11 (docs/design/refatoracao-2026-11-20.md) */
+.alerts { list-style: none; margin: 0 0 .6rem; padding: 0; display: grid; gap: .35rem; }
+.alert { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .2rem .8rem; padding: .5rem .7rem; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface-0); }
+.alert-critical { border-color: var(--critical); background: color-mix(in srgb, var(--critical) 12%, var(--surface-0)); }
+.alert-warning { border-color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, var(--surface-0)); }
+.alerts-compact .alert { padding: .3rem .5rem; font-size: .82rem; }
+.now-static { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); align-items: center; gap: .6rem; padding: .7rem 0; min-height: 44px; }
+.now-static .now-label, .now-row .now-label { color: var(--text-muted); }
+.mode-options { display: grid; gap: .4rem; }
+.mode-option { display: flex; gap: .6rem; align-items: flex-start; padding: .55rem .7rem; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.mode-option > span { display: grid; gap: .1rem; }
+.mode-option.is-on { border-color: var(--accent); background: var(--accent-soft); }
+.mode-option input { margin-top: .25rem; }
+.more-menu { position: relative; }
+.more-menu > summary { list-style: none; cursor: pointer; min-width: 44px; min-height: 36px; display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: 8px; font-size: 1.2rem; line-height: 1; color: var(--text-secondary); }
+.more-menu > summary::-webkit-details-marker { display: none; }
+.more-menu[open] > summary { border-color: var(--accent); color: var(--accent); }
+.more-menu-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; display: grid; gap: .25rem; min-width: 12rem;
+  padding: .4rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); box-shadow: var(--shadow); }
+.more-menu-list button { justify-content: flex-start; text-align: left; width: 100%; }
+.more-menu-list hr { border: 0; border-top: 1px solid var(--grid); margin: .2rem 0; width: 100%; }
+.danger-text { color: var(--critical) !important; }

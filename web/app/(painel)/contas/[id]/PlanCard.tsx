@@ -1,4 +1,6 @@
 import { Bar, Hint } from "@/components/Page";
+import type { ActiveCapture } from "@/components/Capture";
+import type { HuntHold } from "@/components/HuntPicker";
 import { ago, dateTime, hours1, num } from "@/lib/format";
 
 type Stone = { name: string; chance: number; gems: number | null; sold_week: number | null; per_week: number; counted_week: number };
@@ -60,16 +62,34 @@ const KPH_SOURCE: Record<GemOption["kph_source"], string> = {
  * Plano do foco XP (docs/design/foco-xp.md): a hunt de mais XP/h agora e o plano até o marco. O foco por pedras
  * saiu (docs/design/painel-ux-v2.md): conta ainda nele não mostra plano, o card "Fazendo agora" avisa.
  */
-export function PlanCard({ plan, progress: raw = null }: { plan: GemsPlanData | null; progress?: ProgressPlanData | null }) {
+export function PlanCard({ plan, progress: raw = null, huntSlug = null, hold = null, capture = null }: {
+  plan: GemsPlanData | null;
+  progress?: ProgressPlanData | null;
+  huntSlug?: string | null; // a hunt de agora (do perfil): a do plano pode estar velha
+  hold?: HuntHold;
+  capture?: ActiveCapture | null;
+}) {
   // conta que já passou do marco (ex.: nível 381 com marco 150): o plano até ele não diz mais nada
   const progress = raw && raw.trainer_level < raw.goal ? raw : null;
-  if (plan?.objective === "xp") return <XpCard plan={plan} progress={progress} />;
+  if (plan?.objective === "xp") return <XpCard plan={plan} progress={progress} huntSlug={huntSlug} hold={hold} capture={capture} />;
   return progress ? <section className="card stack"><ProgressPlan progress={progress} /></section> : null;
 }
 
 /** Foco XP (docs/design/foco-xp.md): a hunt de mais XP/h e as melhores opções. */
-function XpCard({ plan, progress }: { plan: GemsPlanData; progress: ProgressPlanData | null }) {
+function XpCard({ plan, progress, huntSlug, hold, capture }: {
+  plan: GemsPlanData; progress: ProgressPlanData | null; huntSlug: string | null; hold: HuntHold; capture: ActiveCapture | null;
+}) {
   const target = plan.target as unknown as XpOption | null;
+  const here = huntSlug ?? plan.current_hunt;
+  const acting = !plan.dry_run && plan.acting;
+  const holding = hold && new Date(hold.until) > new Date() ? hold : null;
+  // por que a conta não está na hunt alvo
+  const why = !target || target.slug === here ? null
+    : !acting ? "o plano está em ensaio (não troca)"
+    : capture ? `a captura de ${capture.species_name ?? "uma espécie"} segura a hunt`
+    : holding ? `a hunt manual segura até ${dateTime(holding.until)}`
+    : "trocando: espera uma folga no combate";
+  const stale = Date.now() - new Date(plan.at).getTime() > 30 * 60_000;
   const options = (plan.options as unknown as XpOption[]) ?? [];
   const maxXp = Math.max(0, ...options.slice(0, 5).map((o) => o.xp_per_hour));
   return (
@@ -79,11 +99,13 @@ function XpCard({ plan, progress }: { plan: GemsPlanData; progress: ProgressPlan
           O ritmo é o medido na hunt, projetado para o nível do pokémon ativo; hunt nunca medida usa o simulador de combate.
           XP por abate: a medida, ou 0,6 × nível² + 8 com o bônus da conta. Passe o dedo nos números para ver a origem.
         </Hint></div>
-        <span className="muted small">plano {ago(plan.at)}{plan.active_level ? ` · ativo nível ${plan.active_level}` : ""}</span>
+        <span className={`small ${stale ? "warn-text" : "muted"}`}>plano {ago(plan.at)}{plan.active_level ? ` · ativo nível ${plan.active_level}` : ""}</span>
       </div>
       <p className="small" style={{ margin: 0 }}>
-        <strong>{plan.dry_run || !plan.acting ? "Ensaio" : "Ativo"}:</strong> {plan.current_hunt ?? "—"} → alvo{" "}
+        <span className={`badge ${acting ? "ready" : ""}`}>{acting ? "Agindo" : "Em ensaio"}</span>{" "}
+        Agora em {here ?? "—"} · alvo{" "}
         {target ? `${target.name ?? target.slug} (~${num(target.xp_per_hour, { compact: true })} XP/h)` : "nenhum"}
+        {why && <span className="warn-text"> · {why}</span>}
         {(plan.degraded?.length ?? 0) > 0 && <span className="error"> · {plan.degraded?.join(", ")}</span>}
       </p>
       {plan.stone_hunt && (

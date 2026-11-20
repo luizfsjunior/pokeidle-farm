@@ -12,7 +12,6 @@ import { TrainerCard } from "@/components/TrainerCard";
 import { TrendChart } from "@/components/TrendChart";
 import { useAccounts, useAtlas, usePanel } from "@/lib/query/hooks";
 import { loadAccount } from "./data";
-import { TeamTrainCard } from "./TeamControls";
 import { NewPlugin } from "./NewPlugin";
 import { NowCard } from "./NowCard";
 import { OutlandCard } from "./OutlandCard";
@@ -60,10 +59,11 @@ export function AccountView() {
           )}
           {d && (
             <NowCard accountId={d.account.id} plugins={d.plugins} capture={d.capture} hold={d.hold} hunts={d.huntOptions}
-              huntSlug={profile?.hunt_slug ?? null} trainerLevel={profile?.level ?? null} enabled={d.account.enabled} />
+              huntSlug={profile?.hunt_slug ?? null} trainerLevel={profile?.level ?? null} enabled={d.account.enabled}
+              team={profile?.team ?? []} activeId={profile?.active_pokemon_id ?? null} alerts={d.alerts} />
           )}
-          {d && <PlanCard plan={d.gemsPlan} progress={d.progress} />}
-          {d && <TeamTrainCard accountId={d.account.id} plugins={d.plugins} team={profile?.team ?? []} />}
+          {d && <PlanCard plan={d.gemsPlan} progress={d.progress} huntSlug={profile?.hunt_slug ?? null} hold={d.hold}
+            capture={d.capture} />}
           {d?.outland && <OutlandCard data={d.outland} progress={d.progress} />}
           {d?.rank && (
             <>
