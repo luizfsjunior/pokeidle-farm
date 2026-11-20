@@ -38,6 +38,7 @@ from .actions import (
 from .catalog import BALLS, ITEM_PRICES
 from .events import Event
 from .plugins.base import Plugin
+from .profile import set_travado
 from .store.base import AccountRecord, CommandRecord, Store
 from .team_apply import TEAM_SLOTS, Step, plan_moves, team_by_slot
 
@@ -448,23 +449,29 @@ class Supervisor:
 
         return TeamMove(pokemon_id=pid, slot=slot), placed
 
-    def _mons(self, acc: AccountRecord) -> dict[Any, dict[str, Any]] | None:
-        """Todos os pokémons da conta como o jogo manda (equipe, Depot e Coleção), do plugin profile."""
+    def _profile(self, acc: AccountRecord) -> Any:
+        """O ProfileState do plugin profile (pokémons e a Coleção), ou None antes do welcome."""
         live = self.live.get(acc.id)
         plugins = getattr(live.session, "plugins", None) if live else None
         prof = getattr(plugins, "running", {}).get("profile") if plugins is not None else None
         state = getattr(prof, "profile", None)
-        return getattr(state, "pokemons", None) if state is not None and state.ready else None
+        return state if state is not None and state.ready else None
+
+    def _mons(self, acc: AccountRecord) -> dict[Any, dict[str, Any]] | None:
+        """Todos os pokémons da conta como o jogo manda (equipe, Depot e Coleção), do plugin profile."""
+        state = self._profile(acc)
+        return getattr(state, "pokemons", None) if state is not None else None
 
     async def _set_place(self, acc: AccountRecord, places: dict[int, str]) -> list[int]:
         """Marca cada pokémon como da Coleção ("colecao") ou do Depot ("depot"), quem sai da equipe.
         Devolve os que mudaram (quem já estava no lugar pedido fica como está)."""
         mons = self._mons(acc) or {}
+        state = self._profile(acc)
         moved: list[int] = []
         for pid, to in places.items():
             mon = mons.get(pid)
             want = to == "colecao"
-            if mon is None or bool(mon.get("colecao")) == want:
+            if mon is None or state is None or state.in_collection(pid) == want:
                 continue
             if moved:  # o gateway segura 1 s entre marcações: espera em vez de falhar
                 await asyncio.sleep(CollectionMove.min_interval_s + 0.05)
@@ -492,28 +499,37 @@ class Supervisor:
         if mon is None:
             raise CommandError("pokémon não encontrado na conta")
         want = p.to == "colecao"
-        if bool(mon.get("colecao")) == want:
+        if self._profile(acc).in_collection(p.pokemon_id) == want:
             return {"detail": "já estava assim"}
         return await self._mark_place(acc, mons, p.pokemon_id, want)
 
     async def _mark_place(
         self, acc: AccountRecord, mons: dict[Any, dict[str, Any]], pid: int, want: bool
     ) -> dict[str, Any]:
-        """Uma marca de Coleção/Depot. O jogo responde `batalha` k "colecao" e só muda a marca no
-        estado depois: esperar a marca dava "sem confirmação" numa marcação feita (19 e 20/11, no
-        fim do team.apply, que parava ali e não marcava os outros)."""
+        """Uma marca de Coleção/Depot. A Coleção do jogo é a lista `automation.pokemonTravado`; ele
+        responde `batalha` k "colecao" (`id`, `naColecao`) e só manda a lista depois. Esperar a lista
+        dava "sem confirmação" numa marcação feita (19 e 20/11, no fim do team.apply)."""
         session = self.live[acc.id].session
+        state = self._profile(acc)
         since = time.monotonic()
+
+        def confirmed(_v: Any) -> bool:
+            reply = _replied(session, "colecao", since)
+            if reply is not None:
+                return "naColecao" not in reply or bool(reply["naColecao"]) == want
+            return state is not None and state.in_collection(pid) == want
+
         out = await self._send_now(
             acc,
             CollectionMove(pokemon_id=pid, to="colecao" if want else "depot"),
-            confirm=lambda _v: (
-                _replied(session, "colecao", since) is not None
-                or bool((mons.get(pid) or {}).get("colecao")) == want
-            ),
+            confirm=confirmed,
         )
-        if pid in mons:  # os próximos comandos já leem a marca nova
-            mons[pid]["colecao"] = want
+        # a marca já vale para os próximos comandos, para a coleção do painel e para o auto.set (que
+        # manda a automation inteira: com a lista velha, apagaria a marca)
+        if state is not None:
+            state.set_collection(pid, want)
+        view = getattr(session, "state_view", None)
+        set_travado(getattr(view, "automation", None), pid, want)
         return out
 
     async def _depot_sell(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
@@ -526,7 +542,10 @@ class Supervisor:
         mons = self._mons(acc)
         if mons is None:
             raise CommandError("a coleção ainda não carregou; tente em alguns segundos")
-        depot = [m for m in mons.values() if m.get("slot") is None and not m.get("colecao")]
+        state = self._profile(acc)
+        depot = [
+            m for pid, m in mons.items() if m.get("slot") is None and not state.in_collection(pid)
+        ]
         if not depot:
             return {"sold": 0, "detail": "o Depot está vazio"}
         if len(depot) > p.expected:

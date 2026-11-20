@@ -247,3 +247,33 @@ async def test_collection_is_synced_full_then_only_what_changed():
     assert calls == [(1, 1 if len(ids) > 1 else 0, False)]
     assert rows[first]["data"]["level"] == 99
     await plugin.stop()
+
+
+def test_collection_comes_from_the_locked_list():
+    """A Coleção do jogo é `automation.pokemonTravado` (app.js, 20/11), não um campo do pokémon. Antes
+    o painel mostrava "Coleção 0" e a venda do Depot contava 98 quando o jogo vendia 96."""
+    st = ProfileState()
+    st.apply_snapshot(
+        {
+            "pokemons": [{"id": 1, "slot": None}, {"id": 2, "slot": None}, {"id": 3, "slot": 0}],
+            "automation": {"pokemonTravado": [2], "autoPotion": True},
+        }
+    )
+    rows, _removed, full = st.collection_rows("acc")
+    assert full and {r["pokemon_id"]: r["data"]["in_collection"] for r in rows} == {
+        1: False,
+        2: True,
+        3: False,
+    }
+    # a lista muda num patch: só as linhas de quem entrou ou saiu
+    st.apply_patch({"automation": {"pokemonTravado": [1], "autoPotion": True}})
+    rows, _removed, full = st.collection_rows("acc")
+    assert not full and {r["pokemon_id"]: r["data"]["in_collection"] for r in rows} == {
+        1: True,
+        2: False,
+    }
+    # marca confirmada pela resposta do jogo, antes de a lista chegar
+    st.set_collection(3, True)
+    assert st.in_collection(3) and st.estado["automation"]["pokemonTravado"] == [1, 3]
+    rows, _removed, _full = st.collection_rows("acc")
+    assert [r["pokemon_id"] for r in rows] == [3]

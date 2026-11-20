@@ -36,6 +36,9 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   confirmação" em ação feita (o jogo responde `batalha` e muda o estado depois; 305 pokémons vendidos por 16,3 M
   às 01:27 apareceram como falha); objetivo só aceita espécie que existe no jogo ("Tyranitat" corrigido no banco);
   página Comandos com o detalhe em português. 392 testes.
+- **Coleção**: é `automation.pokemonTravado` (app.js), não um campo do pokémon; o painel mostrava "Coleção 0" e a
+  venda do Depot contava 2 a mais. Venda testada na `_1`: 96 por 2,76 M; loja e Mercado testados (compra, anúncio,
+  cancelamento).
 - **`not_connected` investigado**: quedas reais e curtas (o worker volta em ~10 s); no dia, o jogo reiniciando
   (`code=1012`, 15:07) e as 4 contas caindo juntas às 09:27 (rede ou proxy).
 
