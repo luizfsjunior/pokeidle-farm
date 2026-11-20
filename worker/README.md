@@ -105,6 +105,10 @@ Ver [docs/design/refatoracao-2026-11-20.md](../docs/design/refatoracao-2026-11-2
 - **Vigia** (`watchdog`, sempre ligado): cura no centro, devolve o ativo depois da morte e, com 8 `battle.revive`
   em 3 min (o jogo revive em batalha e a conta nunca vai ao centro), marca o par (pokémon, hunt) como perigoso em
   `state.danger` por 6 h e volta o ativo para o mais forte. O `gems` e o `team_train` evitam os pares perigosos.
+- **Confirmação pelo jogo**: os comandos do painel só ficam "feito" quando o efeito aparece. Algumas ações não mudam
+  o estado na hora e o jogo só responde com um `batalha` (`k: "venda"` na venda do Depot, com `qtd` e `ganho`;
+  `k: "colecao"` na marca de Coleção/Depot). A sessão guarda a última resposta de cada tipo (`session.replied`) e
+  esses comandos se confirmam por ela; esperar o estado dava "sem confirmação" em ação feita (20/11).
 - **Plano sem travar**: o `gems` usa só o que o simulador já tem em cache (por faixa de 10 níveis) e simula o resto
   numa thread fora do lock; quando termina, planeja de novo (`reason: "model_ready"`). O plano feito antes disso é
   gravado mas não troca de hunt: sem a previsão, as hunts altas saíam pelo nível e a conta trocava duas vezes.

@@ -32,6 +32,10 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   Ampharos e Wooper), "Ir por 2 h" saiu da Pokédex, 124 ícones de itens consertados (`/assets/...` mora em
   `/assets/site/assets/...`), sem `progress.plan` vazio acima do marco, "Ver valores" sem vazar no celular e a troca
   de hunt tenta de novo em 5 s depois de uma queda. 390 testes.
+- **Terceira rodada**: a venda do Depot e a marca de Coleção (fim do "Aplicar a equipe") falhavam com "sem
+  confirmação" em ação feita (o jogo responde `batalha` e muda o estado depois; 305 pokémons vendidos por 16,3 M
+  às 01:27 apareceram como falha); objetivo só aceita espécie que existe no jogo ("Tyranitat" corrigido no banco);
+  página Comandos com o detalhe em português. 392 testes.
 - **`not_connected` investigado**: quedas reais e curtas (o worker volta em ~10 s); no dia, o jogo reiniciando
   (`code=1012`, 15:07) e as 4 contas caindo juntas às 09:27 (rede ou proxy).
 
