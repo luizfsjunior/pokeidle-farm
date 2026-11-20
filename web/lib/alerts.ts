@@ -27,14 +27,19 @@ export async function loadAlerts(sb: SupabaseClient, accountIds: string[]): Prom
   const since = new Date(Date.now() - WINDOW_H * 3600_000).toISOString();
   const [events, gold] = await Promise.all([
     sb.from("events").select("account_id, type, received_at, data").in("account_id", accountIds)
-      .in("type", Object.keys(EVENT_TEXT)).gte("received_at", since)
+      .in("type", [...Object.keys(EVENT_TEXT), "team_train.switch"]).gte("received_at", since)
       .order("received_at", { ascending: false }).limit(50),
     sb.from("metric_hourly").select("account_id, hour, value").in("account_id", accountIds)
       .eq("metric", "gold_net").gte("hour", since),
   ]);
   const push = (a: Alert) => out.set(a.account_id, [...(out.get(a.account_id) ?? []), a]);
   const seen = new Set<string>();
+  // a espera do treino acabou quando ele já trocou para aquele pokémon (os eventos vêm do mais novo)
+  const switched = new Set<string>();
   for (const e of events.data ?? []) {
+    const d = (e.data ?? {}) as Record<string, unknown>;
+    if (e.type === "team_train.switch") { switched.add(`${e.account_id}:${String(d.to)}`); continue; }
+    if (e.type === "team_train.waiting_hunt" && switched.has(`${e.account_id}:${String(d.pokemon_id)}`)) continue;
     const key = `${e.account_id}:${e.type}`;
     if (seen.has(key)) continue; // o mais recente de cada tipo
     seen.add(key);

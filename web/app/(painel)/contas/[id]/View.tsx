@@ -97,7 +97,8 @@ export function AccountView() {
         <>
           {!d ? loading : profile
             ? <>
-                <Collection accountId={d.account.id} profile={profile} atlas={atlas} looktypes={d.looktypes} />
+                <Collection accountId={d.account.id} profile={profile} atlas={atlas} looktypes={d.looktypes}
+                  training={d.plugins.some((p) => p.plugin === "team_train" && p.enabled)} />
               </>
             : <p className="muted">Sem perfil ainda: ele aparece uns segundos depois de o worker conectar a conta.</p>}
         </>

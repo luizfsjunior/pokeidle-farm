@@ -35,7 +35,8 @@ function readView(): View {
  * três lugares e "Coleção" tinha três sentidos), em grade ou numa tabela de comparação. Clicar abre a ficha,
  * também durante a montagem da equipe (antes clicar já punha na vaga e não dava para ver os stats).
  */
-export function Collection({ accountId, profile, atlas, looktypes }: {
+export function Collection({ accountId, profile, atlas, looktypes, training = false }: {
+  training?: boolean;
   accountId: string;
   profile: Profile;
   atlas: Atlas | null;
@@ -193,7 +194,7 @@ export function Collection({ accountId, profile, atlas, looktypes }: {
         <MonSheet mon={sheetMon} atlas={atlas} looktypes={looktypes} active={sheetMon.id === profile.active_pokemon_id} onClose={() => setOpen(null)}>
           {building && draft && <DraftActions draft={draft} update={update} mon={sheetMon} />}
           <MonActions accountId={accountId} mon={sheetMon} team={profile.team} isActive={sheetMon.id === profile.active_pokemon_id}
-            inCollection={!!sheetMon.in_collection} />
+            inCollection={!!sheetMon.in_collection} training={training} />
         </MonSheet>
       )}
     </Panel>
