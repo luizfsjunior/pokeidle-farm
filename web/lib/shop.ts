@@ -14,7 +14,14 @@ export const SHOP_ITEMS: { id: number; name: string; price: number; note: string
   { id: 70070, name: "Golden Potion", price: 2_500, note: "50% do HP" },
   { id: 205, name: "Revive", price: 600, note: "revive com 10% do HP" },
   { id: 206, name: "Max Revive", price: 5_000, note: "revive com 100% do HP" },
+  // ovos da chocadeira (shared/chocadeira.mjs do jogo): o pokémon nasce com essa potência
+  { id: 70091, name: "Mystery Egg P2", price: 20_000_000, note: "ovo potência 2, choca em 6 h" },
+  { id: 70092, name: "Mystery Egg P3", price: 120_000_000, note: "ovo potência 3, choca em 12 h" },
+  { id: 70093, name: "Mystery Egg P4", price: 250_000_000, note: "ovo potência 4, choca em 24 h" },
 ];
+export const EGG_IDS = new Set([70091, 70092, 70093]);
+/** Acima disso a Loja pede confirmação (um ovo P2 custa 20 M). */
+export const CONFIRM_GOLD = 1_000_000;
 
 /** Ouro gasto nas compras automáticas (restock e captura) nas últimas 24 h, por "kind:id". */
 export async function loadSpend(sb: SupabaseClient, accountId: string): Promise<Map<string, { qty: number; gold: number }>> {

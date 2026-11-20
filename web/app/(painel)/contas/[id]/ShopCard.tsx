@@ -6,7 +6,7 @@ import { num } from "@/lib/format";
 import { loadGameRules, RULES_VERSION } from "@/lib/pokemon";
 import type { Profile } from "@/lib/profile";
 import { usePanel } from "@/lib/query/hooks";
-import { loadSpend, SHOP_ITEMS } from "@/lib/shop";
+import { CONFIRM_GOLD, EGG_IDS, loadSpend, SHOP_ITEMS } from "@/lib/shop";
 import { useCommand } from "@/lib/useCommand";
 
 /**
@@ -19,8 +19,9 @@ export function ShopCard({ accountId, profile }: { accountId: string; profile: P
   const spend = usePanel(["shop-spend-24h", accountId], (sb) => loadSpend(sb, accountId), { staleTime: 60_000 }).data;
   const balls = (rules?.balls ?? []).filter((b) => b.price != null)
     .map((b) => ({ key: `ball:${b.id}`, kind: "ball" as const, id: b.id, name: b.name, price: b.price!, note: `captura ×${b.catchRate}` }));
-  const items = SHOP_ITEMS.map((i) => ({ key: `item:${i.id}`, kind: "item" as const, ...i }));
-  const all = [...balls, ...items];
+  const items = SHOP_ITEMS.filter((i) => !EGG_IDS.has(i.id)).map((i) => ({ key: `item:${i.id}`, kind: "item" as const, ...i }));
+  const eggs = SHOP_ITEMS.filter((i) => EGG_IDS.has(i.id)).map((i) => ({ key: `item:${i.id}`, kind: "item" as const, ...i }));
+  const all = [...balls, ...items, ...eggs];
   const [key, setKey] = useState("item:205");
   const [qtyText, setQtyText] = useState("10");
   const chosen = all.find((x) => x.key === key) ?? all[0];
@@ -48,6 +49,9 @@ export function ShopCard({ accountId, profile }: { accountId: string; profile: P
               <optgroup label="Poções e revives">
                 {items.map((i) => <option key={i.key} value={i.key}>{i.name} · {num(i.price)} · tem {num(have(i.key, i.id))}</option>)}
               </optgroup>
+              <optgroup label="Ovos">
+                {eggs.map((i) => <option key={i.key} value={i.key}>{i.name} · {num(i.price, { compact: true })} · tem {num(have(i.key, i.id))}</option>)}
+              </optgroup>
             </select>
           </label>
           <label>Quantidade
@@ -55,7 +59,10 @@ export function ShopCard({ accountId, profile }: { accountId: string; profile: P
               onChange={(e) => setQtyText(e.target.value)} onBlur={() => setQtyText(String(qty))} />
           </label>
           <button type="button" disabled={busy || cost > gold}
-            onClick={() => void send(accountId, "shop.buy", { kind: chosen.kind, id: chosen.id, qty })}>
+            onClick={() => {
+              if (cost >= CONFIRM_GOLD && !confirm(`Comprar ${qty} × ${chosen.name} por ${num(cost)} de ouro?`)) return;
+              void send(accountId, "shop.buy", { kind: chosen.kind, id: chosen.id, qty });
+            }}>
             Comprar por {num(cost)}
           </button>
           <span className="small muted">{chosen.note}{cost > gold ? " · ouro insuficiente" : ""}</span>

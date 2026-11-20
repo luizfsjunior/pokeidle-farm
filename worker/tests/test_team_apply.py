@@ -345,3 +345,17 @@ async def test_place_marks_are_confirmed_by_the_game_reply(rig):  # noqa: F811
     assert c["status"] == "done", c
     assert mons[2]["colecao"] is True and mons[3]["colecao"] is True  # os dois marcados
     assert [w["pokemonId"] for w in game.sent if w["t"] == "colecao.mover"] == [2, 3]
+
+
+async def test_shop_sells_eggs(rig):  # noqa: F811
+    """Os ovos da chocadeira são itens da loja (shared/chocadeira.mjs); o worker recusava."""
+    acc = farm(rig.store, "farm1")
+    await rig.boot()
+    game = Game([{"id": 1, "slot": 0}], active=1, hunt="x")
+    _shop(game)
+    game.view.gold = 25_000_000
+    await _wire(rig, game)
+    c = await rig.cmd(acc, "shop.buy", kind="item", id=70091, qty=1)
+    assert c["status"] == "done" and c["result"]["cost"] == 20_000_000, c
+    c = await rig.cmd(acc, "shop.buy", kind="item", id=70092, qty=1)  # 120 M: não tem ouro
+    assert c["status"] == "failed" and "ouro" in c["error"]
