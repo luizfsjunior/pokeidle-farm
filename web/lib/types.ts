@@ -74,7 +74,7 @@ export const IV_STATS = ["hp", "atk", "def", "spa", "spd", "spe"] as const;
 
 export type CommandType = "ping" | "account.enable" | "account.disable" | "session.reconnect" | "plugin.set" | "focus.set"
   | "hunt.select" | "hunt.release" | "capture.start" | "capture.stop" | "team.active" | "team.move" | "center.heal" | "team.apply"
-  | "collection.move" | "depot.sell";
+  | "collection.move" | "depot.sell" | "shop.buy" | "market.sell" | "market.cancel";
 export type CommandStatus = "pending" | "running" | "done" | "failed" | "cancelled" | "expired";
 
 export type Command = {
@@ -108,6 +108,9 @@ export const COMMAND_LABEL: Record<CommandType, string> = {
   "team.apply": "Aplicar a equipe montada",
   "collection.move": "Mover entre Coleção e Depot",
   "depot.sell": "Vender o Depot",
+  "shop.buy": "Comprar na loja",
+  "market.sell": "Anunciar no Mercado",
+  "market.cancel": "Cancelar anúncio",
 };
 
 export const COMMAND_STATUS_LABEL: Record<CommandStatus, string> = {

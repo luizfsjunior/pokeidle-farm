@@ -28,10 +28,14 @@ from .actions import (
     CenterHeal,
     CollectionMove,
     HuntSelect,
+    MarketCancel,
+    MarketCreate,
     SellDepot,
+    ShopBuy,
     TeamActive,
     TeamMove,
 )
+from .catalog import BALLS, ITEM_PRICES
 from .events import Event
 from .plugins.base import Plugin
 from .store.base import AccountRecord, CommandRecord, Store
@@ -596,6 +600,54 @@ class Supervisor:
             return {"enabled": False, "applied": "nada a parar"}
         return await self._plugin_set(acc, {"plugin": "capture_target", "enabled": False})
 
+    # --- loja e Mercado pelo painel (refatoracao-2026-11-20, seção 5) -------------------------
+
+    def _view(self, acc: AccountRecord) -> Any:
+        live = self.live.get(acc.id)
+        return getattr(live.session if live else None, "state_view", None)
+
+    async def _shop_buy(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Compra na loja do NPC. Confere o ouro antes e confirma pelo estoque que volta do jogo."""
+        p = _parse(ShopBuyParams, params)
+        price = BALLS[p.id].price if p.kind == "ball" and p.id in BALLS else ITEM_PRICES.get(p.id)
+        if price is None:
+            raise CommandError(f"a loja não vende o {p.kind} {p.id}")
+        view = self._view(acc)
+        gold = getattr(view, "gold", None)
+        cost = price * p.qty
+        if isinstance(gold, int | float) and cost > gold:
+            raise CommandError(f"custa {cost} de ouro e a conta tem {int(gold)}")
+        key = str(p.id)
+
+        def stock(v: Any) -> int:
+            bag = (v.balls if p.kind == "ball" else v.items) or {}
+            return int(bag.get(key, 0) or 0)
+
+        before = stock(view) if view is not None else 0
+        out = await self._send_now(
+            acc, ShopBuy(kind=p.kind, id=p.id, qty=p.qty), confirm=lambda v: stock(v) > before
+        )
+        return {**out, "cost": cost}
+
+    async def _market_sell(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Anuncia um item no Mercado. Confirma pelo item saindo da mochila."""
+        p = _parse(MarketSellParams, params)
+        view = self._view(acc)
+        key = str(p.item_id)
+        have = int(((getattr(view, "items", None) or {}).get(key, 0)) or 0)
+        if view is not None and have < p.qty:
+            raise CommandError(f"a mochila tem {have} desse item, menos que {p.qty}")
+        return await self._send_now(
+            acc,
+            MarketCreate(itemId=p.item_id, qtd=p.qty, preco=p.price, moeda=p.currency),
+            confirm=lambda v: int(((v.items or {}).get(key, 0)) or 0) < have,
+        )
+
+    async def _market_cancel(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Cancela um anúncio da conta. O jogo não responde: o item volta pela mochila."""
+        p = _parse(MarketCancelParams, params)
+        return await self._send_now(acc, MarketCancel(id=p.listing_id))
+
     async def _focus_set(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Foco da conta (captura, ouro-xp-drop, rank ou gemas): restock, rank e gems juntos.
 
@@ -677,6 +729,36 @@ class Supervisor:
             for name, _, _ in writes:  # restock antes: o rank confere o foco dele ao subir
                 applied = await session.restart_plugin(name) and applied
         return {"focus": p.focus, "applied": "agora" if applied else "na próxima conexão"}
+
+
+def _parse[M: BaseModel](model: type[M], params: dict[str, Any]) -> M:
+    try:
+        return model.model_validate(params)
+    except ValidationError as exc:
+        raise CommandError(f"params inválidos: {exc.errors()[0]['msg']}") from exc
+
+
+class ShopBuyParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["ball", "item"]
+    id: int = Field(gt=0)
+    qty: int = Field(ge=1, le=10_000)
+
+
+class MarketSellParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    item_id: int = Field(gt=0)
+    qty: int = Field(ge=1, le=100_000)
+    price: int = Field(ge=1, le=100_000_000)  # por unidade
+    currency: Literal["orb", "gold"] = "orb"
+
+
+class MarketCancelParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    listing_id: int | str
 
 
 class TeamActiveParams(BaseModel):
@@ -777,6 +859,9 @@ _HANDLERS: dict[str, Handler] = {
     "session.reconnect": Supervisor._reconnect,
     "plugin.set": Supervisor._plugin_set,
     "focus.set": Supervisor._focus_set,
+    "shop.buy": Supervisor._shop_buy,
+    "market.sell": Supervisor._market_sell,
+    "market.cancel": Supervisor._market_cancel,
     "hunt.select": Supervisor._hunt_select,
     "hunt.release": Supervisor._hunt_release,
     "capture.start": Supervisor._capture_start,

@@ -13,6 +13,7 @@ import { TrendChart } from "@/components/TrendChart";
 import { useAccounts, useAtlas, usePanel } from "@/lib/query/hooks";
 import { loadAccount } from "./data";
 import { NewPlugin } from "./NewPlugin";
+import { MarketCard } from "./MarketCard";
 import { NowCard } from "./NowCard";
 import { OutlandCard } from "./OutlandCard";
 import { PlanCard } from "./PlanCard";
@@ -20,6 +21,7 @@ import { PluginEditor } from "./PluginEditor";
 import { ProfileSections } from "./ProfileSections";
 import { Collection } from "./Collection";
 import { RankCard } from "./RankCard";
+import { ShopCard } from "./ShopCard";
 
 /**
  * Página da conta em 4 abas (docs/design/painel-ux-v2.md, seção 3, e refatoracao-2026-11-20.md, 4): Agora (modo,
@@ -102,7 +104,12 @@ export function AccountView() {
         {/* Itens */}
         <>
           {!d ? loading : profile
-            ? <ProfileSections part="bag" profile={profile} items={d.items} restock={restockItems(d.plugins)} />
+            ? <>
+                <ProfileSections part="bag" profile={profile} items={d.items} restock={restockItems(d.plugins)} />
+                <ShopCard accountId={d.account.id} profile={profile} />
+                <MarketCard accountId={d.account.id} profile={profile} items={d.items}
+                  sellerActive={d.plugins.some((p) => p.plugin === "seller" && p.enabled && p.config.dry_run === false)} />
+              </>
             : <p className="muted">Sem perfil ainda.</p>}
         </>
 
