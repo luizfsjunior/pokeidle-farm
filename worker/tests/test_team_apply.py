@@ -155,8 +155,19 @@ async def test_apply_waits_for_a_break_in_combat_before_going_to_the_center(rig)
 
 
 class _Prof:
+    """O ProfileState de mentira: a Coleção pelo campo "colecao" de cada pokémon do teste."""
+
     def __init__(self, mons: dict[int, dict[str, Any]]) -> None:
-        self.profile = SimpleNamespace(pokemons=mons, ready=True)
+        def set_collection(pid: int, dentro: bool) -> None:
+            if pid in mons:
+                mons[pid]["colecao"] = dentro
+
+        self.profile = SimpleNamespace(
+            pokemons=mons,
+            ready=True,
+            in_collection=lambda pid: bool(mons.get(pid, {}).get("colecao")),
+            set_collection=set_collection,
+        )
 
 
 def _with_mons(rig, game: Game, mons: dict[int, dict[str, Any]]) -> None:  # type: ignore[no-untyped-def]  # noqa: F811

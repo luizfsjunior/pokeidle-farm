@@ -46,7 +46,6 @@ POKEMON_FIELDS = {
     "nota": "grade",  # a nota que o jogo calcula (0 a 10)
     "starter": "starter",
     "pasta": "folder",  # a pasta da coleção (o jogo organiza em pastas)
-    "colecao": "in_collection",  # a marca da Coleção (colecao.mover)
     "travado": "locked",
     "pisoNivel": "min_level",
 }
@@ -88,6 +87,39 @@ TOP_PER_SPECIES = 3  # fora da equipe, no máximo 3 de cada espécie (senão vir
 MAX_SHINIES = 60
 
 
+def travado_ids(automation: Any) -> set[int]:
+    """A Coleção do jogo: os ids em `estado.automation.pokemonTravado` (app.js, 20/11). Não é um campo
+    de cada pokémon; quem está nessa lista não vai na venda do Depot."""
+    lst = automation.get("pokemonTravado") if isinstance(automation, dict) else None
+    out: set[int] = set()
+    for x in lst or []:
+        try:
+            out.add(int(x))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def set_travado(automation: Any, pid: Any, dentro: bool) -> None:
+    """Põe ou tira o id da lista (como o `marcarColecaoLocal` do app.js)."""
+    if not isinstance(automation, dict):
+        return
+    arr = automation.setdefault("pokemonTravado", [])
+    n = int(pid)
+    has = any(_as_int(x) == n for x in arr)
+    if dentro and not has:
+        arr.append(n)
+    elif not dentro and has:
+        automation["pokemonTravado"] = [x for x in arr if _as_int(x) != n]
+
+
+def _as_int(x: Any) -> int | None:
+    try:
+        return int(x)
+    except (TypeError, ValueError):
+        return None
+
+
 class ProfileState:
     """Estado da conta juntado a partir do welcome e dos patches."""
 
@@ -116,7 +148,21 @@ class ProfileState:
         self.changed.clear()
         self.removed.clear()
 
+    def collection_ids(self) -> set[int]:
+        return travado_ids(self.estado.get("automation"))
+
+    def in_collection(self, pid: Any) -> bool:
+        return int(pid) in self.collection_ids()
+
+    def set_collection(self, pid: Any, dentro: bool) -> None:
+        """A marca confirmada pelo jogo (`batalha` k "colecao"), antes de o estado trazer a lista."""
+        auto = self.estado.setdefault("automation", {})
+        set_travado(auto, pid, dentro)
+        if pid in self.pokemons:
+            self.changed.add(pid)
+
     def apply_patch(self, src: dict[str, Any]) -> None:
+        before = self.collection_ids() if "automation" in src else None
         for p in src.get("pkMud") or []:
             if isinstance(p, dict) and p.get("id") is not None:
                 self.pokemons.setdefault(p["id"], {}).update(p)
@@ -142,6 +188,9 @@ class ProfileState:
                 self.estado[key] = {**(cur if isinstance(cur, dict) else {}), **value}
             else:
                 self.estado[key] = value
+        if before is not None:  # quem entrou ou saiu da Coleção: a linha dele muda
+            moved = before ^ self.collection_ids()
+            self.changed.update(pid for pid in self.pokemons if _as_int(pid) in moved)
 
     def collection_rows(self, account_id: str) -> tuple[list[dict[str, Any]], list[int], bool]:
         """O que gravar em account_pokemon: (linhas, ids que saíram, sincronização completa).
@@ -150,10 +199,12 @@ class ProfileState:
         """
         full = self.full_sync
         ids = list(self.pokemons) if full else [i for i in self.changed if i in self.pokemons]
+        coll = self.collection_ids()
         rows = []
         for pid in ids:
             p = self.pokemons[pid]
             c = compact_pokemon(p)
+            c["in_collection"] = _as_int(pid) in coll
             rows.append(
                 {
                     "account_id": account_id,
