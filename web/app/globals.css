@@ -420,9 +420,10 @@ img.sprite { object-fit: contain; transform: scale(1.35); } /* o sprite nacional
 .trend-axis { stroke: var(--grid); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .trend-cross { stroke: var(--text-muted); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .trend-tick { font-size: 10px; fill: var(--text-muted); }
-.trend-foot { display: flex; justify-content: space-between; gap: .5rem; align-items: start; }
+.trend-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; align-items: start; }
+.trend-foot details[open] { flex-basis: 100%; }  /* aberta, a tabela ocupa a linha: no celular os números grandes vazavam (20/11) */
 .trend-single { align-content: start; }
-.trend-table { font-size: .8rem; max-height: 12rem; display: block; overflow-y: auto; }
+.trend-table { font-size: .8rem; max-height: 12rem; display: block; overflow: auto; max-width: 100%; }
 
 /* --- Pokédex ------------------------------------------------------------------------- */
 
