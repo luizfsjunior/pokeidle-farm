@@ -1080,3 +1080,7 @@ button.danger:disabled { opacity: .5; }
   .builder-tools { flex-wrap: nowrap; gap: .15rem; }
   .builder-tools button { padding: .1rem .35rem; font-size: .78rem; min-width: 0; }
 }
+/* alvos de toque (revisão no celular, 20/11): o "← Contas" e a chave dos plugins tinham 20 px */
+.page-sub a { display: inline-flex; align-items: center; min-height: 36px; }
+.plugin-toggle { min-height: 40px; cursor: pointer; }
+.plugin-toggle input { width: 22px; height: 22px; accent-color: var(--accent); }
