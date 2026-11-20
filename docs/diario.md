@@ -3,6 +3,40 @@
 Registro curto do que foi feito em cada dia, o que deu errado e o que ficou pendente.
 As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
+## 2026-11-20
+
+### Feito
+
+- **Revisão geral e refatoração** ([design/refatoracao-2026-11-20.md](design/refatoracao-2026-11-20.md)), a partir dos
+  eventos reais e de uma passada pela interface:
+  - worker: vigia contra morte em loop (tempestade de revive), foco XP só em hunts que o pokémon aguenta, treino que
+    espera a hunt segura antes de trocar o ativo, plano que não trava o plugin, travas com vários donos, `focus.set`
+    com `catch_all` e `train`, `collection.move` em lote, `shop.buy`, `market.sell` e `market.cancel`. 387 testes.
+  - painel: aba Agora com Modo, Desvio, Treino e alertas; aba Pokémons com tabela de comparação e montagem de equipe
+    com ficha, média e Sugerir; aba Itens com Loja e Mercado; Ajustes legíveis; alertas na visão geral.
+
+### Problemas e soluções
+
+| Problema | Causa | Solução |
+|---|---|---|
+| `luizfsjunior_1` gastou ~1,4 M de ouro em revives entre 13:50 e 14:45 UTC | o `team_train` pôs um Totodile nv 20 (recém-capturado e posto na equipe) como ativo na hunt nv 260; o jogo revive em batalha, a conta nunca vai ao centro e a vigia não via | estancado à mão (`team_train` desligado, ativo de volta ao Venusaur); vigia com tempestade de revive; treino só troca em hunt segura |
+| A hunt não trocava (nem a manual) | morrendo sem parar, a trava de combate nunca abre | o mesmo: sem morte em loop, a troca saiu em 17 s |
+| Plano de XP 24 min atrasado depois do `focus.set` | o primeiro plano simulava todas as hunts segurando o lock do plugin; cache do simulador por nível exato | plano com o que está em cache e simulação numa thread fora do lock; cache por faixa de 10 níveis |
+| Rhydon nv 100 a 9,2 M XP/h para um ativo nv 20 | ritmo medido perto do teto não era projetado para baixo; a lista não olha sobrevivência | projeção para baixo; teto de nível (pokémon + 10) e hunts perigosas fora |
+| `capture.start` do Totodile na hunt `larvitar` | o form da Pokédex sem `key` guardava a hunt da espécie anterior | `key` no form; o worker recusa hunt de outra espécie |
+| `luizfsjunior` (pessoal) a −127 mil de ouro/h no dia | Charizard 204 em Jynx, 175 revives em 15 min (o mesmo modo de falha) | não mexido (conta pessoal): avisado; a vigia nova cobre |
+| Suíte do worker "travada" no Docker | só as dependências instaladas, sem o pacote: os plugins não são achados pelos entry points | instalar o pacote; anotado no worker/README |
+
+### Pendente
+
+- Deploy: push na `main` (Vercel e a migration `20261120010000_loja_e_mercado.sql` sobem sozinhas) e, no VPS,
+  `git pull && docker compose up -d --build`. Até o worker novo subir, o painel novo falha no `focus.set` com as
+  opções novas e nos comandos de loja e Mercado.
+- Religar o "Treinar a equipe" na `luizfsjunior_1` depois do deploy e acompanhar os `team_train.waiting_hunt`.
+- `shortcut`: a regra de hunt segura é por nível (pokémon + 10); para algo mais fino, o simulador precisa devolver o
+  dano tomado por abate.
+- A conta gastou ~2,6 M de ouro em Small Potions em 24 h (modo XP com poção sem teto): rever se compensa.
+
 ## 2026-11-16
 
 ### Feito

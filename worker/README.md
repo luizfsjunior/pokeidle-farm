@@ -69,7 +69,7 @@ select received_at, data->>'reason' as motivo, data->'target'->>'slug' as alvo,
 Os campos da config estão em [../docs/design/fase-3b-plugin-rank.md](../docs/design/fase-3b-plugin-rank.md).
 
 Para o `rank` agir de verdade (passo 5, [../docs/design/fase-3b-rank-ligado.md](../docs/design/fase-3b-rank-ligado.md)),
-use o card **Foco** da página da conta, que manda o comando `focus.set`: ele grava o `restock` com
+use o **Modo** da aba Agora da página da conta, que manda o comando `focus.set`: ele grava o `restock` com
 `focus: "rank"` e o `rank` com `dry_run: false` de uma vez. O `rank` se recusa a agir (e continua gravando
 `rank.would`) se o `restock` não estiver em `focus: "rank"`, porque os dois brigariam pelo `auto.set`. Agindo,
 ele:
@@ -87,7 +87,26 @@ da tela do jogo, ou quantas espécies faltam para entrar no top 100. O card "Ran
 isso junto com a fila (detalhes em [../docs/design/fase-3b-metricas-e-card.md](../docs/design/fase-3b-metricas-e-card.md)).
 
 **Gotcha:** o padrão do `restock.focus` passou de `capture` para `gold_xp_drop` em 15/11. Uma conta com
-`restock` sem `focus` na config para de jogar bola depois do rebuild; grave o foco pelo card antes.
+`restock` sem `focus` na config para de jogar bola depois do rebuild; grave o modo pela aba Agora antes.
+
+### Modo, desvio, treino e vigia (como se conectam)
+
+Ver [docs/design/refatoracao-2026-11-20.md](../docs/design/refatoracao-2026-11-20.md).
+
+- **Modo** (`focus.set`): XP (`gems` com `objective: "xp"`), Ouro e drop (só `restock`) ou Rank (`rank` + `restock`
+  em `focus: "rank"`). Opções no mesmo comando: `catch_all` (o `restock` com `focus: "capture"`, a melhor bola que
+  se paga em todo selvagem) e `train` (`{enabled, target_level}`, liga o `team_train`; fora do XP ele desliga).
+- **Desvio**: `capture.start` (plugin `capture_target`) ou `hunt.select` (plugin `hunt_hold`). Começar um desliga o
+  outro. Os dois seguram o `hunt.select` dos outros plugins por **travas** no `ActionGateway`: várias por ação, uma
+  por dono; pedir a mesma hunt que um dono quer passa (é a volta do centro).
+- **Treino**: o `team_train` escolhe quem treina (o mais fraco abaixo do alvo) e publica em `state.train_target`.
+  O `gems` planeja a hunt para esse pokémon (hunts até o nível dele + `max_over_active`, padrão 10), e o
+  `team_train` só troca o ativo quando a conta já está numa hunt segura para ele.
+- **Vigia** (`watchdog`, sempre ligado): cura no centro, devolve o ativo depois da morte e, com 8 `battle.revive`
+  em 3 min (o jogo revive em batalha e a conta nunca vai ao centro), marca o par (pokémon, hunt) como perigoso em
+  `state.danger` por 6 h e volta o ativo para o mais forte. O `gems` e o `team_train` evitam os pares perigosos.
+- **Plano sem travar**: o `gems` usa só o que o simulador já tem em cache (por faixa de 10 níveis) e simula o resto
+  numa thread fora do lock; quando termina, planeja de novo (`reason: "model_ready"`).
 
 Ordem segura para ligar algo novo: primeiro com `ACTION_MODE=observe_only`, conferindo os `action.blocked`
 na tabela `events`; depois `ACTION_MODE=enabled` (com "d") e `docker compose up -d --force-recreate`, porque
@@ -153,6 +172,16 @@ partir da raiz do repo (no Git Bash do Windows, o `MSYS_NO_PATHCONV=1` evita que
 MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W)/worker:/src" python:3.12-slim   sh -c "cp -r /src /w && cd /w && pip install -q -e '.[dev]' && python -m pytest -q && ruff check ."
 ```
 
+**Gotcha:** os plugins são achados pelos *entry points* do pacote. Rodando os testes só com as dependências
+instaladas (sem o pacote), os comandos falham com "plugin desconhecido" e parte da suíte fica esperando. Para iterar
+rápido, deixe um container de pé e instale o pacote uma vez (a suíte roda em ~13 s):
+
+```bash
+MSYS_NO_PATHCONV=1 docker run -d --name pf-test -v "$(pwd -W)/worker:/src" -w /src -e PYTHONPATH=/src/src python:3.12-slim sleep infinity
+MSYS_NO_PATHCONV=1 docker exec pf-test sh -c "cp -r /src /tmp/w && pip install -q '/tmp/w[dev]' pytest-timeout"
+MSYS_NO_PATHCONV=1 docker exec pf-test sh -c "python -m pytest -q --timeout=60 && ruff check src tests && ruff format --check src tests"
+```
+
 ## Dados do jogo (fase 3b)
 
 - **Catálogo de hunts**: vem no `welcome` (hunts, tabela `captura`, `catalogoBolas`). A sessão monta um
@@ -173,17 +202,17 @@ MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W)/worker:/src" python:3.12-slim  
 | `bus.py` | barramento assíncrono com fila por assinante |
 | `actions.py` | `ActionGateway` e `RateLimiter`; ações com schema Pydantic (`ShopBuy`, `AutoSet`, `TopCatchRequest`, `RankingRequest`, `HuntSelect`) |
 | `catalog.py` | preços da loja do NPC (bolas, poções, revives) e chance das bolas |
-| `pace.py` | ritmo de abates por hunt aprendido na sessão; hunt não medida usa a previsão do simulador (`model/`) e, sem ela, o nível medido mais próximo (rank e gems) |
-| `model/` | simulador do jogo (não confundir com `sim/`, que gera eventos falsos): `combat.py` prevê abates/h de um pokémon numa hunt com as regras do jogo; `predict.py` aplica ao pokémon ativo, com cache; `progression.py` simula nível a nível até um marco (hunt, evoluções,
+| `pace.py` | ritmo de abates por hunt aprendido na sessão, projetado para o nível do pokémon (para baixo também); hunt não medida usa a previsão do simulador (`model/`) e, sem ela, o nível medido mais próximo (rank e gems) |
+| `model/` | simulador do jogo (não confundir com `sim/`, que gera eventos falsos): `combat.py` prevê abates/h de um pokémon numa hunt com as regras do jogo; `predict.py` aplica ao pokémon planejado, com cache por faixa de 10 níveis; `progression.py` simula nível a nível até um marco (hunt, evoluções,
 poções, ouro, bônus de XP até expirarem); `capture.py` é a sorte da captura (chance por bola, nascimento sorteado, Monte Carlo contra o ativo; ver [docs/design/simulador-3-captura.md](../docs/design/simulador-3-captura.md)). Ver [docs/design/simulador-1-combate.md](../docs/design/simulador-1-combate.md) |
 | `gems_model.py` | valor em gemas de cada hunt: pedra do tipo a 0,2/0,35/0,5% por abate e teto de liquidez |
 | `progress.py` | `Progress` do foco XP: grava o plano até o nível 150 (`progress.plan`) e evolui o ativo (`pokemon.evoluir`); ver [docs/design/simulador-2-progressao.md](../docs/design/simulador-2-progressao.md) |
-| `hunt_switch.py` | `HuntSwitcher`: troca de hunt com trava, timer, confirmação e nova tentativa (usado pelo gems) |
+| `hunt_switch.py` | `HuntSwitcher`: troca de hunt com trava, timer, confirmação e nova tentativa (gems, hunt_hold, capture_target) |
 | `gamedata.py` | catálogo de hunts do `welcome`, Pokedex com estágio evolutivo e `SpeciesSync` (fase 3b); catálogo de itens (`ItemsSync`, `items.json` por ETag, e `itensNossos` do `welcome`; fase 7); wiki e fórmulas do jogo (`GameFilesSync`, em `game_files`) |
 | `rank_queue.py` | fila de hunts do foco rank por tempo esperado até a captura (funções puras) |
 | `session.py` | `AccountSession`: handshake, heartbeat, reconexão, lease, renovação de token |
-| `plugins/` | interface, registry (entry points), `telemetry` (grava os eventos), `restock` (fase 3a, ver [docs/design/fase-3-reposicao.md](../docs/design/fase-3-reposicao.md)), `gems` (focos gemas e XP, ver [docs/design/foco-xp.md](../docs/design/foco-xp.md) e [docs/design/foco-gemas-e-ritmo.md](../docs/design/foco-gemas-e-ritmo.md)), `daily` (passe de batalha grátis, resgate diário; ver [docs/design/simulador-4-decisoes.md](../docs/design/simulador-4-decisoes.md)), `seller` (fase 9, venda de pedras, em ensaio; ver [docs/design/fase-9-venda-de-pedras.md](../docs/design/fase-9-venda-de-pedras.md)), `market_prices` (fase 7, sempre ligado: pede as médias do Mercado a cada hora numa conta só e grava em `market_prices`; ver [docs/design/fase-7-precos-do-mercado.md](../docs/design/fase-7-precos-do-mercado.md)) e `rank` (fase 3b, ver [docs/design/fase-3b-plugin-rank.md](../docs/design/fase-3b-plugin-rank.md) e [fase-3b-rank-ligado.md](../docs/design/fase-3b-rank-ligado.md)) |
+| `plugins/` | interface, registry (entry points), `telemetry` (grava os eventos), `restock` (fase 3a, ver [docs/design/fase-3-reposicao.md](../docs/design/fase-3-reposicao.md)), `gems` (focos gemas e XP, ver [docs/design/foco-xp.md](../docs/design/foco-xp.md) e [docs/design/foco-gemas-e-ritmo.md](../docs/design/foco-gemas-e-ritmo.md)), `daily` (passe de batalha grátis, resgate diário; ver [docs/design/simulador-4-decisoes.md](../docs/design/simulador-4-decisoes.md)), `seller` (fase 9, venda de pedras, em ensaio; ver [docs/design/fase-9-venda-de-pedras.md](../docs/design/fase-9-venda-de-pedras.md)), `market_prices` (fase 7, sempre ligado: pede as médias do Mercado a cada hora numa conta só e grava em `market_prices`; ver [docs/design/fase-7-precos-do-mercado.md](../docs/design/fase-7-precos-do-mercado.md)) `rank` (fase 3b, ver [docs/design/fase-3b-plugin-rank.md](../docs/design/fase-3b-plugin-rank.md) e [fase-3b-rank-ligado.md](../docs/design/fase-3b-rank-ligado.md)), `team_train` (treina a equipe), `watchdog` (vigia), `hunt_hold` (hunt manual) e `capture_target` (captura de uma espécie); os quatro últimos em [docs/design/refatoracao-2026-11-20.md](../docs/design/refatoracao-2026-11-20.md) |
 | `store/` | interface `Store`, implementação em memória e no Supabase |
 | `sim/` | sorteios dos Termos (`rolls.py`) e gerador de eventos simulados |
-| `commands.py` | `Supervisor` (sessões de todas as contas de farm) e `CommandLoop` (comandos do painel, fase 4b) |
+| `commands.py` | `Supervisor` (sessões de todas as contas de farm) e `CommandLoop` (comandos do painel, fase 4b): sessão, `plugin.set`, `focus.set`, hunt e captura, equipe (`team.*`), Coleção/Depot, loja (`shop.buy`) e Mercado (`market.sell`/`market.cancel`). Tipo novo de comando precisa também da migration que libera o tipo em `commands_type_check` |
 | `main.py` | CLI (`run`, `listen --fake`, `set-token`, `simulate`) |

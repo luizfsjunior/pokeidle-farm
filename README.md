@@ -8,11 +8,12 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
 
 🟡 Em uso numa conta, crescendo por fases (detalhes no [roadmap](docs/roadmap.md)):
 
-- **No ar:** worker no Docker de um PC em casa, contra o jogo; plugins `restock` (bola e consumíveis), `rank`
-  (rank semanal: fila de hunts com troca de hunt e Lançar até Capturar), `gems` (foco gemas: a hunt que mais rende
-  pedras de evolução), `market_prices` (médias e anúncios do Mercado) e `seller` (venda das pedras, em ensaio);
-  métricas com objetivos; painel com visão geral, foco por conta, card do rank e `/economia` (vendas, drops e "compensa?").
-- **Foco padrão:** gemas (a conta fica na hunt que mais rende pedras de evolução no Mercado).
+- **No ar:** worker num VPS com a saída do jogo por proxy ([ADR 0013](docs/decisions/0013-vps-com-proxy-autorizado.md)),
+  4 contas; plugins `restock` (bola e consumíveis), `gems` (modo XP: a hunt de mais XP/h que o pokémon aguenta),
+  `team_train` (treina a equipe), `watchdog` (vigia: cura, morte em loop, conta parada), `rank`, `capture_target`,
+  `hunt_hold`, `market_prices` e `seller`; métricas com objetivos; painel com visão geral e alertas, a conta em 4
+  abas (Agora, Pokémons, Itens com loja e Mercado, Ajustes) e `/economia`.
+- **Modo padrão:** XP. Pedras não são renda (vendem a 2 gemas); o modo gemas ficou só para quem já estava nele.
 - **Juntando dados:** o veredito do "Compensa?" (renda em gemas contra o custo de energia) fica confiável com 7 dias
   de preços, por volta de 22/11/2026.
 - **Próximo:** fase 5, rodar as 3 contas de farm.
@@ -26,10 +27,10 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
                                                      ▲
                     lê comandos / grava estado e métricas
                                                      │
-[Máquina com IP residencial — Docker] worker Python (asyncio) ── WebSocket ──> pokeidle.io
-   ├─ AccountSession × 3
-   ├─ Plugins: restock, rank, gems, market_prices, seller (sniper: fase 9)
-   └─ ActionGateway (RateLimiter) + telemetry
+[VPS — Docker] worker Python (asyncio) ── WebSocket (proxy autorizado) ──> pokeidle.io
+   ├─ AccountSession × 4
+   ├─ Plugins: restock, gems (modo XP), team_train, watchdog, rank, capture_target, hunt_hold, seller...
+   └─ ActionGateway (RateLimiter + travas por dono) + telemetry
 ```
 
 Detalhes em [docs/arquitetura.md](docs/arquitetura.md).

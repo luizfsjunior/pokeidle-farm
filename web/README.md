@@ -7,14 +7,23 @@ Navegação (docs/design/painel-ux-v2.md): no celular, **Contas, Pokédex, Hunts
 Objetivos, Métricas, Comandos). As páginas com dados por conta usam o seletor `AccountPicker` (`?conta=`), que lembra
 a última conta escolhida (`localStorage`, chave `pf-conta`).
 
-- **Contas** (`/`): um cartão de treinador por conta (pokémon ativo, nível, moedas, equipe, de `account_profile`) e
-  os números de hoje por hora ativa. Só o botão Abrir (e Reconectar quando a conta ligada não está pronta).
-- **Conta** (`/contas/<id>`), 3 abas:
-  - **Agora**: cartão do treinador; **Fazendo agora** (foco, hunt e captura, cada linha abre a ação: `focus.set`,
-    `hunt.select` com busca e filtro pelo nível do treinador, `capture.stop`); plano de XP até o marco; treinar a
-    equipe; Outland; rank; bônus, passe e evolução recolhidos.
-  - **Pokémons**: equipe (tornar ativo, pôr e tirar), coleção, mochila e a ficha de cada pokémon.
-  - **Ajustes**: os plugins em JSON (um por linha, recolhidos) e os últimos comandos.
+- **Contas** (`/`): um cartão de treinador por conta (pokémon ativo, nível, moedas, equipe, de `account_profile`), os
+  alertas da conta e os números de hoje por hora ativa. Só o botão Abrir (e Reconectar quando a conta ligada não está
+  pronta).
+- **Conta** (`/contas/<id>`), 4 abas ([docs/design/refatoracao-2026-11-20.md](../docs/design/refatoracao-2026-11-20.md)):
+  - **Agora**: cartão do treinador; **Fazendo agora** com os alertas (`lib/alerts.ts`: morte em loop, sem abates,
+    sem itens, treino esperando hunt, ouro líquido negativo na última hora), o **Modo** (XP, Ouro e drop, Rank, com
+    as opções "bola em tudo" e "treinar a equipe"; tudo num `focus.set`), o **Desvio** (captura de uma espécie ou hunt
+    manual por X h, um por vez, que volta ao modo quando termina), a hunt e o treino; plano de XP (com "por que não
+    está no alvo"); Outland; rank; bônus, passe e evolução recolhidos. Ping, Reconectar, Curar e Desligar ficam no
+    menu "⋯" do cabeçalho.
+  - **Pokémons**: uma lista só (equipe, Depot e Coleção são filtros), em grade ou numa tabela de comparação (tipos,
+    Qualidade, Nota, IVs, stats; `MonTable.tsx`); seleção em lote para Coleção/Depot (`collection.move` com
+    `pokemon_ids`); **Montar equipe** fixo no topo, com a média da equipe, Sugerir e a ficha aberta por clique
+    (`team.apply`); vender o Depot.
+  - **Itens**: mochila (com o mínimo e o alvo do `restock`), **Loja** (`shop.buy` e o gasto automático das últimas
+    24 h) e **Mercado** (anúncios abertos com `market.cancel`, anunciar com `market.sell`).
+  - **Ajustes**: os plugins com nome legível e ligar/desligar; o JSON fica em "Avançado". Últimos comandos.
 - **Pokédex** (`/pokedex`): catálogo do jogo cruzado com a Pokédex da conta (as formas de mesmo nome num card),
   ficha da espécie, chance de captura por bola e o botão de capturar (`capture.start`).
 - **Hunts** (`/hunts`): por conta, o que cada hunt rendeu no período (`hunt_summary`); tocar numa hunt abre a
