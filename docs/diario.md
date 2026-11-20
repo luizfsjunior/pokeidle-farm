@@ -27,6 +27,14 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 | `luizfsjunior` (pessoal) a −127 mil de ouro/h no dia | Charizard 204 em Jynx, 175 revives em 15 min (o mesmo modo de falha) | não mexido (conta pessoal): avisado; a vigia nova cobre |
 | Suíte do worker "travada" no Docker | só as dependências instaladas, sem o pacote: os plugins não são achados pelos entry points | instalar o pacote; anotado no worker/README |
 
+- **Depois do deploy (16:35)**: plano de XP pronto em 15–30 s (era 24 min), nenhuma morte em loop, a pessoal saiu de
+  Jynx. Segunda rodada: o plano feito antes do simulador terminar não troca mais de hunt (trocava duas vezes:
+  Ampharos e Wooper), "Ir por 2 h" saiu da Pokédex, 124 ícones de itens consertados (`/assets/...` mora em
+  `/assets/site/assets/...`), sem `progress.plan` vazio acima do marco, "Ver valores" sem vazar no celular e a troca
+  de hunt tenta de novo em 5 s depois de uma queda. 390 testes.
+- **`not_connected` investigado**: quedas reais e curtas (o worker volta em ~10 s); no dia, o jogo reiniciando
+  (`code=1012`, 15:07) e as 4 contas caindo juntas às 09:27 (rede ou proxy).
+
 ### Pendente
 
 - Deploy: push na `main` (Vercel e a migration `20261120010000_loja_e_mercado.sql` sobem sozinhas) e, no VPS,
