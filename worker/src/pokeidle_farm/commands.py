@@ -527,18 +527,25 @@ class Supervisor:
         if shinies and not p.allow_shiny:
             raise CommandError(f"há {len(shinies)} shiny no Depot: mova para a Coleção antes")
         ids = {m.get("id") for m in depot}
-        view = getattr(self.live[acc.id].session, "state_view", None)
-        gold_before = getattr(view, "gold", None)
+        session = self.live[acc.id].session
+        since = time.monotonic()
+
+        def sold() -> dict[str, Any] | None:
+            sale = getattr(session, "last_sale", None)
+            return sale[1] if sale is not None and sale[0] >= since else None
+
+        # o jogo confirma com um `batalha` k "venda" (qtd, ganho) e só tira os pokémons do estado
+        # depois: esperar eles sumirem dava "sem confirmação" numa venda feita (20/11: 305 por 16 M)
         out = await self._send_now(
-            acc, SellDepot(), confirm=lambda _v: not (ids & set(mons)), timeout_s=10.0
+            acc,
+            SellDepot(),
+            confirm=lambda _v: sold() is not None or not (ids & set(mons)),
+            timeout_s=10.0,
         )
-        gold_after = getattr(view, "gold", None)
-        gained = (
-            gold_after - gold_before
-            if isinstance(gold_before, int) and isinstance(gold_after, int)
-            else None
-        )
-        return {**out, "sold": len(ids), "gold": gained}
+        sale = sold() or {}
+        for pid in ids:  # vendidos: fora da coleção que os próximos comandos leem
+            mons.pop(pid, None)
+        return {**out, "sold": sale.get("qtd", len(ids)), "gold": sale.get("ganho")}
 
     async def _hunt_select(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Hunt escolhida pelo painel, travada por `hours` (plugin hunt_hold; painel-fase-3.md)."""

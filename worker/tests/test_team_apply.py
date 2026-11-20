@@ -275,3 +275,29 @@ async def test_market_sell_and_cancel(rig):  # noqa: F811
     assert c["status"] == "failed" and "mochila" in c["error"]
     c = await rig.cmd(acc, "market.cancel", listing_id=123)
     assert c["status"] == "done" and game.sent[-1] == {"t": "market.cancelar", "id": 123}
+
+
+async def test_depot_sell_is_confirmed_by_the_sale_reply(rig):  # noqa: F811
+    """20/11: o jogo vendeu 305 por 16 M (`batalha` k "venda") sem tirar os pokémons do estado na hora,
+    e o comando falhava com "sem confirmação"."""
+    import time
+
+    acc = farm(rig.store, "farm1")
+    await rig.boot()
+    game = Game([{"id": 1, "slot": 0}], active=1, hunt="x")
+    mons = {1: {"id": 1, "slot": 0}, 2: {"id": 2, "slot": None}, 3: {"id": 3, "slot": None}}
+    await _wire(rig, game)
+    rig.sessions[0].plugins.running["profile"] = _Prof(mons)
+    session = rig.sessions[0]
+    orig = game.submit
+
+    async def submit(action, *, source):  # type: ignore[no-untyped-def]
+        await orig(action, source=source)
+        if action.to_wire()["t"] == "shop.sellAllPokemons":
+            session.last_sale = (time.monotonic(), {"k": "venda", "qtd": 2, "ganho": 900})
+
+    game.submit = submit  # type: ignore[method-assign]
+    c = await rig.cmd(acc, "depot.sell", expected=2)
+    assert c["status"] == "done", c
+    assert c["result"]["sold"] == 2 and c["result"]["gold"] == 900
+    assert set(mons) == {1}  # os vendidos saem da coleção que os próximos comandos leem

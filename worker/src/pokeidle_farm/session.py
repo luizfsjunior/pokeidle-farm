@@ -125,6 +125,9 @@ class AccountSession:
         self._stopping = asyncio.Event()
         # respostas recentes do jogo a ações (aviso e erro), para confirmar comandos do painel
         self.replies: deque[tuple[float, str]] = deque(maxlen=20)
+        # a última venda do Depot (`batalha` k "venda": qtd e ganho), com o time.monotonic: o
+        # depot.sell confirma por ela, porque os pokémons vendidos não saem do estado na hora
+        self.last_sale: tuple[float, dict[str, Any]] | None = None
         self._last_frame = time.monotonic()
         self._silent = False
         self._wake = asyncio.Event()  # acorda o backoff (reconexão pedida)
@@ -374,6 +377,8 @@ class AccountSession:
             events = self._translator.translate(msg, raw)
             for ev in events:
                 self.state_view.apply(ev)
+                if ev.type == "battle.venda":
+                    self.last_sale = (time.monotonic(), dict(ev.raw))
                 if ev.type == "game.notice" and isinstance(ev.data.get("msg"), str):
                     if ev.data["msg"] not in AMBIENT_NOTICES:
                         self.replies.append((time.monotonic(), ev.data["msg"]))
