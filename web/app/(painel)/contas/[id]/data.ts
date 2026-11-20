@@ -45,7 +45,11 @@ export async function loadAccount(supabase: SupabaseClient, id: string) {
 
   const [rank, gemsPlanRes, progressRes, looktypes, itemsRes] = await Promise.all([
     rankOn ? rankSummary(supabase, id) : Promise.resolve(null),
-    gemsOn ? lastEvent(supabase, id, "gems.plan") : Promise.resolve({ data: null }),
+    // o "sem_catalogo" da reconexão não tem plano: o card mostra o último de verdade
+    gemsOn
+      ? supabase.from("events").select("received_at, data").eq("account_id", id).eq("type", "gems.plan")
+        .neq("data->>reason", "sem_catalogo").order("received_at", { ascending: false }).limit(1).maybeSingle()
+      : Promise.resolve({ data: null }),
     lastEvent(supabase, id, "progress.plan"),
     profile ? speciesLooktypes(supabase, speciesOf(profile.team, profile.top_pokemon, profile.shinies)) : Promise.resolve(new Map<number, number>()),
     itemIds.length ? supabase.from("game_items").select("item_id, name, category, icon").in("item_id", itemIds) : Promise.resolve({ data: [] }),
