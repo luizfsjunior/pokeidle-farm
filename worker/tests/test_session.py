@@ -369,3 +369,70 @@ async def test_species_ready_after_welcome_reaches_plugins(fake_game, make_sessi
     await wait_until(lambda: session.plugins.running["market_prices"].ctx.species is pokedex)
     session.stop()
     await task
+
+
+# --- a sessão não morre por erro do banco (21/11: conta 2 parada por 13 h) ----------------
+
+
+def _failing(fn, fail_on):
+    """Envolve um método do store para lançar erro nas chamadas de número `fail_on` (1, 2...)."""
+    calls = {"n": 0}
+
+    async def wrapped(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] in fail_on:
+            raise RuntimeError("ConnectionTerminated")
+        return await fn(*args, **kwargs)
+
+    return wrapped, calls
+
+
+async def test_lease_renewal_error_does_not_kill_renewal(fake_game, make_session, store):
+    async def script(ws, hello, n):
+        await ws.send(welcome())
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    store.acquire_lease, calls = _failing(store.acquire_lease, {2})  # a 1ª renovação falha
+    session = make_session(game.url)
+    task = asyncio.create_task(session.run())
+    await wait_until(lambda: calls["n"] >= 4)  # continuou renovando depois da falha
+    assert session.state is State.READY and game.connections == 1
+    session.stop()
+    await task
+
+
+async def test_dead_lease_task_and_drop_still_reconnect(fake_game, make_session, store):
+    """A renovação falha e a conexão cai: a sessão reconecta em vez de terminar."""
+
+    async def script(ws, hello, n):
+        await ws.send(welcome())
+        if n == 1:
+            await asyncio.sleep(0.5)  # dá tempo de a renovação (0,2 s) falhar
+            await ws.close(1012, "reinício")
+            return
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    store.acquire_lease, _ = _failing(store.acquire_lease, {2, 3, 4})
+    session = make_session(game.url)
+    task = asyncio.create_task(session.run())
+    await wait_until(lambda: game.connections == 2 and session.state is State.READY)
+    assert not task.done()
+    session.stop()
+    await task
+
+
+async def test_unexpected_error_on_connect_retries(fake_game, make_session, store):
+    async def script(ws, hello, n):
+        await ws.send(welcome())
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    store.get_token, _ = _failing(store.get_token, {1})
+    session = make_session(game.url)
+    task = asyncio.create_task(session.run())
+    await wait_until(lambda: session.state is State.READY)
+    assert not task.done() and "session.disconnected" in types(store)
+    session.stop()
+    await task

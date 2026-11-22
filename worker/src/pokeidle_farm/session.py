@@ -154,10 +154,10 @@ class AccountSession:
         await self.plugins.start_all(self.bus, {}, self._make_ctx, only_always_on=True)
         try:
             while not self._stopping.is_set():
-                if not await self._ensure_lease():
-                    await self._sleep(self.settings.lease_busy_retry_s)
-                    continue
                 try:
+                    if not await self._ensure_lease():
+                        await self._sleep(self.settings.lease_busy_retry_s)
+                        continue
                     await self._connect_once()
                 except _Stop as stop:
                     await self._set_state(stop.state, stop.reason)
@@ -166,6 +166,13 @@ class AccountSession:
                     await self._disconnected(retry.reason, will_retry=True)
                     delay = retry.delay if retry.delay is not None else self._next_backoff()
                     await self._sleep(delay)
+                except Exception as exc:
+                    # erro inesperado (ex.: o banco derrubou a conexão HTTP/2 no meio de uma chamada):
+                    # reconecta em vez de encerrar; antes a sessão morria e ninguém a subia (21/11)
+                    log.exception("[%s] erro inesperado na sessão", self.account.nick)
+                    with contextlib.suppress(Exception):
+                        await self._disconnected(f"erro inesperado: {exc!r}", will_retry=True)
+                    await self._sleep(self._next_backoff())
             return self.state
         finally:
             await self.plugins.stop_all()
@@ -287,7 +294,8 @@ class AccountSession:
         finally:
             for task in (lease_task, silence_task):
                 task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
+                # uma tarefa que já morreu com erro não pode derrubar a sessão na limpeza
+                with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
             self.gateway.send = None
             self._ws = None
@@ -438,7 +446,12 @@ class AccountSession:
     async def _renew_lease_loop(self, ws: ClientConnection) -> None:
         while True:
             await asyncio.sleep(self.settings.lease_renew_s)
-            if not await self._ensure_lease():
+            try:
+                ok = await self._ensure_lease()
+            except Exception as exc:  # falha do banco: tenta de novo no próximo ciclo
+                log.warning("[%s] não consegui renovar o lease (%r)", self.account.nick, exc)
+                continue
+            if not ok:
                 log.error("[%s] lease perdido; desconectando", self.account.nick)
                 await ws.close()
                 return

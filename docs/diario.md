@@ -3,6 +3,29 @@
 Registro curto do que foi feito em cada dia, o que deu errado e o que ficou pendente.
 As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
+## 2026-11-22
+
+### Feito
+
+- **Captura manual** ([design/captura-manual.md](design/captura-manual.md)): a bola automática do jogo exige VIP, e as
+  contas 2 e 3 não têm. O `ball.throw` manual foi confirmado no navegador numa conta sem VIP. Plugin novo
+  `ball_thrower`: joga a melhor bola (até a Beast) em todo shiny e a bola escolhida (ou a que vale a pena) nos corpos
+  da captura ativa. O `restock` mantém toda bola comprável acima de 100, e ninguém liga mais a bola automática.
+- **Sessão que morria**: a conta 2 ficou parada das 11:10 às 00:00 UTC de 21/11 com status `ready`.
+
+### Problemas e soluções
+
+| Problema | Causa | Solução |
+|---|---|---|
+| Captura não saía nas contas 2 e 3 (loop "Lançar pokebola é um recurso VIP" a cada 30 s) | sem VIP, o `auto.set` com bola é recusado | arremesso manual (`ball_thrower`) |
+| Conta 2 sem abates por 13 h, status `ready` | um `RemoteProtocolError` do Supabase matou a renovação do lease; quando a conexão ficou muda e caiu, a limpeza relançou o erro e a sessão terminou sem ninguém subir de novo | renovação só avisa; limpeza suprime; erro inesperado vira reconexão (3 testes) |
+
+### Pendente
+
+- Deploy no VPS: `git pull && docker compose up -d --build`. Até lá, a conta 3 e a pessoal seguem com o lease vencido
+  (a tarefa de renovação já morreu) e podem cair numa queda de conexão.
+- O `rank` troca de hunt mas não joga bola: passar o alvo dele ao `ball_thrower` quando ele voltar a ser usado.
+
 ## 2026-11-20
 
 ### Feito
