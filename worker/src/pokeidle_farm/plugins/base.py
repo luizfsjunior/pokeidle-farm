@@ -63,6 +63,12 @@ class AccountStateView:
     in_center: bool | None = None
     # quem o team_train quer treinar (id): o foco XP planeja a hunt para ele (refatoracao-2026-11-20, 2.5)
     train_target: int | None = None
+    # captura ativa do painel ({species_id, species_name, ball_id}; ball_id None = a que vale a pena),
+    # publicada pelo capture_target; o ball_thrower joga nos corpos dela (captura-manual.md)
+    capture: dict[str, Any] | None = None
+    # a bola que vale a pena (a mais forte que o ouro líquido por abate paga), calculada pelo restock;
+    # None enquanto não há abates suficientes
+    worth_ball: int | None = None
     # (pokémon, hunt) -> até quando é perigoso (tempestade de revive vista pela vigia, 2.4)
     danger: dict[tuple[Any, str], datetime] = field(default_factory=dict)
 

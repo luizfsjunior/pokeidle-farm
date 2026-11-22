@@ -31,12 +31,12 @@ export function CaptureForm({ accountId, speciesId, speciesName, hunts: allHunts
   balls?: Record<string, number>;
 }) {
   const { send, cmd, error, busy } = useCommand();
-  // as bolas que se compram, com o preço do jogo (game_catalog.catalogoBolas)
+  // as bolas do jogo (game_catalog.catalogoBolas); a Beast não se compra, só sai do estoque
   const { data: rules } = usePanel(["game-rules", RULES_VERSION], loadGameRules, { staleTime: 30 * 60_000 });
-  const shop = (rules?.balls ?? []).filter((b) => b.price != null);
+  const shop = rules?.balls ?? [];
   const hunts = level == null ? allHunts : allHunts.filter((h) => h.level <= level);
   const [hunt, setHunt] = useState(hunts[0]?.slug ?? "");
-  const [ball, setBall] = useState(4);
+  const [ball, setBall] = useState(0); // 0: a que vale a pena (o worker escolhe pelo ouro por abate)
   const [stop, setStop] = useState<Stop>("first");
   // o texto do campo fica livre enquanto você digita (dá para apagar tudo); o número é ajustado ao sair
   // do campo e ao enviar
@@ -53,7 +53,7 @@ export function CaptureForm({ accountId, speciesId, speciesName, hunts: allHunts
     return <p className="small muted" style={{ margin: 0 }}>Nenhuma hunt tem esta espécie como principal, então não dá para mirar nela.</p>;
   }
   const go = () => void send(accountId, "capture.start", {
-    species_id: speciesId, species_name: speciesName, hunt_slug: hunt, ball_id: ball,
+    species_id: speciesId, species_name: speciesName, hunt_slug: hunt, ball_id: ball || null,
     count: stop === "count" || stop === "first" ? count : null,
     hours: stop === "time" || stop === "first" ? hours : null,
   });
@@ -70,9 +70,9 @@ export function CaptureForm({ accountId, speciesId, speciesName, hunts: allHunts
       )}
       <label>Bola
         <select value={ball} onChange={(e) => setBall(Number(e.target.value))}>
-          {shop.length === 0 && <option value={ball}>{BALL_NAMES[String(ball)] ?? `Bola ${ball}`}</option>}
+          <option value={0}>A que vale a pena</option>
           {shop.map((b) => (
-            <option key={b.id} value={b.id}>{b.name} · {b.price} de ouro{balls ? ` · ${balls[String(b.id)] ?? 0} na mochila` : ""}</option>
+            <option key={b.id} value={b.id}>{b.name} · {b.price != null ? `${b.price} de ouro` : "só do estoque"}{balls ? ` · ${balls[String(b.id)] ?? 0} na mochila` : ""}</option>
           ))}
         </select>
       </label>
@@ -106,7 +106,7 @@ export type ActiveCapture = {
   species_id: number;
   species_name: string | null;
   hunt_slug: string;
-  ball_id: number;
+  ball_id: number | null;
   count: number | null;
   until: string | null;
   started_at: string;
@@ -116,7 +116,7 @@ export type ActiveCapture = {
 /** A captura em andamento, com o progresso e o botão de parar. */
 export function CaptureStatus({ accountId, active }: { accountId: string; active: ActiveCapture }) {
   const { send, cmd, error, busy } = useCommand();
-  const ball = BALL_NAMES[String(active.ball_id)] ?? `bola ${active.ball_id}`;
+  const ball = active.ball_id == null ? "a bola que vale a pena" : BALL_NAMES[String(active.ball_id)] ?? `bola ${active.ball_id}`;
   const pct = active.count ? Math.min(1, active.captured / active.count) : null;
   return (
     <div className="action-box">

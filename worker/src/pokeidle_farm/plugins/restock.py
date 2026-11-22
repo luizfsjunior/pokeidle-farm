@@ -100,9 +100,8 @@ class RestockPlugin(Plugin):
         self._auto_sent: dict[str, Any] | None = None
         self._auto_sent_at = 0.0
         self._late: list[_Pending] = []  # passaram do prazo, mas ainda podem confirmar
-        # foco rank: modo e bola do último rank.mode (antes do primeiro: ativo, sem bola)
+        # foco rank: modo do último rank.mode (antes do primeiro: ativo)
         self._rank_mode = "active"
-        self._rank_ball: int | None = None
         await self._load_spent()
         if self.cfg.focus == "rank":
             await self._load_rank_mode()
@@ -122,8 +121,6 @@ class RestockPlugin(Plugin):
     def _on_rank_mode(self, d: dict[str, Any]) -> None:
         if d.get("mode") in ("active", "fallback"):
             self._rank_mode = d["mode"]
-        ball = d.get("ball_id")
-        self._rank_ball = ball if isinstance(ball, int) else None
 
     def _focus(self) -> str:
         """Foco efetivo: com focus "rank", "rank" se o rank tem alvo, senão o fallback."""
@@ -154,6 +151,8 @@ class RestockPlugin(Plugin):
                 self._window.clear()
                 self._hunt = hunt
             self._window.append([(d.get("gold") or 0) + (d.get("gold_autosell") or 0), 0.0])
+            ready, ball = self._ball_choice()
+            self.ctx.state.worth_ball = ball if ready else None  # a bola do ball_thrower na captura
         elif event.type == "item.consumed" and self._window:
             self._window[-1][1] += (d.get("qty") or 0) * (d.get("unit_price") or 0)
         elif event.type == "rank.mode":
@@ -178,21 +177,8 @@ class RestockPlugin(Plugin):
         focus = self._focus()
         if auto is None or focus == "rank":
             return None  # com o rank ativo, as flags de bola são dele
-        off = {**auto, "autoBallSemParar": False, "autoBallAteCapturar": False}
-        if focus == "gold_xp_drop":
-            return off
-        ready, ball = self._ball_choice()
-        if not ready:
-            return None
-        if ball is None:
-            return off
-        ids = [b for b in auto.get("ballIds") or [] if b != ball]
-        return {
-            **auto,
-            "ballIds": [ball, *ids],
-            "autoBallSemParar": True,
-            "autoBallAteCapturar": False,
-        }
+        # a bola automática exige VIP e fica desligada: quem joga é o ball_thrower (captura-manual.md)
+        return {**auto, "autoBallSemParar": False, "autoBallAteCapturar": False}
 
     async def _sync_automation(self) -> None:
         if self.ctx.actions.held_by_other("auto.set", self.name):
@@ -261,14 +247,11 @@ class RestockPlugin(Plugin):
     def _rules(self) -> list[tuple[str, int, int, int, int]]:
         cfg = self.cfg
         rules = [self._potion_rule(r.id, r.min, r.target) for r in cfg.items if r.id in ITEM_PRICES]
-        focus = self._focus()
-        if focus == "capture":
-            ready, ball = self._ball_choice()
-            if ready and ball is not None:
-                rules.append(("ball", ball, cfg.ball_min, cfg.ball_target, BALLS[ball].price))
-        elif focus == "rank" and self._rank_ball in BALLS:
-            ball = self._rank_ball
-            rules.append(("ball", ball, cfg.ball_min, cfg.ball_target, BALLS[ball].price))
+        # toda bola comprável sempre no bolso: abaixo de ball_min, a Poké vai até ball_target e as
+        # outras até ball_min (captura-manual.md, P3)
+        for b in BALLS.values():
+            target = cfg.ball_target if b.id == 1 else cfg.ball_min
+            rules.append(("ball", b.id, cfg.ball_min, target, b.price))
         return rules
 
     def _potion_rule(self, id_: int, min_: int, target: int) -> tuple[str, int, int, int, int]:

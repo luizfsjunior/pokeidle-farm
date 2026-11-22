@@ -27,6 +27,10 @@ BALLS: dict[int, Ball] = {
     )
 }
 
+# Toda bola do jogo, da melhor para a pior. A 5 é a Beast Ball (×8): não se compra com ouro, por isso
+# não está em BALLS (a loja). Não existe bola acima dela (catalogoBolas, 22/11/2026).
+BALL_ORDER: tuple[int, ...] = (5, 4, 3, 2, 1)
+
 # Poções e revives (kind "item" no shop.buy)
 ITEM_PRICES: dict[int, int] = {
     200: 50,  # Small Potion (+60 HP)

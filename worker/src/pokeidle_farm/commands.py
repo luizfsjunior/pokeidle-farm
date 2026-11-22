@@ -896,7 +896,8 @@ class CaptureStartParams(BaseModel):
     species_id: int
     species_name: str | None = Field(None, max_length=64)
     hunt_slug: str = Field(min_length=1, max_length=64)
-    ball_id: int = Field(4, ge=1, le=4)
+    # None: a que vale a pena; 5 é a Beast Ball (só do estoque, não se compra)
+    ball_id: int | None = Field(None, ge=1, le=5)
     count: int | None = Field(None, ge=1, le=10_000)
     hours: float | None = Field(None, ge=0.25, le=72)
 

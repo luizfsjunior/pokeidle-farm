@@ -16,7 +16,7 @@ from pokeidle_farm.store.memory import MemoryStore
 
 AUTOMATION = {
     "autoBallAteCapturar": False,
-    "autoBallSemParar": True,
+    "autoBallSemParar": False,
     "ballIds": [1, 4, 3, 5],
     "autoPotion": True,
     "potionIds": [200, 201],
@@ -40,7 +40,8 @@ class Harness:
             level=10,
             hunt_slug="magikarp",
             items={"200": 100, "205": 20},
-            balls={"1": 500, "2": 0, "4": 0},
+            # bolas no mínimo (captura-manual.md, P3): os testes que não são de bola não compram bola
+            balls={"1": 1000, "2": 100, "3": 100, "4": 100},
             gold=100_000,
             automation=dict(AUTOMATION),
         )
@@ -140,64 +141,58 @@ def test_state_view_applies_snapshot_and_patch():
     assert sv.gold == 1041
 
 
-# --- escolha da bola (foco captura) -------------------------------------------
+# --- a bola que vale a pena e a bola automática (captura-manual.md) ------------
 
 
-async def test_picks_best_ball_that_pays_for_itself():
+async def test_worth_ball_is_the_best_that_pays_for_itself():
     h = await Harness().start()
     await h.kills(60, gold=41)  # 41 por abate → Great (20) se paga, Super (50) não
-    (wire,) = h.wires("auto.set")
-    assert wire["ballIds"][0] == 2
-    assert wire["ballIds"] == [2, 1, 4, 3, 5]
-    assert wire["autoBallSemParar"] is True and wire["autoBallAteCapturar"] is False
-    assert wire["hpLimiar"] == 0.3  # parte do objeto atual
+    assert h.state.worth_ball == 2
+    assert h.wires("auto.set") == []  # a bola automática já está desligada
 
 
-async def test_needs_min_kills_before_touching_ball():
+async def test_worth_ball_needs_min_kills():
     h = await Harness().start()
     await h.kills(49)
-    assert h.wires("auto.set") == [] and h.wires("shop.buy") == []
+    assert h.state.worth_ball is None
 
 
 async def test_net_gold_discounts_potions_and_revives():
     h = await Harness().start()
-    h.state.automation = {**AUTOMATION, "ballIds": [4, 1, 3, 5]}
     for _ in range(60):
         await h.send_ev(ev("kill", gold=41, gold_autosell=0, hunt_slug="magikarp"))
         await h.send_ev(ev("item.consumed", item_id=200, qty=1, unit_price=26))
     # líquido sem as bolas = 41 − 26 = 15 por abate → só a Poké (5) se paga
-    (wire,) = h.wires("auto.set")
-    assert wire["ballIds"] == [1, 4, 3, 5]
+    assert h.state.worth_ball == 1
 
 
-async def test_no_ball_pays_turns_balls_off():
+async def test_no_ball_pays_leaves_worth_ball_empty():
     h = await Harness().start()
-    await h.kills(60, gold=4)  # nem a Poké (5) se paga
-    (wire,) = h.wires("auto.set")
-    assert wire["autoBallSemParar"] is False and wire["autoBallAteCapturar"] is False
-    assert h.wires("shop.buy") == []
+    await h.kills(60, gold=4)  # nem a Poké (5) se paga: o ball_thrower usa a Poké
+    assert h.state.worth_ball is None
 
 
-async def test_gold_xp_drop_focus_turns_balls_off_and_buys_none():
-    h = await Harness(focus="gold_xp_drop").start()
-    h.state.balls = {"1": 0}
-    await h.kills(60)
-    (wire,) = h.wires("auto.set")
-    assert wire["autoBallSemParar"] is False and wire["autoBallAteCapturar"] is False
-    assert wire["ballIds"] == AUTOMATION["ballIds"]
-    assert h.wires("shop.buy") == []
-
-
-async def test_auto_set_only_when_something_changes():
+async def test_hunt_change_resets_window():
     h = await Harness().start()
-    h.state.automation = {**AUTOMATION, "ballIds": [2, 1, 4, 3, 5]}
-    await h.kills(80)
-    assert h.wires("auto.set") == []
+    await h.kills(40, hunt="magikarp")
+    await h.kills(40, hunt="caverna")  # 80 abates, mas só 40 na hunt atual
+    assert h.state.worth_ball is None
+
+
+async def test_ball_flags_on_are_turned_off_in_any_focus():
+    for focus in ("capture", "gold_xp_drop"):
+        h = await Harness(focus=focus).start()
+        h.state.automation = {**AUTOMATION, "autoBallSemParar": True}
+        await h.kills(1)
+        (wire,) = h.wires("auto.set")
+        assert wire["autoBallSemParar"] is False and wire["autoBallAteCapturar"] is False
+        assert wire["ballIds"] == AUTOMATION["ballIds"] and wire["hpLimiar"] == 0.3
 
 
 async def test_auto_set_is_not_repeated_while_waiting():
     h = await Harness().start()
-    await h.kills(60)
+    h.state.automation = {**AUTOMATION, "autoBallSemParar": True}
+    await h.kills(1)
     h.now = 30.0
     await h.kills(10)  # o servidor ainda não devolveu a automation nova
     assert len(h.wires("auto.set")) == 1
@@ -206,23 +201,34 @@ async def test_auto_set_is_not_repeated_while_waiting():
     assert len(h.wires("auto.set")) == 2
 
 
-async def test_hunt_change_resets_window():
-    h = await Harness().start()
-    await h.kills(40, hunt="magikarp")
-    await h.kills(40, hunt="caverna")  # 80 abates, mas só 40 na hunt atual
-    assert h.wires("auto.set") == []
-
-
 # --- compras ------------------------------------------------------------------
 
 
-async def test_buys_chosen_ball_up_to_target():
-    h = await Harness(ball_min=100, ball_target=1000).start()
-    h.state.automation = {**AUTOMATION, "ballIds": [2, 1, 4, 3, 5]}
-    h.state.balls = {"1": 500, "2": 30}
-    await h.kills(60)
-    (buy,) = h.wires("shop.buy")
-    assert buy == {"t": "shop.buy", "kind": "ball", "id": 2, "qty": 970}
+async def test_keeps_every_buyable_ball_above_min():
+    """T16/T17: abaixo de 100, a Poké vai até 1.000 e as outras até 100; a Beast (5) nunca."""
+    h = await Harness(focus="gold_xp_drop", ball_min=100, ball_target=1000).start()
+    h.state.balls = {"1": 80, "2": 150, "3": 0, "4": 99, "5": 0}
+    await h.kills(1)
+    assert h.wires("shop.buy") == [{"t": "shop.buy", "kind": "ball", "id": 1, "qty": 920}]
+    h.state.balls = {**h.state.balls, "1": 1000}
+    h.now += 11
+    await h.kills(1)
+    h.state.balls = {**h.state.balls, "3": 100}
+    h.now += 11
+    await h.kills(1)
+    assert h.wires("shop.buy")[1:] == [
+        {"t": "shop.buy", "kind": "ball", "id": 3, "qty": 100},
+        {"t": "shop.buy", "kind": "ball", "id": 4, "qty": 1},
+    ]
+    assert all(b["id"] != 5 for b in h.wires("shop.buy"))
+
+
+async def test_no_ball_bought_at_the_gold_reserve():
+    """T18."""
+    h = await Harness(focus="gold_xp_drop", gold_reserve=100_000).start()
+    h.state.balls = {"1": 0}
+    await h.kills(1)
+    assert h.wires("shop.buy") == []
 
 
 async def test_restocks_items_from_rules():
@@ -331,7 +337,6 @@ async def test_late_window_expires():
 
 
 async def test_hourly_cap_survives_restart():
-    from datetime import UTC, datetime, timedelta
 
     h = Harness(
         items=[{"id": 205, "min": 25, "target": 40}],
@@ -377,53 +382,20 @@ def test_default_focus_is_gold_xp_drop():
     assert RestockConfig().fallback_focus == "gold_xp_drop"
 
 
-async def test_rank_active_buys_rank_ball_and_never_sets_automation():
+async def test_rank_active_never_sets_automation():
     h = await Harness(focus="rank").start()
-    await h.kills(60, gold=500)
-    assert h.wires("auto.set") == []
-    assert h.wires("shop.buy") == []
+    h.state.automation = {**AUTOMATION, "autoBallAteCapturar": True}
     await h.send_ev(ev("rank.mode", mode="active", ball_id=2))
-    assert h.wires("shop.buy") == [{"t": "shop.buy", "kind": "ball", "id": 2, "qty": 1_000}]
     await h.kills(60, gold=500)
     assert h.wires("auto.set") == []
 
 
-async def test_rank_mode_is_read_from_store_on_start():
-    h = Harness(focus="rank")
-    h.ctx.store.events.append(
-        {
-            "account_id": h.ctx.account_id,
-            "type": "rank.mode",
-            "received_at": datetime.now(UTC) - timedelta(hours=1),
-            "data": {"mode": "active", "ball_id": 2},
-        }
-    )
-    await h.start()
-    await h.send_ev(ev("state.patch"))
-    assert h.wires("shop.buy") == [{"t": "shop.buy", "kind": "ball", "id": 2, "qty": 1_000}]
-
-
-async def test_rank_fallback_gold_xp_drop():
+async def test_rank_fallback_turns_balls_off():
     h = await Harness(focus="rank").start()
+    h.state.automation = {**AUTOMATION, "autoBallSemParar": True}
     await h.send_ev(ev("rank.mode", mode="fallback", reason="queue_empty"))
     (a,) = h.wires("auto.set")
     assert a["autoBallSemParar"] is False and a["autoBallAteCapturar"] is False
-    await h.kills(60, gold=500)
-    assert h.wires("shop.buy") == []
-
-
-async def test_rank_fallback_capture_then_back_to_active():
-    h = await Harness(focus="rank", fallback_focus="capture").start()
-    await h.send_ev(ev("rank.mode", mode="fallback", reason="queue_empty"))
-    await h.kills(50, gold=200)
-    (a,) = h.wires("auto.set")
-    assert a["autoBallSemParar"] is True and a["ballIds"][0] == 4
-    assert h.wires("shop.buy")[0]["id"] == 4
-    await h.send_ev(ev("rank.mode", mode="active", ball_id=2))
-    h.state.automation = {**AUTOMATION, "autoBallAteCapturar": True, "autoBallSemParar": False}
-    h.now += 120
-    await h.kills(60, gold=200)
-    assert len(h.wires("auto.set")) == 1
 
 
 # --- poção pela de menor custo por HP útil (simulador camada 2) -------------------
@@ -511,3 +483,10 @@ async def test_survival_items_ignore_the_hourly_cap_by_default():
     h = await Harness(items=[{"id": 205, "min": 25, "target": 40}], max_gold_per_hour=1).start()
     await h.send_ev(ev("state.patch"))
     assert h.wires("shop.buy")[0]["qty"] > 1
+
+
+async def test_worth_ball_super_with_60_per_kill():
+    """T13 (o lado do restock): 60 de ouro líquido por abate paga a Super (50), não a Ultra (130)."""
+    h = await Harness().start()
+    await h.kills(60, gold=60)
+    assert h.state.worth_ball == 3

@@ -1,16 +1,15 @@
 """Plugin capture_target: capturar uma espécie escolhida no painel (docs/design/captura-alvo.md).
 
-O jogo não filtra a captura por espécie: a bola automática joga em todo selvagem abatido. Como cada hunt
-tem uma espécie principal, "capturar o X" é:
+Cada hunt tem uma espécie principal, então "capturar o X" é:
 - ir para a hunt do X e travar a troca de hunt (os plugins gems e rank esperam);
-- ligar o "Lançar até Capturar" com a bola escolhida e travar o auto.set (o restock e o rank esperam);
-  o servidor desliga a flag a cada captura, e o plugin religa;
+- publicar o alvo em `state.capture`: o ball_thrower joga a bola em todo corpo do X. A bola automática do
+  jogo exige VIP e fica desligada (docs/design/captura-manual.md);
 - repor a bola escolhida com ouro, sem passar da reserva;
 - contar as capturas da espécie (`pokemon.captured`) desde o início.
 
 Termina no que vier primeiro entre `count` capturas e o prazo `until`; sem os dois, só pelo comando
-`capture.stop`. No fim, devolve as flags de bola como estavam, solta as travas, grava
-`capture_target.ended` e desliga a própria config (os outros plugins voltam a decidir).
+`capture.stop`. No fim, tira o alvo, solta as travas, grava `capture_target.ended` e desliga a própria
+config (os outros plugins voltam a decidir).
 """
 
 from __future__ import annotations
@@ -24,7 +23,7 @@ from typing import Any, ClassVar
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..actions import ActionBlocked, AutoSet, ShopBuy
-from ..catalog import BALLS
+from ..catalog import BALL_ORDER, BALLS
 from ..events import Event
 from ..hunt_switch import HuntSwitcher
 from .base import Plugin, PluginContext
@@ -38,7 +37,7 @@ class CaptureTargetConfig(BaseModel):
     species_id: int
     species_name: str | None = None
     hunt_slug: str = Field(min_length=1, max_length=64)
-    ball_id: int = 4
+    ball_id: int | None = None  # None: a que vale a pena (state.worth_ball)
     count: int | None = Field(None, ge=1, le=10_000)  # para depois de N capturas da espécie
     until: datetime | None = None  # ou no prazo; sem os dois, só pelo capture.stop
     started_at: datetime
@@ -72,14 +71,13 @@ class CaptureTargetPlugin(Plugin):
         self._timer: asyncio.Task[None] | None = None
         self.active = False
         self.captured = 0
-        self._prev_flags: dict[str, Any] | None = None
         self._auto_sent_at: datetime | None = None
         self._buy_at: datetime | None = None
 
     async def start(self, ctx: PluginContext) -> None:
         await super().start(ctx)
         self.cfg: CaptureTargetConfig = ctx.config  # type: ignore[assignment]
-        if self.cfg.ball_id not in BALLS:
+        if self.cfg.ball_id is not None and self.cfg.ball_id not in BALL_ORDER:
             await self._end("bola_invalida", disable=True)
             return
         started = _utc(self.cfg.started_at)
@@ -91,10 +89,13 @@ class CaptureTargetPlugin(Plugin):
         self.active = True
         hold_until = self.until or self.now() + FOREVER
         ctx.actions.hold("hunt.select", hold_until, self.name, self.cfg.hunt_slug)
-        ctx.actions.hold("auto.set", hold_until, self.name, f"captura {self.cfg.species_id}")
-        auto = ctx.state.automation or {}
-        self._prev_flags = {
-            k: auto.get(k) for k in ("ballIds", "autoBallSemParar", "autoBallAteCapturar")
+        name = self.cfg.species_name
+        if name is None and ctx.species is not None and self.cfg.species_id in ctx.species.species:
+            name = ctx.species.species[self.cfg.species_id].name
+        ctx.state.capture = {
+            "species_id": self.cfg.species_id,
+            "species_name": name,
+            "ball_id": self.cfg.ball_id,
         }
         self.switch = HuntSwitcher(
             ctx,
@@ -164,17 +165,11 @@ class CaptureTargetPlugin(Plugin):
         await self._restock_ball()
 
     def _wanted_automation(self) -> dict[str, Any] | None:
+        """A bola automática desligada: quem joga é o ball_thrower (e numa conta VIP não sai bola dupla)."""
         auto = self.ctx.state.automation
         if auto is None:
             return None
-        ball = self.cfg.ball_id
-        ids = [b for b in auto.get("ballIds") or [] if b != ball]
-        return {
-            **auto,
-            "ballIds": [ball, *ids],
-            "autoBallSemParar": False,
-            "autoBallAteCapturar": True,
-        }
+        return {**auto, "autoBallSemParar": False, "autoBallAteCapturar": False}
 
     async def _sync_automation(self) -> None:
         want = self._wanted_automation()
@@ -192,6 +187,8 @@ class CaptureTargetPlugin(Plugin):
 
     async def _restock_ball(self) -> None:
         st = self.ctx.state
+        if self.cfg.ball_id not in BALLS:
+            return  # a que vale a pena ou a Beast: quem repõe é o restock (a Beast não se compra)
         ball = BALLS[self.cfg.ball_id]
         stock = int((st.balls or {}).get(str(ball.id), 0))
         if stock >= self.cfg.ball_min or st.gold is None:
@@ -214,21 +211,6 @@ class CaptureTargetPlugin(Plugin):
         except ActionBlocked:
             pass
 
-    async def _restore(self, back: dict[str, Any]) -> None:
-        """Devolve as flags de bola. Sem a trava, o restock (ou o rank) também volta a cuidar delas."""
-        try:
-            await self.ctx.actions.submit(AutoSet(automation=back), source=self.name)
-        except ActionBlocked as exc:
-            wait = exc.wait_s
-            if wait:
-
-                async def later() -> None:
-                    await self.sleep(wait)
-                    with contextlib.suppress(ActionBlocked):
-                        await self.ctx.actions.submit(AutoSet(automation=back), source=self.name)
-
-                self._retry = asyncio.create_task(later())
-
     async def _expire(self) -> None:
         assert self.until is not None
         await self.sleep(max(0.0, (self.until - self.now()).total_seconds()))
@@ -239,11 +221,7 @@ class CaptureTargetPlugin(Plugin):
         self.active = False
         if was_active:
             self.ctx.actions.release(self.name)
-            auto = self.ctx.state.automation
-            if auto is not None and self._prev_flags is not None:
-                back = {**auto, **{k: v for k, v in self._prev_flags.items() if v is not None}}
-                if back != auto:
-                    await self._restore(back)
+            self.ctx.state.capture = None
         if disable:
             await self.ctx.actions.note("capture_target.ended", {**self._info(), "reason": reason})
             try:

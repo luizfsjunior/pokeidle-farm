@@ -11,6 +11,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
 - **No ar:** worker num VPS com a saída do jogo por proxy ([ADR 0013](docs/decisions/0013-vps-com-proxy-autorizado.md)),
   4 contas; plugins `restock` (bola e consumíveis), `gems` (modo XP: a hunt de mais XP/h que o pokémon aguenta),
   `team_train` (treina a equipe), `watchdog` (vigia: cura, morte em loop, conta parada), `rank`, `capture_target`,
+  `ball_thrower` (joga a bola à mão: shiny sempre e a espécie da captura; a bola automática do jogo exige VIP),
   `hunt_hold`, `market_prices` e `seller`; métricas com objetivos; painel com visão geral e alertas, a conta em 4
   abas (Agora, Pokémons, Itens com loja e Mercado, Ajustes) e `/economia`.
 - **Modo padrão:** XP. Pedras não são renda (vendem a 2 gemas); o modo gemas ficou só para quem já estava nele.
@@ -29,7 +30,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
                                                      │
 [VPS — Docker] worker Python (asyncio) ── WebSocket (proxy autorizado) ──> pokeidle.io
    ├─ AccountSession × 4
-   ├─ Plugins: restock, gems (modo XP), team_train, watchdog, rank, capture_target, hunt_hold, seller...
+   ├─ Plugins: restock, gems (modo XP), team_train, watchdog, rank, capture_target, ball_thrower, hunt_hold, seller...
    └─ ActionGateway (RateLimiter + travas por dono) + telemetry
 ```
 

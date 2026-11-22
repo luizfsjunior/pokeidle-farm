@@ -14,6 +14,9 @@ A automação nativa (`estado.automation`) **não filtra por espécie**:
 Mas cada hunt tem uma **espécie principal**. Por isso, "capturar o X" é ir para a hunt do X com a bola
 ligada.
 
+> **22/11/2026:** a bola automática exige VIP. O plugin não liga mais o "Lançar até Capturar": publica o alvo e o
+> `ball_thrower` joga a bola à mão. Ver [captura-manual.md](captura-manual.md). O texto abaixo é o desenho original.
+
 ## Plugin `capture_target`
 
 - **Config:** `species_id`, `hunt_slug`, `ball_id` (1 a 4), `count` (opcional), `until` (opcional) e

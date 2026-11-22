@@ -380,6 +380,19 @@ class HuntSelect(ActionSpec):
         return {"t": "hunt.select", "slug": self.slug}
 
 
+class BallThrow(ActionSpec):
+    name: ClassVar[str] = "ball.throw"
+    description: ClassVar[str] = "Joga uma bola num selvagem abatido (uma por corpo, 30 s no chão)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 1.2  # intervalo entre arremessos (wiki)
+
+    ball_id: int = Field(ge=1, le=5)
+    slot: int
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "ball.throw", "ballId": self.ball_id, "slot": self.slot}
+
+
 class RateLimiter:
     """Intervalo mínimo por (conta, ação)."""
 

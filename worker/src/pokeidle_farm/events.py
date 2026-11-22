@@ -73,6 +73,9 @@ class KillData(_Data):
     active_species_id: int | None = None
     wave_seq: int | None = None  # onda de spawn do abate (estado.ondaSeq / combateOndaSeq)
     season: str | None = None  # tipo do dia sazonal no abate (estado.diaSazonal), se ainda valia
+    # o corpo no chão: `slot` para o ball.throw e se é shiny (dos frames `campo`; captura-manual.md)
+    slot: int | None = None
+    shiny: bool = False
 
 
 class CaptureAttemptData(_Data):
@@ -281,6 +284,8 @@ class Translator:
         # dia sazonal ({tipo, fim}) e passe de batalha ({degrau, ultimo...}) do estado (camada 4)
         self.season: dict[str, Any] | None = None
         self.battle_pass: dict[str, Any] | None = None
+        # shiny de cada mob no mapa (slot -> sh), dos frames `campo`; só em memória
+        self.mobs_shiny: dict[Any, bool] = {}
 
     def _ev(self, type_: str, data: BaseModel | dict[str, Any], raw: dict[str, Any]) -> Event:
         now = utcnow()
@@ -346,9 +351,12 @@ class Translator:
             is_center = bool(raw.get("centro")) or msg.slug == "centro"
             if msg.slug and not is_center:
                 self.hunt_slug = msg.slug
+            self.mobs_shiny.clear()  # mapa novo, slots novos
             data = FieldInitData(slug=msg.slug, map=raw.get("mapa"), is_center=is_center)
             return [self._ev("field.init", data, raw)]
         if isinstance(msg, UnknownMessage):
+            if msg.t == "campo":
+                self._track_mobs(raw)
             if msg.t in NOISE_TYPES:
                 return [self._ev(NOISE_TYPES[msg.t], {}, raw)]
             if msg.t == "topCatch":
@@ -399,6 +407,14 @@ class Translator:
             return [self._ev("unknown", {"t": msg.t}, raw)]
         # SessionRenewed e GameError são tratados pela sessão (efeitos colaterais).
         return []
+
+    def _track_mobs(self, raw: dict[str, Any]) -> None:
+        """Os mobs vêm em delta: `sh` só quando muda (ou aparece); `fora[]` saiu do mapa."""
+        for mob in raw.get("mobs") or []:
+            if isinstance(mob, dict) and "sh" in mob and mob.get("s") is not None:
+                self.mobs_shiny[mob["s"]] = bool(mob["sh"])
+        for slot in raw.get("fora") or []:
+            self.mobs_shiny.pop(slot, None)
 
     def _patch_data(self, raw: dict[str, Any]) -> dict[str, Any]:
         # O formato real é aninhado ({t, estado: {...}}); o plano (no topo) ainda é aceito.
@@ -548,6 +564,8 @@ class Translator:
                 active_species_id=self.pokemon_species.get(self.active_id),
                 wave_seq=self.wave_seq,
                 season=self.season_type(),
+                slot=ev["slot"] if isinstance(ev.get("slot"), int) else None,
+                shiny=bool(ev.get("shiny") or self.mobs_shiny.get(ev.get("slot"))),
             )
             return self._ev("kill", data, ev)
         if k == "bola":

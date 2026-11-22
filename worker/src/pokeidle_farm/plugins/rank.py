@@ -543,13 +543,9 @@ class RankPlugin(Plugin):
         auto = self.ctx.state.automation
         if auto is None or self._ball is None:
             return None
-        ids = [b for b in auto.get("ballIds") or [] if b != self._ball]
-        return {
-            **auto,
-            "ballIds": [self._ball, *ids],
-            "autoBallSemParar": False,
-            "autoBallAteCapturar": True,
-        }
+        # a bola automática exige VIP e fica desligada (captura-manual.md). shortcut: o rank não joga
+        # bola nenhuma agora; passar o alvo dele ao ball_thrower quando o rank voltar a ser usado
+        return {**auto, "autoBallSemParar": False, "autoBallAteCapturar": False}
 
     async def _act(self, reason: str) -> None:
         target = self._target

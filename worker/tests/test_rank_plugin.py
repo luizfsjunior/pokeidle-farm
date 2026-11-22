@@ -197,9 +197,9 @@ async def test_start_plans_and_records_what_it_would_do():
     assert [w["input"] for w in sel] == [{"slug": "caterpie"}]
     (auto,) = h.would("auto.set")
     a = auto["input"]["automation"]
-    assert a["autoBallAteCapturar"] is True
+    # a bola automática exige VIP e fica desligada (captura-manual.md)
+    assert a["autoBallAteCapturar"] is False
     assert a["autoBallSemParar"] is False
-    assert a["ballIds"][0] == 4
     # nada que mude a conta foi mandado
     assert all(p["t"] in ("topcatch.pedir", "ranking.pedir") for p in h.sent)
 
@@ -419,8 +419,6 @@ async def test_ball_rule_se_paga():
     await h.kills(50, gold=200)
     assert h.plans()[-1]["ball_id"] == 4
     assert [p["reason"] for p in h.plans()].count("ball_changed") == 3
-    # a bola nova vira um auto.set novo
-    assert h.would("auto.set")[-1]["input"]["automation"]["ballIds"][0] == 4
 
 
 async def test_ball_rule_fixa_uses_stock():
@@ -667,12 +665,11 @@ async def test_auto_set_goes_with_hunt_select():
     ]
     assert selects(h) == ["caterpie"]
     (a,) = autos(h)
-    assert a["autoBallAteCapturar"] is True
+    assert a["autoBallAteCapturar"] is False  # desliga: a bola automática exige VIP
     assert a["autoBallSemParar"] is False
-    assert a["ballIds"][0] == 4
 
 
-async def test_capture_moves_on_and_rearms():
+async def test_capture_moves_on_without_rearming():
     h = await acting().start()
     await h.send_ev(ev("hunt.changed", slug="caterpie"))
     h.state.automation = dict(ARMED)  # o servidor refletiu o auto.set
@@ -682,20 +679,16 @@ async def test_capture_moves_on_and_rearms():
     await h.send_ev(ev("rank.catch", species_id=10, week_start=WEEK, scores=True))
     assert h.plans()[-1]["reason"] == "captured"
     assert selects(h) == ["caterpie", "metapod"]
-    assert len(autos(h)) == 2
-    assert autos(h)[-1]["autoBallAteCapturar"] is True
+    assert all(a["autoBallAteCapturar"] is False for a in autos(h))  # não religa
 
 
-async def test_rearm_when_flag_drops_without_scoring():
+async def test_flag_dropping_is_not_rearmed():
     h = await acting().start()
     await h.send_ev(ev("hunt.changed", slug="caterpie"))
-    h.state.automation = dict(ARMED)
-    await tick(h, 31)
-    assert len(autos(h)) == 1
     h.state.automation = {**ARMED, "autoBallAteCapturar": False}
+    await tick(h, 31)
     await h.send_ev(ev("state.patch"))
-    assert len(autos(h)) == 2
-    assert autos(h)[-1]["autoBallAteCapturar"] is True
+    assert all(a["autoBallAteCapturar"] is False for a in autos(h))
 
 
 async def test_auto_set_not_repeated_while_waiting():

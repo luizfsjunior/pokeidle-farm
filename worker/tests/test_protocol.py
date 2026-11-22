@@ -64,6 +64,8 @@ def test_translate_kill_and_capture():
         "active_species_id": None,
         "wave_seq": None,
         "season": None,
+        "slot": None,
+        "shiny": False,
     }
     assert kill.raw["extra"] == "guardado no raw"
     assert cap.type == "capture_attempt" and cap.data["success"] is True
@@ -208,6 +210,8 @@ def test_v2_real_kill():
         "active_species_id": None,
         "wave_seq": None,
         "season": None,
+        "slot": 12,
+        "shiny": False,
     }
 
 
@@ -675,3 +679,36 @@ def test_kill_carries_season_while_it_lasts():
         )
     )
     assert _one(tr, {"t": "batalha", "ev": [{"k": "morte"}]}).data["season"] is None
+
+
+# --- captura manual: slot e shiny do corpo (docs/design/captura-manual.md) ---------------
+
+
+def _kill(tr: Translator, slot: int, nome: str = "Pichu") -> Event:
+    return _one(
+        tr, {"t": "batalha", "ev": [{"k": "morte", "quem": "selvagem", "slot": slot, "nome": nome}]}
+    )
+
+
+def test_kill_carries_slot_and_shiny_from_campo():
+    """T1: o `sh` do frame `campo` chega no abate do mesmo slot."""
+    tr = _tr_in_hunt()
+    _one(tr, {"t": "campo", "ts": 1, "mobs": [{"s": 67, "n": "Pichu", "nv": 260, "sh": 1}]})
+    ev = _kill(tr, 67)
+    assert ev.data["slot"] == 67 and ev.data["shiny"] is True
+
+
+def test_kill_of_unseen_slot_is_not_shiny():
+    """T2."""
+    ev = _kill(_tr_in_hunt(), 5)
+    assert ev.data["slot"] == 5 and ev.data["shiny"] is False
+
+
+def test_mob_leaving_the_map_is_forgotten():
+    """T3: `fora[]` tira o slot do mapa, e o mapa novo (campo.init) zera tudo."""
+    tr = _tr_in_hunt()
+    _one(tr, {"t": "campo", "mobs": [{"s": 1, "sh": 1}, {"s": 2, "sh": 1}]})
+    _one(tr, {"t": "campo", "fora": [1]})
+    assert tr.mobs_shiny == {2: True}
+    _one(tr, {"t": "campo.init", "slug": "pichu"})
+    assert tr.mobs_shiny == {}
