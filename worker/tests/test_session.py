@@ -229,6 +229,44 @@ async def test_welcome_timeout_backoff_starts_high(fake_game, make_session):
     assert 48 <= delays[1] <= 72
 
 
+async def test_online_limit_records_full_refusal_and_exit_ip(
+    fake_game, make_session, store, monkeypatch
+):
+    """A recusa vai inteira para o evento (campos extras incluídos), com o IP de saída."""
+    from pokeidle_farm import session as session_mod
+    from pokeidle_farm.netcheck import parse
+
+    async def fake_fetch(proxy, wait_s=15.0):
+        return parse({"ip": "186.198.144.200", "company": {"name": "GTI BRASIL"}})
+
+    monkeypatch.setattr(session_mod, "fetch_exit_ip", fake_fetch)
+
+    async def script(ws, hello, n):
+        if n == 1:
+            await ws.send(
+                '{"t":"erro","chave":"login.limiteOnlineIpLista","lista":["a","b"],"max":4}'
+            )
+            await keep_open(ws)
+            return
+        await ws.send(welcome())
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    session = make_session(game.url, exit_ip_check=True)
+    task = asyncio.create_task(session.run())
+    await wait_until(lambda: session.state is State.READY)
+    await wait_until(lambda: "session.connected" in types(store))
+    session.stop()
+    await task
+    refused = next(e for e in store.events if e["type"] == "session.disconnected")
+    data = refused["data"]
+    assert data["reason"] == "login.limiteOnlineIpLista"
+    assert data["erro"]["lista"] == ["a", "b"] and data["erro"]["max"] == 4
+    assert data["exit_ip"] == "186.198.144.200 (GTI BRASIL)"
+    connected = next(e for e in store.events if e["type"] == "session.connected")
+    assert connected["data"]["exit_ip"] == "186.198.144.200 (GTI BRASIL)"
+
+
 async def test_busy_lease_prevents_connection(fake_game, make_session, store, account):
     async def script(ws, hello, n):
         await ws.send(welcome())

@@ -64,9 +64,10 @@ async def _exit_ip_ok(settings: Settings) -> bool:
         exit_ip = await fetch_exit_ip(settings.game_proxy)
     except Exception as exc:  # o serviço fora do ar não impede o worker; só avisa
         log.warning(
-            "não consegui conferir o IP de saída (%s): %s; sigo assim mesmo",
+            "não consegui conferir o IP de saída (%s): %s: %s; sigo assim mesmo",
             via,
             type(exc).__name__,
+            exc,
         )
         return True
     if blocks_connection(exit_ip):

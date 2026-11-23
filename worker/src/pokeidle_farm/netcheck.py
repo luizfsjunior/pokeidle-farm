@@ -43,18 +43,36 @@ class ExitIp:
         return f"{self.masked_ip} ({self.company or '?'}, tipo {kind}{', ' + '/'.join(flags) if flags else ''})"
 
 
+def _obj(value: Any) -> dict[str, Any]:
+    """`company` e `asn` vinham como objeto; o ipapi.is passou a mandar outros formatos
+    (texto, lista) e o `.get` quebrava com AttributeError (23/11). Aceita qualquer um."""
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, list):
+        return next((v for v in value if isinstance(v, dict)), {})
+    if isinstance(value, str):
+        return {"name": value}
+    return {}
+
+
 def parse(data: dict[str, Any]) -> ExitIp:
-    company = data.get("company") or {}
-    asn = data.get("asn") or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"resposta inesperada do ipapi.is: {type(data).__name__}")
+    company = _obj(data.get("company"))
+    asn = _obj(data.get("asn"))
     return ExitIp(
         ip=str(data.get("ip") or ""),
         datacenter=bool(data.get("is_datacenter")),
         vpn=bool(data.get("is_vpn")),
         proxy=bool(data.get("is_proxy")),
-        company_type=company.get("type"),
-        asn_type=asn.get("type"),
-        company=company.get("name"),
+        company_type=_str(company.get("type")),
+        asn_type=_str(asn.get("type")),
+        company=_str(company.get("name") or asn.get("org")),
     )
+
+
+def _str(value: Any) -> str | None:
+    return value if isinstance(value, str) and value else None
 
 
 async def fetch_exit_ip(proxy: str | None, wait_s: float = 15.0) -> ExitIp:

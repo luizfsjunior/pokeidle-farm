@@ -75,6 +75,7 @@ def settings(tmp_path) -> Settings:
         online_limit_retry_s=0.05,
         server_restart_delay_s=0.05,
         welcome_retry_min_s=0.05,
+        exit_ip_check=False,
         lease_renew_s=0.2,
         lease_busy_retry_s=0.05,
         telemetry_flush_s=0.05,

@@ -35,6 +35,7 @@ from .gamedata import (
     save_hunt_catalog,
     save_items,
 )
+from .netcheck import fetch_exit_ip
 from .plugins.base import AccountStateView, PluginContext
 from .plugins.registry import PluginHost
 from .protocol import codec
@@ -94,10 +95,13 @@ AMBIENT_NOTICES = frozenset({"hunt.ondaEspera", "praca.cheia"})
 class _Retry(Exception):
     """Reconectar depois de `delay` segundos (None = backoff padrão)."""
 
-    def __init__(self, reason: str, delay: float | None = None) -> None:
+    def __init__(
+        self, reason: str, delay: float | None = None, extra: dict[str, Any] | None = None
+    ) -> None:
         super().__init__(reason)
         self.reason = reason
         self.delay = delay
+        self.extra = extra  # vai junto no session.disconnected
 
 
 class AccountSession:
@@ -140,6 +144,7 @@ class AccountSession:
         self.catalog: HuntCatalog | None = None
         self._species = species or (lambda: None)
         self._bg: set[asyncio.Task[Any]] = set()
+        self._exit_ip_task: asyncio.Task[str | None] | None = None
 
     def replied(self, kind: str, since: float) -> dict[str, Any] | None:
         """O frame da última resposta `batalha` desse tipo que chegou depois de `since`."""
@@ -164,7 +169,7 @@ class AccountSession:
                     await self._set_state(stop.state, stop.reason)
                     return stop.state
                 except _Retry as retry:
-                    await self._disconnected(retry.reason, will_retry=True)
+                    await self._disconnected(retry.reason, will_retry=True, extra=retry.extra)
                     delay = retry.delay if retry.delay is not None else self._next_backoff()
                     await self._sleep(delay)
                 except Exception as exc:
@@ -249,6 +254,7 @@ class AccountSession:
 
         self._reconnect_requested = False
         await self._set_state(State.CONNECTING)
+        self._exit_ip_task = self._start_exit_ip()
         self._translator = Translator(self.account.id, uuid4())
         try:
             ws = await connect(
@@ -351,6 +357,7 @@ class AccountSession:
                     "hunt_slug": self.state_view.hunt_slug,
                     "server_offset_ms": int(offset.total_seconds() * 1000) if offset else None,
                     "holder": self.settings.worker_holder,
+                    "exit_ip": await self._exit_ip(),
                 },
             )
         )
@@ -425,7 +432,13 @@ class AccountSession:
                 self.settings.online_limit_retry_s * 2 ** (self._online_limit_retries - 1),
                 self.settings.online_limit_retry_max_s,
             )
-            raise _Retry(key, delay=delay * random.uniform(0.8, 1.2))
+            # a recusa inteira (a variante "Lista" pode trazer quem está online no IP) e o IP
+            # de saída do momento, para cruzar depois (23/11)
+            raise _Retry(
+                key,
+                delay=delay * random.uniform(0.8, 1.2),
+                extra={"erro": err.model_dump(by_alias=True, exclude_none=True)},
+            )
         # outros erros (ex.: recusa de ação) não derrubam a sessão
 
     def _raise_for_close(self, exc: ConnectionClosed) -> None:
@@ -558,14 +571,45 @@ class AccountSession:
             )
             await self.bus.drain()
 
-    async def _disconnected(self, reason: str, *, will_retry: bool) -> None:
-        log.warning("[%s] desconectado: %s", self.account.nick, reason)
-        await self.bus.publish(
-            self._translator.system(
-                "session.disconnected", {"reason": reason, "will_retry": will_retry}
-            )
-        )
+    async def _disconnected(
+        self, reason: str, *, will_retry: bool, extra: dict[str, Any] | None = None
+    ) -> None:
+        log.warning("[%s] desconectado: %s %s", self.account.nick, reason, extra or "")
+        data: dict[str, Any] = {"reason": reason, "will_retry": will_retry}
+        if extra is not None:
+            data.update(extra)
+            data["exit_ip"] = await self._exit_ip()
+        await self.bus.publish(self._translator.system("session.disconnected", data))
         await self._set_state(State.DISCONNECTED)
+
+    # --- IP de saída ---------------------------------------------------------
+
+    def _start_exit_ip(self) -> asyncio.Task[str | None] | None:
+        """Pergunta o IP de saída em paralelo com a conexão, pelo mesmo proxy do jogo."""
+        if not self.settings.exit_ip_check:
+            return None
+        task = asyncio.create_task(self._fetch_exit_ip())
+        self._bg.add(task)
+        task.add_done_callback(self._bg.discard)
+        return task
+
+    async def _fetch_exit_ip(self) -> str | None:
+        try:
+            got = await fetch_exit_ip(self.settings.game_proxy, wait_s=8.0)
+        except Exception as exc:
+            log.info("[%s] IP de saída indisponível: %r", self.account.nick, exc)
+            return None
+        return f"{got.ip} ({got.company or '?'})" if got.ip else None
+
+    async def _exit_ip(self) -> str | None:
+        """O IP de saída desta tentativa, se a consulta terminar em até 10 s."""
+        task = self._exit_ip_task
+        if task is None:
+            return None
+        try:
+            return await asyncio.wait_for(asyncio.shield(task), timeout=10.0)
+        except Exception:
+            return None
 
     def _next_backoff(self) -> float:
         delay = self._backoff
