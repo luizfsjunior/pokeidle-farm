@@ -94,7 +94,7 @@ Recusas chegam como `{ t: "erro", chave: "..." }`:
 | `auth.ipBanido`, `auth.provedorBanido` | rede ou provedor banido | parar tudo naquela rede |
 | `auth.contaExcluida` | conta excluída | parar a conta |
 | `login.precisaNick` | conta sem nick | escolher o nick no jogo |
-| `login.limiteOnlineIp`, `login.limiteOnlineIpLista` | rede no limite de contas online | tentar de novo em ~30 s |
+| `login.limiteOnlineIp`, `login.limiteOnlineIpLista` | rede no limite de contas online | tentar de novo com espera crescente (1 min, dobrando até 15 min). As vagas só liberam quando as sessões do IP vencem, o que pode levar horas (23/11) |
 
 Close codes:
 
@@ -102,6 +102,7 @@ Close codes:
 |---|---|
 | 4001 | login externo (token aberto em outro lugar), confirmado pelo DiuleJR |
 | 4003, 1008 | tratados como rejeição; causa não documentada (4003 pode ser provedor banido) |
+| 1012, 1013 | servidor reiniciando. O worker espera 60–90 s antes de voltar: em 23/11, voltar em ~10 s deu timeouts de welcome e deixou sessões presas no IP |
 | HTTP 401/403 no upgrade | credencial rejeitada |
 
 Depois de uma rejeição, o DiuleJR espera 5 min antes de tentar de novo. Em quedas comuns de rede, espera 10 s.

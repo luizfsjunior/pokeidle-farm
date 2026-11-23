@@ -156,6 +156,79 @@ async def test_online_limit_waits_and_retries(fake_game, make_session):
     await task
 
 
+async def test_online_limit_backoff_grows(fake_game, make_session):
+    """limiteOnlineIp: a espera dobra a cada recusa e para no teto."""
+
+    async def script(ws, hello, n):
+        await ws.send('{"t":"erro","chave":"login.limiteOnlineIp"}')
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    session = make_session(game.url, online_limit_retry_s=10.0, online_limit_retry_max_s=25.0)
+    delays: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        delays.append(seconds)
+        if len(delays) >= 4:
+            session.stop()
+
+    session._sleep = fake_sleep  # type: ignore[method-assign]
+    await session.run()
+    assert 8 <= delays[0] <= 12
+    assert 16 <= delays[1] <= 24
+    assert all(20 <= d <= 30 for d in delays[2:])  # teto de 25 s com ±20%
+
+
+async def test_server_restart_waits_before_reconnecting(fake_game, make_session):
+    """Close 1012: espera o servidor subir em vez de voltar no backoff curto."""
+
+    async def script(ws, hello, n):
+        await ws.send(welcome())
+        if n == 1:
+            await ws.close(1012, "reinício")
+            return
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    session = make_session(game.url, server_restart_delay_s=100.0)
+    delays: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        delays.append(seconds)
+        session.stop()
+
+    session._sleep = fake_sleep  # type: ignore[method-assign]
+    await session.run()
+    assert len(delays) == 1 and 80 <= delays[0] <= 120
+
+
+async def test_welcome_timeout_backoff_starts_high(fake_game, make_session):
+    """Timeout esperando welcome: a espera começa no mínimo próprio e dobra."""
+
+    async def script(ws, hello, n):
+        await keep_open(ws)  # nunca manda o welcome
+
+    game = await fake_game(script)
+    session = make_session(
+        game.url,
+        welcome_timeout_s=0.05,
+        welcome_retry_min_s=30.0,
+        reconnect_min_s=1.0,
+        reconnect_max_s=300.0,
+    )
+    delays: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        delays.append(seconds)
+        if len(delays) >= 2:
+            session.stop()
+
+    session._sleep = fake_sleep  # type: ignore[method-assign]
+    await session.run()
+    assert 24 <= delays[0] <= 36
+    assert 48 <= delays[1] <= 72
+
+
 async def test_busy_lease_prevents_connection(fake_game, make_session, store, account):
     async def script(ws, hello, n):
         await ws.send(welcome())

@@ -41,8 +41,17 @@ class Settings(BaseSettings):
     ping_timeout_s: float = 60.0  # 30 s de intervalo + 60 s de espera ≈ 90 s sem resposta
     reconnect_min_s: float = 10.0
     reconnect_max_s: float = 300.0
-    online_limit_retry_s: float = 30.0
-    online_limit_max_retries: int = 10
+    # Reinício do servidor (close 1012/1013): esperar antes de voltar. Em 23/11 as 4 contas
+    # voltaram em ~10 s, pegaram "timeout esperando welcome" com o servidor ainda subindo e
+    # deixaram sessões presas no IP, que travaram o limite de contas online por horas.
+    server_restart_delay_s: float = 75.0  # com a variação de ±20%: 60 a 90 s
+    # Depois de um "timeout esperando welcome" a espera começa neste valor e dobra a cada falha.
+    welcome_retry_min_s: float = 30.0
+    # limiteOnlineIp: a espera começa aqui e dobra até o teto. O limite só libera quando as
+    # sessões do IP vencem, o que pode levar horas; tentar a cada 30 s não adianta.
+    online_limit_retry_s: float = 60.0
+    online_limit_retry_max_s: float = 900.0
+    online_limit_max_retries: int = 100  # no teto de 15 min, pouco mais de 24 h tentando
 
     # Lease
     lease_ttl_s: int = 90

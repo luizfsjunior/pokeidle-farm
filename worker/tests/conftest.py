@@ -73,6 +73,8 @@ def settings(tmp_path) -> Settings:
         reconnect_min_s=0.05,
         reconnect_max_s=0.1,
         online_limit_retry_s=0.05,
+        server_restart_delay_s=0.05,
+        welcome_retry_min_s=0.05,
         lease_renew_s=0.2,
         lease_busy_retry_s=0.05,
         telemetry_flush_s=0.05,

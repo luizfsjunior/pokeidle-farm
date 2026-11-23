@@ -101,3 +101,4 @@ NEEDS_NICK_KEYS = frozenset({"login.precisaNick"})
 
 CLOSE_EXTERNAL_LOGIN = 4001  # mesmo token aberto em outro lugar
 CLOSE_REJECTED = frozenset({4003, 1008})
+CLOSE_SERVER_RESTART = frozenset({1012, 1013})  # reiniciando / tente mais tarde
