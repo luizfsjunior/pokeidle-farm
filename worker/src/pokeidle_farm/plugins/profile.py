@@ -27,16 +27,17 @@ class ProfileConfig(BaseModel):
     quick_s: float = Field(2.0, ge=0.5, le=30)
 
 
-# chaves de um patch do estado que o painel pede para ver logo (docs/design/tela-na-hora.md)
-QUICK_KEYS = ("activeId", "huntSlug", "pkFora")
+def quick_view(profile: ProfileState) -> tuple[object, ...]:
+    """O que o painel pede para ver logo (docs/design/tela-na-hora.md): o ativo, a hunt e a equipe.
 
-
-def is_quick(patch: dict) -> bool:
-    """O patch muda o ativo, a hunt ou a equipe (um pokémon com `slot` no pkMud)?"""
-    if any(k in patch for k in QUICK_KEYS):
-        return True
-    mud = patch.get("pkMud")
-    return isinstance(mud, list) and any(isinstance(p, dict) and "slot" in p for p in mud)
+    Compara-se o antes e o depois do patch, não a presença das chaves: o jogo manda a cada abate um
+    patch com o pokémon ativo completo no `pkMud` (com `slot`), e gravar em `quick_s` a cada abate
+    era ~1 gravação a cada 3 s por conta em account_profile e account_pokemon (23/11).
+    """
+    team = frozenset(
+        (pid, p["slot"]) for pid, p in profile.pokemons.items() if p.get("slot") is not None
+    )
+    return (profile.estado.get("activeId"), profile.estado.get("huntSlug"), team)
 
 
 class ProfilePlugin(Plugin):
@@ -73,9 +74,11 @@ class ProfilePlugin(Plugin):
                 await self.flush()  # o painel não espera o primeiro intervalo
             return
         if self.profile.ready:
+            before = quick_view(self.profile)
             self.profile.apply_patch(estado)
             self.dirty = True
-            if is_quick(estado) and (self._soon is None or self._soon.done()):
+            quick = "pkFora" in estado or quick_view(self.profile) != before
+            if quick and (self._soon is None or self._soon.done()):
                 self._soon = asyncio.create_task(self._flush_soon())
 
     async def _flush_soon(self) -> None:

@@ -212,12 +212,44 @@ async def test_plugin_writes_soon_when_team_or_active_changes():
     await plugin.stop()
 
 
-def test_is_quick():
-    from pokeidle_farm.plugins.profile import is_quick
+async def test_kill_patch_with_active_pokemon_is_not_quick():
+    """O jogo manda a cada abate o ativo completo no pkMud (com o mesmo `slot`): isso não é uma troca
+    de equipe e espera o intervalo (antes gravava o perfil a cada abate)."""
+    plugin, _store, ctx = _plugin()
 
-    assert is_quick({"huntSlug": "x"}) and is_quick({"pkFora": [1]})
-    assert is_quick({"pkMud": [{"id": 1, "slot": None}]})
-    assert not is_quick({"pkMud": [{"id": 1, "level": 5}]}) and not is_quick({"gold": 1})
+    async def never(s: float) -> None:
+        await __import__("asyncio").Event().wait()
+
+    plugin.sleep = never
+    await plugin.start(ctx)
+    await plugin.on_event(_ev(ctx, "state.snapshot", ESTADO))
+    kill_patch = {"xp": 10, "gold": 3, "pkMud": [{"id": 7, "slot": 0, "level": 6, "xp": 99}]}
+    for _ in range(5):
+        await plugin.on_event(_ev(ctx, "state.patch", kill_patch))
+    assert plugin._soon is None
+    await plugin.on_event(_ev(ctx, "state.patch", {"huntSlug": "kabuto"}))  # a mesma hunt
+    assert plugin._soon is None
+    await plugin.on_event(_ev(ctx, "state.patch", {"pkMud": [{"id": 9, "slot": None}]}))
+    assert plugin._soon is not None  # saiu da equipe: grava logo
+    await plugin.stop()
+
+
+async def test_hunt_and_removal_are_quick():
+    plugin, _store, ctx = _plugin()
+
+    async def never(s: float) -> None:
+        await __import__("asyncio").Event().wait()
+
+    plugin.sleep = never
+    await plugin.start(ctx)
+    await plugin.on_event(_ev(ctx, "state.snapshot", ESTADO))
+    await plugin.on_event(_ev(ctx, "state.patch", {"huntSlug": "outra"}))
+    assert plugin._soon is not None
+    plugin._soon.cancel()
+    plugin._soon = None
+    await plugin.on_event(_ev(ctx, "state.patch", {"pkFora": [8]}))
+    assert plugin._soon is not None
+    await plugin.stop()
 
 
 async def test_collection_is_synced_full_then_only_what_changed():
