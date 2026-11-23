@@ -41,6 +41,7 @@ from .protocol import codec
 from .protocol.messages import (
     CLOSE_EXTERNAL_LOGIN,
     CLOSE_REJECTED,
+    CLOSE_SERVER_RESTART,
     NEEDS_LOGIN_KEYS,
     NEEDS_NICK_KEYS,
     ONLINE_LIMIT_KEYS,
@@ -310,11 +311,11 @@ class AccountSession:
         while True:
             remaining = deadline - asyncio.get_running_loop().time()
             if remaining <= 0:
-                raise _Retry("timeout esperando welcome")
+                raise self._welcome_timeout()
             try:
                 frame = await asyncio.wait_for(ws.recv(), timeout=remaining)
             except TimeoutError as exc:
-                raise _Retry("timeout esperando welcome") from exc
+                raise self._welcome_timeout() from exc
             msg, raw = codec.decode(frame)
             if isinstance(msg, GameError):
                 self._raise_for_error(msg)
@@ -420,7 +421,11 @@ class AccountSession:
             self._online_limit_retries += 1
             if self._online_limit_retries > self.settings.online_limit_max_retries:
                 raise _Stop(State.REJECTED, f"{key} (limite de tentativas)")
-            raise _Retry(key, delay=self.settings.online_limit_retry_s)
+            delay = min(
+                self.settings.online_limit_retry_s * 2 ** (self._online_limit_retries - 1),
+                self.settings.online_limit_retry_max_s,
+            )
+            raise _Retry(key, delay=delay * random.uniform(0.8, 1.2))
         # outros erros (ex.: recusa de ação) não derrubam a sessão
 
     def _raise_for_close(self, exc: ConnectionClosed) -> None:
@@ -429,7 +434,16 @@ class AccountSession:
             raise _Stop(State.NEEDS_LOGIN, "close 4001: conta aberta em outro lugar")
         if code in CLOSE_REJECTED:
             raise _Stop(State.REJECTED, f"close {code}")
+        if code in CLOSE_SERVER_RESTART:
+            # o servidor demora a voltar: reconectar logo só gera timeouts e sessões presas
+            delay = self.settings.server_restart_delay_s * random.uniform(0.8, 1.2)
+            raise _Retry(f"servidor reiniciando (code={code})", delay=delay)
         raise _Retry(f"conexão fechada (code={code})")
+
+    def _welcome_timeout(self) -> _Retry:
+        """O socket abriu e o jogo não respondeu: em geral o servidor ainda está subindo."""
+        self._backoff = max(self._backoff, self.settings.welcome_retry_min_s)
+        return _Retry("timeout esperando welcome")
 
     # --- lease --------------------------------------------------------------
 
