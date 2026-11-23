@@ -38,6 +38,16 @@ def test_parse_and_block_rules():
     assert blocks_connection(hosting_only)
 
 
+def test_parse_tolerates_other_shapes():
+    """ipapi.is mudou o formato e o parse quebrava com AttributeError (23/11)."""
+    as_text = parse({"ip": "1.2.3.4", "company": "GTI BRASIL", "asn": "AS273443"})
+    assert as_text.company == "GTI BRASIL" and not blocks_connection(as_text)
+    as_list = parse({"ip": "1.2.3.4", "company": [{"name": "X", "type": "hosting"}], "asn": None})
+    assert as_list.company == "X" and blocks_connection(as_list)
+    nothing = parse({"ip": "1.2.3.4"})
+    assert nothing.company is None and not blocks_connection(nothing)
+
+
 def settings(**kw) -> Settings:
     return Settings(_env_file=None, **kw)
 
