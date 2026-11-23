@@ -3,6 +3,29 @@
 Registro curto do que foi feito em cada dia, o que deu errado e o que ficou pendente.
 As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
+## 2026-11-23
+
+### Feito
+
+- **Painel com timeout nas vendas**: as consultas de Mercado em `events` filtravam por um campo do JSON sem índice e
+  levavam até 39 s (o limite do papel `authenticated` é 8 s). Dois índices parciais: 72 ms e 285 ms.
+- **Banco acima de 500 MB de novo** (558 MB): retenção dos volumosos de 4 dias para 1 e `VACUUM FULL` (257 MB).
+- **Abates por minuto** ([design/retencao-eventos.md](design/retencao-eventos.md)): a telemetria soma `kill` e
+  `item.consumed` por minuto em `kill_minute` em vez de gravar uma linha por evento; `battle.cura` não é mais
+  gravado.
+
+### Problemas e soluções
+
+| Problema | Causa | Solução |
+|---|---|---|
+| Erro 500 na tela de vendas | filtro por `data->>'action'`/`data->>'aba'` sem índice | índices parciais |
+| Banco em 558 MB (plano grátis: 500) | ~56 mil abates por dia, uma linha cada | soma por minuto em `kill_minute` |
+
+### Pendente
+
+- Deploy no VPS depois do merge (as migrations rodam sozinhas): `git pull && docker compose up -d --build`. Até lá, o
+  worker antigo continua gravando os abates em `events`, e as métricas leem os dois lugares.
+
 ## 2026-11-22
 
 ### Feito

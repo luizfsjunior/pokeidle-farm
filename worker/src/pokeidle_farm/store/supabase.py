@@ -14,6 +14,9 @@ from supabase import AsyncClient, acreate_client
 
 from .base import AccountRecord, CommandRecord, HuntStats, TokenRecord
 
+# chave primária de kill_minute (supabase/migrations/20261123120000_kill_minute.sql)
+KILL_MINUTE_KEY = "account_id,session_id,minute,hunt_slug,active_species_id,season,part"
+
 
 class SupabaseStore:
     def __init__(self, client: AsyncClient) -> None:
@@ -71,6 +74,14 @@ class SupabaseStore:
             await (
                 self._db.table("events")
                 .upsert(rows, on_conflict="id", ignore_duplicates=True)
+                .execute()
+            )
+
+    async def insert_kill_minutes(self, rows: list[dict[str, Any]]) -> None:
+        if rows:
+            await (
+                self._db.table("kill_minute")
+                .upsert(rows, on_conflict=KILL_MINUTE_KEY, ignore_duplicates=True)
                 .execute()
             )
 

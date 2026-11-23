@@ -63,6 +63,10 @@ class Store(Protocol):
 
     async def insert_events(self, rows: list[dict[str, Any]]) -> None: ...
 
+    async def insert_kill_minutes(self, rows: list[dict[str, Any]]) -> None:
+        """Grava linhas de kill_minute (kill_minutes.py); linha repetida (mesma chave) é ignorada."""
+        ...
+
     async def refresh_metrics(self, start: datetime, end: datetime) -> int:
         """Recalcula os agregados por hora do intervalo. Retorna linhas gravadas."""
         ...
