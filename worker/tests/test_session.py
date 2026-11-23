@@ -44,10 +44,12 @@ async def test_handshake_ready_and_events_persisted(fake_game, make_session, sto
     await task
 
     t = types(store)
-    assert {"state.snapshot", "session.connected", "kill", "unknown"} <= set(t)
+    assert {"state.snapshot", "session.connected", "unknown"} <= set(t)
     assert "attack" not in t  # não persistido
-    kill = next(e for e in store.events if e["type"] == "kill")
-    assert kill["data"]["xp"] == 5 and kill["raw"]["k"] == "morte"
+    assert "kill" not in t  # o abate vai somado por minuto para kill_minute
+    [minute] = store.kill_minutes
+    assert minute["kills"] == 1 and minute["xp"] == 5
+    assert minute["account_id"] == str(account.id)
     assert "TOKEN-SECRETO" not in json.dumps(store.events)
     assert account.id not in store.leases  # lease liberado ao parar
 
@@ -215,11 +217,12 @@ async def test_telemetry_buffers_when_store_fails(fake_game, make_session, store
     )
     assert buffers, "eventos deveriam estar no buffer local"
     store.fail_inserts = False
-    await wait_until(lambda: "kill" in types(store))
+    await wait_until(lambda: "session.connected" in types(store))
     session.stop()
     await task
     ids = [e["id"] for e in store.events]
     assert len(ids) == len(set(ids))  # sem duplicatas
+    assert [m["kills"] for m in store.kill_minutes] == [1]  # o abate saiu do buffer uma vez só
     assert not any(p.exists() for p in buffers)
 
 

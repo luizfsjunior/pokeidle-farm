@@ -239,8 +239,11 @@ def _qty(value: Any) -> int:
 # rank.board: ~100 linhas por resposta; o plugin rank grava só o resultado (rank.position).
 # state.patch: o jogo manda um a cada poucos segundos e nada lê do banco (o perfil fica em
 # account_profile); em 18/11 eram 270 mil linhas e 400 MB, 62% do banco.
+# battle.cura: cada poção que o jogo aplica (~90 mil por dia com 4 contas); nada lê do banco, e o gasto
+# com poções sai do item.consumed.
+# kill e item.consumed não estão aqui: a telemetria soma por minuto em kill_minute (kill_minutes.py).
 NOT_PERSISTED = frozenset(
-    {"attack", "wild.spawned", "rank.board", "state.patch", *NOISE_TYPES.values()}
+    {"attack", "wild.spawned", "rank.board", "state.patch", "battle.cura", *NOISE_TYPES.values()}
 )
 
 

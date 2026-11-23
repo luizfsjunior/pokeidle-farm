@@ -3,7 +3,6 @@ import { gemPrice, STONE_CATEGORY } from "@/lib/money";
 import { itemIconUrl } from "@/lib/sprites";
 
 export const DAYS = 7;
-const MAX_KILLS = 5000; // abates com drop lidos por vez (bem acima do que uma conta faz em 7 dias)
 
 type Price = { avg: number; units: number | null };
 type Ref = { median: number; sales: number; rawMean: number | null };
@@ -31,16 +30,15 @@ export const orbOf = (r: Row) =>
  */
 export async function loadMarket(supabase: SupabaseClient, conta: string | null) {
   const since = new Date(Date.now() - DAYS * 86400_000).toISOString();
-  let kills = supabase.from("events").select("data->drops").eq("type", "kill")
-    .gte("received_at", since).neq("data->drops", "[]").limit(MAX_KILLS);
-  if (conta) kills = kills.eq("account_id", conta);
-  const [killsRes, lastSnap, refRes] = await Promise.all([
-    kills,
+  // drops somados por item: abates por minuto (kill_minute) + os do worker antigo ainda em events
+  // (docs/design/retencao-eventos.md, "Abates por minuto")
+  const [dropsRes, lastSnap, refRes] = await Promise.all([
+    supabase.rpc("dropped_items", { p_since: since, p_account: conta }),
     supabase.from("market_prices").select("taken_at").order("taken_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.rpc("market_reference"),
   ]);
   // sem os abates, "nenhum drop" seria mentira: o erro sobe e a tela mantém os últimos dados bons
-  if (killsRes.error) throw new Error(killsRes.error.message);
+  if (dropsRes.error) throw new Error(dropsRes.error.message);
   // mediana das vendas reais (docs/design/preco-de-referencia.md); só vale com MIN_SALES vendas
   const refs = new Map<string, Ref>();
   for (const r of (refRes.data ?? []) as { item_name: string; currency: string; median_unit: number; sales: number; raw_mean_unit: number | null }[]) {
@@ -49,13 +47,9 @@ export async function loadMarket(supabase: SupabaseClient, conta: string | null)
     }
   }
 
-  // soma por nome
   const byName = new Map<string, number>();
-  for (const k of (killsRes.data ?? []) as { drops: { name?: string; qty?: number }[] | null }[]) {
-    for (const d of k.drops ?? []) {
-      if (!d?.name) continue;
-      byName.set(d.name, (byName.get(d.name) ?? 0) + (Number(d.qty) || 1));
-    }
+  for (const d of (dropsRes.data ?? []) as { name: string; qty: number }[]) {
+    byName.set(d.name, Number(d.qty) || 0);
   }
   const names = [...byName.keys()];
   const takenAt = (lastSnap.data?.taken_at as string | undefined) ?? null;

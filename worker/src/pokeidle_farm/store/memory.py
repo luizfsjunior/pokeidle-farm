@@ -18,6 +18,7 @@ class MemoryStore:
         self.leases: dict[UUID, tuple[str, float]] = {}
         self.status: dict[UUID, str] = {}
         self.events: list[dict[str, Any]] = []
+        self.kill_minutes: list[dict[str, Any]] = []  # linhas de kill_minute (kill_minutes.py)
         self.configs: dict[UUID, dict[str, tuple[bool, dict[str, Any]]]] = {}
         # comandos: id -> {"account_id", "type", "params", "status", "result", "error", "holder"}
         self.commands: dict[UUID, dict[str, Any]] = {}
@@ -62,6 +63,15 @@ class MemoryStore:
         if self.fail_inserts:
             raise ConnectionError("falha simulada")
         self.events.extend(rows)
+
+    async def insert_kill_minutes(self, rows: list[dict[str, Any]]) -> None:
+        if self.fail_inserts:
+            raise ConnectionError("falha simulada")
+        seen = {_kill_minute_key(r) for r in self.kill_minutes}
+        for row in rows:  # como o `on conflict do nothing` do banco
+            if _kill_minute_key(row) not in seen:
+                seen.add(_kill_minute_key(row))
+                self.kill_minutes.append(row)
 
     async def refresh_metrics(self, start: datetime, end: datetime) -> int:
         return 0  # agregados só existem no Postgres
@@ -264,6 +274,18 @@ class MemoryStore:
         chances: dict[str, tuple[datetime, float, int | None]] = {}
         levels: dict[str, tuple[float, int]] = {}
         xp: dict[str, float] = {}
+        for row in self.kill_minutes:  # os abates do worker novo (somados por minuto)
+            minute = datetime.fromisoformat(row["minute"])
+            slug = row.get("hunt_slug")
+            if str(row.get("account_id")) != str(account_id) or minute < since or not slug:
+                continue
+            if row.get("kills"):
+                kills[slug] = kills.get(slug, 0) + row["kills"]
+                minutes.setdefault(slug, set()).add(minute)
+                xp[slug] = xp.get(slug, 0.0) + float(row.get("xp") or 0)
+            if row.get("kills_leveled"):
+                s, n = levels.get(slug, (0.0, 0))
+                levels[slug] = (s + row["active_level_sum"], n + row["kills_leveled"])
         for row in self.events:
             if str(row.get("account_id")) != str(account_id):
                 continue
@@ -300,3 +322,18 @@ class MemoryStore:
             )
             for slug in sorted(set(kills) | set(chances))
         ]
+
+
+def _kill_minute_key(row: dict[str, Any]) -> tuple[Any, ...]:
+    return tuple(
+        row.get(k)
+        for k in (
+            "account_id",
+            "session_id",
+            "minute",
+            "hunt_slug",
+            "active_species_id",
+            "season",
+            "part",
+        )
+    )
