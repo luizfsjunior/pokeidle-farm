@@ -21,6 +21,15 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 | Erro 500 na tela de vendas | filtro por `data->>'action'`/`data->>'aba'` sem índice | índices parciais |
 | Banco em 558 MB (plano grátis: 500) | ~56 mil abates por dia, uma linha cada | soma por minuto em `kill_minute` |
 
+- **Erro 500 de novo, em rajadas** (mesma consulta: 0,1 s ou 7 s): a CPU do plano grátis é compartilhada e oscila
+  (a mesma conta pura levou 1,5 s numa rodada e 0,25 s nas outras), e duas coisas pesavam:
+  - `dropped_items` (nova nesta manhã) abria o JSON de todos os abates do dia, com ou sem drop: 8,4 s. Só os com drop,
+    pelo índice parcial: 0,1 s.
+  - o plugin `profile` gravava o perfil a cada abate: o jogo manda o ativo completo no `pkMud` (com `slot`) a cada
+    abate, e o `is_quick` via nisso uma troca de equipe. Eram ~1 gravação a cada 3,5 s por conta em
+    `account_profile`, `account_pokemon` e `account_profile_daily` (e no Realtime). Agora o atalho compara o ativo,
+    a hunt e a equipe antes e depois do patch.
+
 ### Pendente
 
 - Deploy no VPS depois do merge (as migrations rodam sozinhas): `git pull && docker compose up -d --build`. Até lá, o
