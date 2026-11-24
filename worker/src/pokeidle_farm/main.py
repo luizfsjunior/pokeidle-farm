@@ -22,7 +22,7 @@ from uuid import NAMESPACE_URL, uuid5
 from .commands import CommandError, CommandLoop, FakeSession, SessionLike, Supervisor
 from .config import Settings
 from .gamedata import GameFilesSync, ItemsSync, SpeciesSync, http_get, set_game_proxy
-from .netcheck import blocks_connection, fetch_exit_ip
+from .netcheck import ExitGuard, blocks_connection, fetch_exit_ip
 from .plugins.registry import PluginHost, discover
 from .session import AccountSession
 from .store.base import AccountRecord, Store
@@ -54,22 +54,29 @@ async def _make_store(settings: Settings) -> Store:
     return store
 
 
-async def _exit_ip_ok(settings: Settings) -> bool:
-    """Confere o IP de saída do tráfego do jogo antes de abrir sessões (ADR 0013)."""
+async def _exit_ip_ok(settings: Settings, *, retry_s: float = 60.0) -> bool:
+    """Confere o IP de saída do tráfego do jogo antes de subir qualquer coisa (ADR 0013 e 0015).
+
+    Datacenter: não sobe (False). Sem confirmação (os dois serviços fora, rede caída): espera e
+    confere de novo, sem falar com o jogo; antes seguia "assim mesmo" (ADR 0015).
+    """
     via = "pelo proxy do jogo" if settings.game_proxy else "direto"
     if not settings.exit_ip_check:
         log.info("conferência do IP de saída desligada (EXIT_IP_CHECK=false); saída %s", via)
         return True
-    try:
-        exit_ip = await fetch_exit_ip(settings.game_proxy)
-    except Exception as exc:  # o serviço fora do ar não impede o worker; só avisa
-        log.warning(
-            "não consegui conferir o IP de saída (%s): %s: %s; sigo assim mesmo",
-            via,
-            type(exc).__name__,
-            exc,
-        )
-        return True
+    while True:
+        try:
+            exit_ip = await fetch_exit_ip(settings.game_proxy)
+            break
+        except Exception as exc:
+            log.warning(
+                "não consegui confirmar o IP de saída (%s): %s; não falo com o jogo e "
+                "confiro de novo em %.0f s",
+                via,
+                exc,
+                retry_s,
+            )
+            await asyncio.sleep(retry_s)
     if blocks_connection(exit_ip):
         log.error(
             "IP de saída %s é de datacenter: o jogo recusa com provedorBanido (ADR 0011). "
@@ -77,7 +84,7 @@ async def _exit_ip_ok(settings: Settings) -> bool:
             exit_ip.summary(),
         )
         return False
-    log.info("IP de saída %s: %s", via, exit_ip.summary())
+    log.info("IP de saída %s: %s (%s)", via, exit_ip.summary(), exit_ip.source)
     return True
 
 
@@ -90,16 +97,19 @@ async def run(settings: Settings, *, fake: bool = False) -> int:
     if not fake and not await _exit_ip_ok(settings):
         return 1
     set_game_proxy(settings.game_proxy)
+    # os downloads do jogo também só saem com o IP de saída confirmado (ADR 0015)
+    guard = ExitGuard(settings.game_proxy, enabled=settings.exit_ip_check)
+    game_get = guard.wrap(http_get)
     store = await _make_store(settings)
     available = discover()
     log.info("plugins disponíveis: %s", ", ".join(sorted(available)) or "nenhum")
 
     # Pokedex: uma por worker, atualizada sozinha quando o jogo muda (GET condicional)
-    species_sync = None if fake else SpeciesSync(store, http_get)
+    species_sync = None if fake else SpeciesSync(store, game_get)
     # catálogo de itens (fase 7): dá preço aos drops pelo nome
-    items_sync = None if fake else ItemsSync(store, http_get)
+    items_sync = None if fake else ItemsSync(store, game_get)
     # wiki e fórmulas do jogo (análise de 15/11)
-    files_sync = None if fake else GameFilesSync(store, http_get)
+    files_sync = None if fake else GameFilesSync(store, game_get)
 
     def make_session(acc: AccountRecord) -> SessionLike:
         if fake:
