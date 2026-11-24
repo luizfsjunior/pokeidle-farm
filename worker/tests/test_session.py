@@ -550,3 +550,105 @@ async def test_unexpected_error_on_connect_retries(fake_game, make_session, stor
     assert not task.done() and "session.disconnected" in types(store)
     session.stop()
     await task
+
+
+# --- IP de saída conferido antes de cada conexão (ADR 0015) -------------------------------
+
+
+def _exit_ip_answers(monkeypatch, *answers):
+    """Troca a consulta do IP de saída por respostas em fila (ExitIp ou exceção)."""
+    from pokeidle_farm import session as session_mod
+
+    queue = list(answers)
+
+    async def fake_fetch(proxy, wait_s=15.0):
+        got = queue.pop(0) if len(queue) > 1 else queue[0]
+        if isinstance(got, Exception):
+            raise got
+        return got
+
+    monkeypatch.setattr(session_mod, "fetch_exit_ip", fake_fetch)
+
+
+async def test_datacenter_exit_never_reaches_the_game(fake_game, make_session, store, monkeypatch):
+    """Tailscale fora / exit node removido: o IP do VPS aparece e a conta não conecta."""
+    from pokeidle_farm.netcheck import parse
+
+    _exit_ip_answers(
+        monkeypatch,
+        parse({"ip": "165.22.1.2", "is_datacenter": True, "company": {"name": "DigitalOcean"}}),
+    )
+
+    async def script(ws, hello, n):
+        await ws.send(welcome())
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    session = make_session(game.url, exit_ip_check=True)
+    delays: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        delays.append(seconds)
+        if len(delays) >= 2:
+            session.stop()
+
+    session._sleep = fake_sleep  # type: ignore[method-assign]
+    await asyncio.wait_for(session.run(), 3)
+    assert game.connections == 0  # o jogo não viu o IP
+    assert len(delays) == 2 and delays[1] > delays[0]  # backoff, sem martelar
+    refused = [e for e in store.events if e["type"] == "session.disconnected"]
+    assert refused[0]["data"]["reason"] == "IP de saída de datacenter; não conectei"
+    assert refused[0]["data"]["exit_ip"] == "165.22.1.2 (DigitalOcean)"
+    assert "session.connected" not in types(store)
+
+
+async def test_unconfirmed_exit_waits_then_connects(fake_game, make_session, store, monkeypatch):
+    """Os dois serviços fora: não conecta no escuro; quando confirmar, conecta."""
+    from pokeidle_farm.netcheck import ExitIpUnknown, parse
+
+    _exit_ip_answers(
+        monkeypatch,
+        ExitIpUnknown("ipapi.is: timeout; ip-api.com: timeout"),
+        parse({"ip": "179.84.141.61", "company": {"name": "TELEFÔNICA BRASIL S.A."}}),
+    )
+
+    async def script(ws, hello, n):
+        await ws.send(welcome())
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    session = make_session(game.url, exit_ip_check=True)
+    connections_while_waiting: list[int] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        connections_while_waiting.append(game.connections)
+
+    session._sleep = fake_sleep  # type: ignore[method-assign]
+    task = asyncio.create_task(session.run())
+    await wait_until(lambda: session.state is State.READY)
+    session.stop()
+    await task
+    assert connections_while_waiting == [0]  # durante a dúvida, nenhuma conexão
+    assert game.connections == 1
+    refused = next(e for e in store.events if e["type"] == "session.disconnected")
+    assert refused["data"]["reason"] == "IP de saída não confirmado; não conectei"
+    assert refused["data"]["exit_ip"] is None
+    connected = next(e for e in store.events if e["type"] == "session.connected")
+    assert connected["data"]["exit_ip"] == "179.84.141.61 (TELEFÔNICA BRASIL S.A.)"
+
+
+async def test_exit_check_off_connects_without_asking(fake_game, make_session, store, monkeypatch):
+    _exit_ip_answers(monkeypatch, AssertionError("não deveria consultar"))
+
+    async def script(ws, hello, n):
+        await ws.send(welcome())
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    session = make_session(game.url)  # conftest: exit_ip_check=False
+    task = asyncio.create_task(session.run())
+    await wait_until(lambda: "session.connected" in types(store))
+    session.stop()
+    await task
+    connected = next(e for e in store.events if e["type"] == "session.connected")
+    assert connected["data"]["exit_ip"] is None

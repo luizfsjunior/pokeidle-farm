@@ -101,6 +101,59 @@ O VPS sozinho não serve: o jogo recusa IP de datacenter. O tráfego do jogo sai
 6. Em `/economia`, em **Custos do mês**, preencha o fixo (VPS + proxy) e marque que a máquina fica ligada de
    qualquer jeito (o PC de casa não entra mais na conta).
 
+## 3c. Saída pelo celular com Tailscale (ADR 0015)
+
+O celular vira o *exit node* do VPS: todo o tráfego do droplet sai pela internet dele. `GAME_PROXY_URL` fica
+vazio. O jogo **nunca** pode ver o IP do VPS, por isso a trava do passo 5.
+
+1. **No celular (Android):** instale o Tailscale, entre na conta, toque em **Exit Node → Run as exit node**.
+   Em Configurações → Conexões → Mais configurações de conexão → VPN, ligue **VPN sempre ativa** para o
+   Tailscale, e tire o app da otimização de bateria. Deixe na tomada.
+2. **No painel do Tailscale** (Machines): no celular, **⋯ → Edit route settings → Use as exit node**. No
+   celular e no VPS, **⋯ → Disable key expiry**.
+3. **No VPS:** instale (`curl -fsSL https://tailscale.com/install.sh | sh`, `tailscale up`) e **teste o SSH
+   pelo IP 100.x do Tailscale antes do próximo passo**: ligar o exit node derruba o SSH pelo IP público.
+4. **Exit node e SSH pelo IP público** (troque `SEU_IP_PUBLICO`):
+   ```bash
+   tailscale set --exit-node=<nome-do-celular> --exit-node-allow-lan-access
+   ip rule add from SEU_IP_PUBLICO lookup main priority 100   # respostas do IP público pela eth0
+   ```
+   Para a regra voltar no boot, um `public-ip-route.service` (oneshot, `After=tailscaled.service`) com o
+   mesmo `ip rule add`.
+5. **A trava: containers só saem pela `tailscale0`.**
+   ```bash
+   cat > /usr/local/sbin/killswitch.sh <<'SH'
+   #!/bin/sh
+   for IPT in iptables ip6tables; do
+     $IPT -N DOCKER-USER 2>/dev/null || true
+     for IF in docker0 'br-+'; do
+       $IPT -C DOCKER-USER -i "$IF" ! -o tailscale0 -j REJECT 2>/dev/null \
+         || $IPT -I DOCKER-USER -i "$IF" ! -o tailscale0 -j REJECT
+     done
+   done
+   SH
+   chmod +x /usr/local/sbin/killswitch.sh
+   ```
+   Um `killswitch.service` (oneshot, `Before=docker.service`, `WantedBy=multi-user.target docker.service`)
+   roda o script, e um drop-in `docker.service.d/killswitch.conf` com `ExecStartPost=` roda de novo depois do
+   Docker. `systemctl daemon-reload && systemctl enable killswitch.service && /usr/local/sbin/killswitch.sh`.
+6. **Prove a trava.** A tabela 52 do Tailscale passa na frente da `main`, então o teste precisa de uma regra
+   com prioridade maior:
+   ```bash
+   ip rule add to 1.1.1.1/32 lookup main priority 99
+   curl -s -m 5 https://1.1.1.1/cdn-cgi/trace | grep ip=   # host: o IP do VPS (rota pela eth0)
+   docker run --rm --network pokeidle-farm_default curlimages/curl -s -m 5 https://1.1.1.1/cdn-cgi/trace | grep ip=   # vazio
+   ip rule del priority 99
+   iptables -L DOCKER-USER -v -n   # pkts > 0 na regra br-+
+   ```
+   E o caminho certo: `docker run --rm --network pokeidle-farm_default curlimages/curl -s https://ipinfo.io/org`
+   mostra a operadora do celular.
+7. **Nunca** rode `tailscale set --exit-node=` para "desfazer" com o worker ligado nem rode o worker fora do
+   Docker nesse VPS: a trava só vale para containers.
+
+O worker também confere o IP antes de cada conexão (ADR 0015): no log, `IP de saída não confirmado; não
+conectei` ou `IP de saída de datacenter; não conectei` quer dizer que ele esperou em vez de arriscar.
+
 ## 4. O que conferir
 
 - Nos logs: `estado=READY`. Se aparecer, o handshake do mapeamento está certo.

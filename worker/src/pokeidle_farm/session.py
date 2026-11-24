@@ -35,7 +35,7 @@ from .gamedata import (
     save_hunt_catalog,
     save_items,
 )
-from .netcheck import fetch_exit_ip
+from .netcheck import blocks_connection, fetch_exit_ip
 from .plugins.base import AccountStateView, PluginContext
 from .plugins.registry import PluginHost
 from .protocol import codec
@@ -144,7 +144,7 @@ class AccountSession:
         self.catalog: HuntCatalog | None = None
         self._species = species or (lambda: None)
         self._bg: set[asyncio.Task[Any]] = set()
-        self._exit_ip_task: asyncio.Task[str | None] | None = None
+        self._exit_ip_seen: str | None = None  # o IP de saída confirmado nesta tentativa
 
     def replied(self, kind: str, since: float) -> dict[str, Any] | None:
         """O frame da última resposta `batalha` desse tipo que chegou depois de `since`."""
@@ -254,8 +254,8 @@ class AccountSession:
 
         self._reconnect_requested = False
         await self._set_state(State.CONNECTING)
-        self._exit_ip_task = self._start_exit_ip()
         self._translator = Translator(self.account.id, uuid4())
+        await self._confirm_exit_ip()
         try:
             ws = await connect(
                 self.settings.ws_url,
@@ -584,32 +584,33 @@ class AccountSession:
 
     # --- IP de saída ---------------------------------------------------------
 
-    def _start_exit_ip(self) -> asyncio.Task[str | None] | None:
-        """Pergunta o IP de saída em paralelo com a conexão, pelo mesmo proxy do jogo."""
-        if not self.settings.exit_ip_check:
-            return None
-        task = asyncio.create_task(self._fetch_exit_ip())
-        self._bg.add(task)
-        task.add_done_callback(self._bg.discard)
-        return task
+    async def _confirm_exit_ip(self) -> None:
+        """Confere o IP de saída antes de abrir o WebSocket (ADR 0015).
 
-    async def _fetch_exit_ip(self) -> str | None:
+        Datacenter ou sem confirmação: não conecta e tenta de novo pelo backoff. Antes a
+        consulta corria em paralelo com a conexão e só ia para o evento; numa falha de rede
+        (Tailscale fora, exit node removido) a conta conectaria com o IP do VPS.
+        """
+        self._exit_ip_seen = None
+        if not self.settings.exit_ip_check:
+            return
         try:
             got = await fetch_exit_ip(self.settings.game_proxy, wait_s=8.0)
         except Exception as exc:
-            log.info("[%s] IP de saída indisponível: %r", self.account.nick, exc)
-            return None
-        return f"{got.ip} ({got.company or '?'})" if got.ip else None
+            log.warning("[%s] IP de saída não confirmado: %r", self.account.nick, exc)
+            raise _Retry("IP de saída não confirmado; não conectei", extra={}) from exc
+        self._exit_ip_seen = f"{got.ip} ({got.company or '?'})"
+        if blocks_connection(got):
+            log.error(
+                "[%s] IP de saída %s é de datacenter; não conectei",
+                self.account.nick,
+                got.summary(),
+            )
+            raise _Retry("IP de saída de datacenter; não conectei", extra={})
 
     async def _exit_ip(self) -> str | None:
-        """O IP de saída desta tentativa, se a consulta terminar em até 10 s."""
-        task = self._exit_ip_task
-        if task is None:
-            return None
-        try:
-            return await asyncio.wait_for(asyncio.shield(task), timeout=10.0)
-        except Exception:
-            return None
+        """O IP de saída confirmado nesta tentativa (None com a conferência desligada)."""
+        return self._exit_ip_seen
 
     def _next_backoff(self) -> float:
         delay = self._backoff
