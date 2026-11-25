@@ -515,3 +515,42 @@ async def test_stop_clears_catch_all_and_worth_ball():
     assert (h.state.catch_all, h.state.worth_ball) == (True, 2)
     await h.plugin.stop()
     assert (h.state.catch_all, h.state.worth_ball) == (False, None)
+
+
+# --- reposição na bola em tudo e espera depois do rate limit (25/11) ----------------------
+
+
+async def test_ball_in_use_refills_to_worth_target_in_catch_all():
+    """Na bola em tudo, a bola em uso vai até ball_worth_target (300), não até 100."""
+    h = await Harness(focus="capture").start()
+    h.state.balls = {"1": 1000, "2": 100, "3": 100, "4": 100}
+    await h.kills(60, gold=500)  # 500 líquidos por abate → a Ultra (130) se paga
+    assert h.state.worth_ball == 4
+    assert h.wires("shop.buy") == []
+    h.state.balls = {**h.state.balls, "4": 99}
+    h.now += 11
+    await h.kills(1, gold=500)
+    assert h.wires("shop.buy") == [{"t": "shop.buy", "kind": "ball", "id": 4, "qty": 201}]
+
+
+async def test_worth_target_only_with_catch_all():
+    """Sem a bola em tudo, as bolas 2 a 4 continuam indo só até ball_min."""
+    h = await Harness(focus="gold_xp_drop").start()
+    h.state.balls = {"1": 1000, "2": 100, "3": 100, "4": 99}
+    h.state.worth_ball = 4
+    await h.kills(1, gold=500)
+    assert h.wires("shop.buy") == [{"t": "shop.buy", "kind": "ball", "id": 4, "qty": 1}]
+
+
+async def test_rate_limit_waits_instead_of_retrying_every_event():
+    """Um rate_limit na compra vira uma espera, não um action.blocked a cada abate."""
+    h = await Harness(focus="gold_xp_drop").start()
+    h.state.balls = {"1": 80, "2": 100, "3": 0, "4": 100}
+    await h.kills(1)  # compra a Poké
+    h.state.balls = {**h.state.balls, "1": 1000}
+    await h.kills(10)  # confirma a Poké; a Super esbarra no intervalo de 10 s do shop.buy
+    blocked = [d for t, d in h.recorded if t == "action.blocked"]
+    assert len(blocked) == 1
+    h.now += 11
+    await h.kills(1)
+    assert h.wires("shop.buy")[-1] == {"t": "shop.buy", "kind": "ball", "id": 3, "qty": 100}
