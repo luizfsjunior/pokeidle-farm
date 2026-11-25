@@ -30,6 +30,7 @@ from ..events import Event
 from .base import Plugin, PluginContext
 
 HOUR_S = 3600.0
+RATE_LIMIT_RETRY_S = 5.0  # espera mínima depois de um rate_limit na compra
 
 
 class ItemRule(BaseModel):
@@ -46,6 +47,9 @@ class RestockConfig(BaseModel):
     items: list[ItemRule] = Field(default_factory=list)  # poções e revives
     ball_min: int = 100
     ball_target: int = 1_000
+    # na bola em tudo, a bola em uso (worth_ball) vai até aqui quando cai abaixo de ball_min: poucas
+    # compras grandes em vez de 1–2 bolas depois de cada arremesso (25/11)
+    ball_worth_target: int = 300
     gold_reserve: int = 5_000
     max_gold_per_hour: int = 50_000
     window_kills: int = 200
@@ -100,6 +104,7 @@ class RestockPlugin(Plugin):
         self._auto_sent: dict[str, Any] | None = None
         self._auto_sent_at = 0.0
         self._late: list[_Pending] = []  # passaram do prazo, mas ainda podem confirmar
+        self._retry_at = 0.0  # depois de um rate_limit, a próxima tentativa de compra
         # foco rank: modo do último rank.mode (antes do primeiro: ativo)
         self._rank_mode = "active"
         self._publish_catch_all()
@@ -260,9 +265,16 @@ class RestockPlugin(Plugin):
         cfg = self.cfg
         rules = [self._potion_rule(r.id, r.min, r.target) for r in cfg.items if r.id in ITEM_PRICES]
         # toda bola comprável sempre no bolso: abaixo de ball_min, a Poké vai até ball_target e as
-        # outras até ball_min (captura-manual.md, P3)
+        # outras até ball_min (captura-manual.md, P3); na bola em tudo, a bola em uso vai até
+        # ball_worth_target
+        in_use = self.ctx.state.worth_ball if self.ctx.state.catch_all else None
         for b in BALLS.values():
-            target = cfg.ball_target if b.id == 1 else cfg.ball_min
+            if b.id == 1:
+                target = cfg.ball_target
+            elif b.id == in_use:
+                target = max(cfg.ball_min, cfg.ball_worth_target)
+            else:
+                target = cfg.ball_min
             rules.append(("ball", b.id, cfg.ball_min, target, b.price))
         return rules
 
@@ -287,6 +299,8 @@ class RestockPlugin(Plugin):
         if self._pending is not None:
             return
         now = self.clock()
+        if now < self._retry_at:
+            return  # o rate limit pediu espera: não tenta (nem grava action.blocked) a cada evento
         gold = self.ctx.state.gold or 0
         for kind, id_, min_, target, price in self._rules():
             if now < self._cooldown.get((kind, id_), 0.0):
@@ -308,7 +322,9 @@ class RestockPlugin(Plugin):
                 await self.ctx.actions.submit(ShopBuy(kind=kind, id=id_, qty=qty), source=self.name)
             except ActionBlocked as exc:
                 if exc.reason.startswith("rate_limit"):
-                    return  # tenta de novo no próximo evento
+                    # tenta de novo quando o limite deixar (com os arremessos, ele vive cheio)
+                    self._retry_at = now + max(RATE_LIMIT_RETRY_S, exc.wait_s or 0.0)
+                    return
                 await self._fail(kind, id_, exc.reason)
                 continue
             self._pending = _Pending(kind, id_, qty, price, stock, now + self.cfg.confirm_timeout_s)
