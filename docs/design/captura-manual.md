@@ -49,6 +49,23 @@ e dá menos código.
 - **Fora do escopo**: o `rank` e o foco `capture` do `restock` também usam a bola automática. Por enquanto, os dois
   só desligam as flags de bola (regra 4). Passar os dois para o arremesso manual fica para um pedido próprio.
 
+## Bola em tudo no arremesso manual (25/11)
+
+A regra 3 parte de uma premissa errada: a wiki do jogo (`pokepedia.mjs`, capítulo de shiny) diz que **o brilho é
+sorteado no arremesso**, não dá para saber antes, e um shiny que escapa vai embora com o corpo. Então o corpo quase
+nunca chega marcado como shiny, e o worker não jogava bola fora da captura ativa: 0 shiny nas contas até aqui.
+
+Com isso, a "bola em tudo" (`catch_all`, o `restock` no foco `capture`) passou ao arremesso manual:
+
+- o `restock` publica `state.catch_all` (o foco efetivo é `capture`; no `rank`, só quando ele cai no fallback
+  `capture`) e zera `catch_all` e `worth_ball` ao parar;
+- o `ball_thrower` joga a `worth_ball` em **todo corpo** quando `catch_all` está ligado. Sem `worth_ball` (menos de
+  50 abates ou nenhuma bola se paga), não joga. A espécie da captura ativa continua com a bola dela;
+- a reposição e o teto de gasto por hora seguem os do `restock` (P3).
+
+Conta da chance: shiny por arremesso = 1/24.000 × chance da bola. Com a Ultra num 1º estágio (1,46%), ~1,6 milhão de
+corpos por shiny. O Depot enche mais rápido (~200 capturas por dia por conta); por ora o usuário esvazia na mão.
+
 ## Casos de teste
 
 Tradutor:

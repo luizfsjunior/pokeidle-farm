@@ -151,3 +151,53 @@ async def test_worth_ball_or_poke():
     w.t += 2
     await w.kill(2)
     assert w.throws()[-1]["ballId"] == 1
+
+
+# --- bola em tudo (state.catch_all, do restock no foco capture) ---------------------------
+
+
+async def test_catch_all_throws_worth_ball_on_every_body():
+    """Bola em tudo: todo corpo, de qualquer espécie, leva a worth_ball (o shiny sai no arremesso)."""
+    w = await World(balls={"1": 95, "4": 30}).start()
+    w.state.catch_all, w.state.worth_ball = True, 4
+    await w.kill(10, name="Magikarp")
+    await w.kill(11, name="Horsea")
+    assert w.throws() == [
+        {"t": "ball.throw", "ballId": 4, "slot": 10},
+        {"t": "ball.throw", "ballId": 4, "slot": 11},
+    ]
+
+
+async def test_catch_all_without_worth_ball_does_not_throw():
+    """Sem bola que se pague (ou com menos de 50 abates), a bola em tudo não joga nada."""
+    w = await World().start()
+    w.state.catch_all, w.state.worth_ball = True, None
+    await w.kill(10, name="Magikarp")
+    assert w.throws() == []
+
+
+async def test_catch_all_off_keeps_old_behaviour():
+    """Sem bola em tudo, a worth_ball sozinha não faz jogar (só captura ativa e shiny)."""
+    w = await World().start()
+    w.state.worth_ball = 4
+    await w.kill(10, name="Magikarp")
+    assert w.throws() == []
+
+
+async def test_catch_all_and_capture_target_together():
+    """O alvo usa a bola dele; os outros corpos, a worth_ball."""
+    w = await World(capture={**PICHU, "ball_id": 5}).start()
+    w.state.catch_all, w.state.worth_ball = True, 1
+    await w.kill(20, name="Pichu")
+    await w.kill(21, name="Magikarp")
+    assert w.throws() == [
+        {"t": "ball.throw", "ballId": 5, "slot": 20},
+        {"t": "ball.throw", "ballId": 1, "slot": 21},
+    ]
+
+
+async def test_catch_all_worth_ball_out_of_stock_falls_back_below():
+    w = await World(balls={"1": 95, "4": 0}).start()
+    w.state.catch_all, w.state.worth_ball = True, 4
+    await w.kill(10, name="Magikarp")
+    assert w.throws() == [{"t": "ball.throw", "ballId": 1, "slot": 10}]

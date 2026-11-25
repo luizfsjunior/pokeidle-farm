@@ -490,3 +490,28 @@ async def test_worth_ball_super_with_60_per_kill():
     h = await Harness().start()
     await h.kills(60, gold=60)
     assert h.state.worth_ball == 3
+
+
+# --- bola em tudo: o restock publica state.catch_all para o ball_thrower ------------------
+
+
+async def test_catch_all_follows_the_effective_focus():
+    assert (await Harness(focus="capture").start()).state.catch_all is True
+    assert (await Harness(focus="gold_xp_drop").start()).state.catch_all is False
+
+
+async def test_catch_all_in_rank_only_on_capture_fallback():
+    h = await Harness(focus="rank", fallback_focus="capture").start()
+    assert h.state.catch_all is False  # o rank tem alvo: as bolas são dele
+    await h.send_ev(ev("rank.mode", mode="fallback", reason="queue_empty"))
+    assert h.state.catch_all is True
+    await h.send_ev(ev("rank.mode", mode="active", ball_id=2))
+    assert h.state.catch_all is False
+
+
+async def test_stop_clears_catch_all_and_worth_ball():
+    h = await Harness(focus="capture").start()
+    await h.kills(60, gold=41)
+    assert (h.state.catch_all, h.state.worth_ball) == (True, 2)
+    await h.plugin.stop()
+    assert (h.state.catch_all, h.state.worth_ball) == (False, None)

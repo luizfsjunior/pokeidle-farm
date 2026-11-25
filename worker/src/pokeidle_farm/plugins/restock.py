@@ -102,6 +102,7 @@ class RestockPlugin(Plugin):
         self._late: list[_Pending] = []  # passaram do prazo, mas ainda podem confirmar
         # foco rank: modo do último rank.mode (antes do primeiro: ativo)
         self._rank_mode = "active"
+        self._publish_catch_all()
         await self._load_spent()
         if self.cfg.focus == "rank":
             await self._load_rank_mode()
@@ -127,6 +128,16 @@ class RestockPlugin(Plugin):
         if self.cfg.focus != "rank":
             return self.cfg.focus
         return "rank" if self._rank_mode == "active" else self.cfg.fallback_focus
+
+    def _publish_catch_all(self) -> None:
+        """ "Bola em tudo" é o foco capture efetivo (no rank, só quando ele cai no fallback capture)."""
+        self.ctx.state.catch_all = self._focus() == "capture"
+
+    async def stop(self) -> None:
+        # desligado, ninguém escolhe nem repõe a bola: o ball_thrower para de jogar em tudo
+        self.ctx.state.catch_all = False
+        self.ctx.state.worth_ball = None
+        await super().stop()
 
     async def _load_spent(self) -> None:
         """Recupera o gasto da última hora, para o teto valer mesmo depois de reiniciar."""
@@ -157,6 +168,7 @@ class RestockPlugin(Plugin):
             self._window[-1][1] += (d.get("qty") or 0) * (d.get("unit_price") or 0)
         elif event.type == "rank.mode":
             self._on_rank_mode(d)
+        self._publish_catch_all()
         await self._check_pending()
         await self._sync_automation()
         await self._restock()
