@@ -4,7 +4,11 @@ A bola automática do jogo exige VIP. O arremesso manual não exige, e vale para
 - shiny: em qualquer hunt, sempre, a melhor bola em estoque, até a Beast;
 - captura ativa (`state.capture`, do capture_target): todo corpo da espécie-alvo, com a bola escolhida
   ou com a que vale a pena (`state.worth_ball`, do restock; Poké sem dados). Sem estoque dela, a melhor
-  abaixo.
+  abaixo;
+- bola em tudo (`state.catch_all`, restock no foco capture): todo corpo, com a `worth_ball`. Sem ela (poucos
+  abates ou nenhuma bola se paga), não joga. É o único jeito de ter shiny: o brilho é sorteado no
+  arremesso, não dá para saber antes (wiki do jogo, `pokepedia.mjs`), então o ramo "shiny" acima só pega o
+  caso raro de o jogo marcar o corpo.
 Um corpo fica 30 s no chão e aceita uma bola só; entre arremessos, 1,2 s.
 """
 
@@ -33,7 +37,9 @@ def _same(a: Any, b: Any) -> bool:
 
 class BallThrowerPlugin(Plugin):
     name: ClassVar[str] = "ball_thrower"
-    description: ClassVar[str] = "Joga a bola nos shinies e na espécie da captura ativa"
+    description: ClassVar[str] = (
+        "Joga bola nos shinies, na captura ativa e em todo corpo (bola em tudo)"
+    )
     subscribes: ClassVar[set[str]] = {"kill"}
     always_on: ClassVar[bool] = True
 
@@ -66,9 +72,14 @@ class BallThrowerPlugin(Plugin):
                 return
         else:
             cap = self.ctx.state.capture
-            if not cap or not _same(d.get("wild_name"), cap.get("species_name")):
+            worth = self.ctx.state.worth_ball
+            if cap and _same(d.get("wild_name"), cap.get("species_name")):
+                ball = self._best_up_to(cap.get("ball_id") or worth or 1)
+            elif self.ctx.state.catch_all and worth:
+                # bola em tudo: só com uma bola que se paga (sem dados ou sem nenhuma, não joga)
+                ball = self._best_up_to(worth)
+            else:
                 return
-            ball = self._best_up_to(cap.get("ball_id") or self.ctx.state.worth_ball or 1)
             if ball is None:
                 return
         await self._throw(ball, slot, event.received_at + timedelta(seconds=BODY_S))
