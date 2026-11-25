@@ -9,9 +9,9 @@ pokémon, 23:12 UTC) e os eventos gravados da `luizfsjunior_1` (treinador nível
 | Fonte | O que vimos | Para a conta hoje |
 |---|---|---|
 | Pedras de evolução | todas a **2 gemas** no menor anúncio, filas de centenas a 45 mil ([fase-9](design/fase-9-venda-de-pedras.md)) | bônus; ~1 gema líquida cada |
-| Key / Shiny Stone / Bicycle Fragment | vendas reais a **~222 / ~89 / ~178 gemas**; Key Fragment vendeu 28 em 6 min | só na **Outland (nível 150)**, 1 em 200 mil abates cada (×1,25 a ×8 nos tiers 2 a 8) |
+| Key / Shiny Stone / Bicycle Fragment | vendas reais a **~222 / ~89 / ~178 gemas**; Key Fragment vendeu 28 em 6 min | só na **Outland (nível 150)**, 1 em 250 mil abates cada na Outland 1; desde 16/11 são 40 degraus, até ×20 no nível 65.000 (era 1 em 200 mil e ×1,25 a ×8; ver [regras-do-jogo](regras-do-jogo.md#outland-desde-1611)) |
 | Mega Shiny Stone Fragment | vendas reais a **~538 gemas** | origem ainda a ver |
-| Bronze Boss Token | 1.446 vendidos em 6 min a **~3 gemas** | Outland, 0,05% por abate |
+| Bronze Boss Token | 1.446 vendidos em 6 min a **~3 gemas** | Outland, 1 em 10 mil abates na Outland 1 (0,01% hoje; aqui estava 0,05%), até 1 em 500 na Outland 40 |
 | TM Disk Piece / AoE | médias de 161 / 290 gemas; uma AoE vendida a 247 | origem ainda a ver (bosses?) |
 | **Pokémon shiny** | anunciados de **35 mil a 175 mil gemas** (US$ 300 a 1.500); Larvitar shiny nível 23 a 65 mil | shiny = 1 em 24.000 capturas; precisa de capturas em volume |
 | Pokémon fortes não shiny | anúncios de 50 mil a 79 milhões são "não vendo"; P5/nota alta ainda sem dado | Mercado só aceita nível ≥ 50 e nota ≥ 3,5 (shiny, P5 e lendário em qualquer nível) |
@@ -30,14 +30,16 @@ Do capítulo de combate e de níveis da wiki do jogo:
 - **Só o pokémon ativo luta.** Os outros do time entram se ele desmaiar.
 - **Cada abate dá a mesma XP ao treinador e ao pokémon ativo.** O nível do treinador destrava áreas; o do pokémon
   aumenta os stats. Um pokémon só entra em campo até alguns níveis acima do treinador (o inicial é exceção).
-- **XP por abate** = ⌊0,6 × nível do selvagem²⌋ + 8 (até 150), multiplicada pelos bônus. Medido: ~1,65× a base
+- **XP por abate** = ⌊0,6 × nível do selvagem²⌋ + 8 (até 150; acima, 0,6 × 150² × (n/150)^1,25, como em
+  `xp_model.py`: a hunt 200 paga ~19,3 mil, o que o guia "Todos os bônus de XP" confirma), multiplicada pelos bônus. Medido: ~1,65× a base
   (evento ×1,36 e VIP ×1,5 enquanto valiam).
 - **XP para subir** de L para L+1 = 50·L² − 150·L + 200; total até L = 50/3·(L³ − 6L² + 17L − 12). Até o 30: 368 mil;
   até o 50: 1,85 milhão; até o 100: 15,7 milhões; **até o 150: 54 milhões**.
 - **Dano** = ((2·nível/5 + 2) × poder × atk/def)/50 + 2, × 1,5 (golpe do próprio tipo) × efetividade de tipo. O selvagem
   tem HP ×5. Os stats crescem com o nível.
-- **Multiplicadores de XP:** VIP +50%, XP Boost +50%, Boost dos Atrasados (multiplica até o treinador alcançar os
-  veteranos), guild, eventos. Eles se multiplicam.
+- **Multiplicadores de XP:** VIP +50%, XP Boost +50%, Boost dos Atrasados (×10 até o nível dos veteranos, 1.160 em
+  17/11), guild, Sacrifício +20%, eventos. Eles se multiplicam.
+- **Desmaiar o time inteiro custa 10% do XP do nível atual** do treinador (guia "O Mapa e o Hunt Analyser").
 
 ### Ritmo por nível do ativo
 
