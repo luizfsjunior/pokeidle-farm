@@ -60,3 +60,43 @@ mesmas 189 linhas de `metric_hourly`.
 
 Custo: o abate individual (nome do selvagem, onda, slot, `raw`) não fica mais guardado. Nada lia esses campos do banco;
 os plugins continuam recebendo o evento inteiro pelo barramento.
+
+## 26/11: bolas por minuto
+
+Épico 0 do plano de 26/11 ("folga no banco"). O banco estava em 390 MB de 500, 349 MB só na `events`: 162 MB de
+tabela, 150 MB de índices e 37 MB de TOAST. Nas últimas 24 h, três tipos eram quase tudo (~190 mil linhas por dia):
+
+| tipo | por dia | quem lia do banco |
+|---|---|---|
+| `action.sent` | 66 mil (63 mil de `ball.throw`) | a página de Vendas, só `market.criar`, `market.cancelar` e `market.meus` |
+| `capture_attempt` | 61 mil | `refresh_metric_hourly` (tentativas e ouro em bolas) e `rank_hunt_stats` (última chance por hunt) |
+| `wild_fled` | 60 mil | ninguém |
+
+Mudanças (migration `20261126190000_bolas_por_minuto.sql`):
+
+- **`capture_attempt` vai para `kill_minute`**, na linha do minuto sem pokémon ativo nem dia sazonal (a mesma do
+  consumo de itens). Colunas novas: `capture_attempts`, `capture_successes`, `balls_gold` e a última chance vista no
+  minuto (`last_chance`, `last_ball_id`). `refresh_metric_hourly` e `rank_hunt_stats` leem `kill_minute` mais os
+  `capture_attempt` que ainda estão em `events` (worker antigo). O plugin `rank` continua recebendo cada bola pelo
+  barramento.
+- **`wild_fled` deixou de ser gravado** (`NOT_PERSISTED`).
+- **O `action.sent` de `ball.throw` deixou de ser gravado** (`QUIET_ACTIONS` em `events.py`): repetia o
+  `capture_attempt`. O `action.blocked` continua.
+- **Retenção** (`prune_events()`):
+  - `action.sent` e `action.blocked`: 2 dias, menos os do Mercado que a página de Vendas lê por 30 dias. Antes o
+    `action.sent` do Mercado saía em 2 dias (a página perdia os cancelamentos antigos) e o `action.blocked` de
+    qualquer ação ficava 30 dias (103 mil linhas, 30 MB, quase todas de `shop.buy` com rate limit);
+  - `unknown`: 2 dias, menos os avisos do jogo que a página de Vendas lê (`venda`, `marketComprado`, `aviso`,
+    `mktSorteio`), que ficam 30.
+
+Com o worker novo, a `events` recebe uns 5 mil eventos por dia em vez de ~195 mil.
+
+**Ordem do deploy**: primeiro a migration (merge na `main`), depois o worker. Um worker novo com o banco antigo
+não consegue gravar as colunas novas de `kill_minute`: os minutos ficam no buffer local até a migration chegar.
+
+**O espaço só volta com `VACUUM FULL`** (ou `CLUSTER`): o `DELETE` do prune só marca as linhas como livres, e os
+índices de `events` (150 MB) estavam inchados pelas apagadas de todo dia. Não roda dentro da migration (o
+`VACUUM FULL` não roda em transação, e trava a tabela): é feito à mão, depois do worker novo no ar.
+
+Verificação: `supabase/tests/bolas_por_minuto_test.sql` grava as mesmas bolas como eventos numa conta e como
+`kill_minute` em outra e exige as mesmas métricas e a mesma última chance; e confere o que o prune guarda.

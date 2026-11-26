@@ -243,10 +243,24 @@ def _qty(value: Any) -> int:
 # account_profile); em 18/11 eram 270 mil linhas e 400 MB, 62% do banco.
 # battle.cura: cada poção que o jogo aplica (~90 mil por dia com 4 contas); nada lê do banco, e o gasto
 # com poções sai do item.consumed.
-# kill e item.consumed não estão aqui: a telemetria soma por minuto em kill_minute (kill_minutes.py).
+# wild_fled: cada selvagem que foge (~60 mil por dia com 4 contas); nada lê do banco.
+# kill, item.consumed e capture_attempt não estão aqui: a telemetria soma por minuto em kill_minute
+# (kill_minutes.py).
 NOT_PERSISTED = frozenset(
-    {"attack", "wild.spawned", "rank.board", "state.patch", "battle.cura", *NOISE_TYPES.values()}
+    {
+        "attack",
+        "wild.spawned",
+        "rank.board",
+        "state.patch",
+        "battle.cura",
+        "wild_fled",
+        *NOISE_TYPES.values(),
+    }
 )
+
+# Ações cujo `action.sent` não é gravado: o lançamento de bola sai a cada abate (~63 mil por dia com
+# 4 contas) e já fica contado em kill_minute pelo capture_attempt. O `action.blocked` continua gravado.
+QUIET_ACTIONS = frozenset({"ball.throw"})
 
 
 # campos do pokémon no `estado` que o simulador de combate usa

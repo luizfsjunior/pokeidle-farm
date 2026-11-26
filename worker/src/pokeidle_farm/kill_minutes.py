@@ -1,8 +1,9 @@
-"""Soma dos abates e do consumo de itens por minuto (tabela kill_minute).
+"""Soma dos abates, do consumo de itens e das bolas lançadas por minuto (tabela kill_minute).
 
 Um abate por linha em `events` eram ~56 mil linhas por dia com 4 contas; o banco do plano grátis (500 MB)
-não aguentava nem 2 dias. A telemetria passa os `kill` e os `item.consumed` por aqui e grava uma linha por
-minuto com o que as métricas usam. Ver docs/design/retencao-eventos.md, "Abates por minuto".
+não aguentava nem 2 dias. A telemetria passa os `kill`, os `item.consumed` e os `capture_attempt` por aqui e
+grava uma linha por minuto com o que as métricas usam. Ver docs/design/retencao-eventos.md, "Abates por minuto"
+e "Bolas por minuto".
 
 Chave da linha: (conta, sessão, minuto, hunt, espécie do pokémon ativo, dia sazonal, parte). Um minuto só é
 entregue depois de fechado; se chegar um abate de um minuto já entregue (fila atrasada), ele vai para uma
@@ -17,7 +18,7 @@ from typing import Any
 
 from .events import Event
 
-AGGREGATED = frozenset({"kill", "item.consumed"})
+AGGREGATED = frozenset({"kill", "item.consumed", "capture_attempt"})
 
 # chave sem a parte: (conta, sessão, minuto, hunt, espécie ativa, dia sazonal)
 _Key = tuple[str, str, datetime, str, int, str]
@@ -40,6 +41,12 @@ class _Bucket:
     kills_leveled: int = 0
     drops: dict[str, int] = field(default_factory=dict)
     consumables_gold: int = 0
+    capture_attempts: int = 0
+    capture_successes: int = 0
+    balls_gold: int = 0
+    # a última chance de captura vista no minuto e a bola dela (plugin rank: rank_hunt_stats)
+    last_chance: float | None = None
+    last_ball_id: int | None = None
 
 
 class KillMinutes:
@@ -57,8 +64,9 @@ class KillMinutes:
         if event.type == "kill":
             species = _int(d.get("active_species_id"))
             season = d.get("season") if isinstance(d.get("season"), str) else ""
-        elif event.type == "item.consumed":
-            species, season = 0, ""  # o consumo não carrega o pokémon ativo nem o dia sazonal
+        elif event.type in ("item.consumed", "capture_attempt"):
+            # o consumo e as bolas não carregam o pokémon ativo nem o dia sazonal
+            species, season = 0, ""
         else:
             raise ValueError(f"evento não agregado: {event.type}")
         key: _Key = (
@@ -83,8 +91,19 @@ class KillMinutes:
                 if name:
                     qty = drop.get("qty")
                     b.drops[name] = b.drops.get(name, 0) + (_int(qty) if _int(qty) > 0 else 1)
-        else:
+        elif event.type == "item.consumed":
             b.consumables_gold += _int(d.get("qty")) * _int(d.get("unit_price"))
+        else:
+            b.capture_attempts += 1
+            b.capture_successes += d.get("success") is True
+            b.balls_gold += _int(d.get("ball_price"))
+            chance = d.get("chance")
+            if isinstance(chance, int | float) and not isinstance(chance, bool):
+                b.last_chance = float(chance)
+                ball = d.get("ball_id")
+                b.last_ball_id = (
+                    ball if isinstance(ball, int) and not isinstance(ball, bool) else None
+                )
 
     def take(self, before: datetime | None = None) -> list[dict[str, Any]]:
         """Tira as linhas dos minutos anteriores a `before` (todos, se None)."""
@@ -112,6 +131,11 @@ class KillMinutes:
                     "kills_leveled": b.kills_leveled,
                     "drops": [{"name": n, "qty": q} for n, q in sorted(b.drops.items())],
                     "consumables_gold": b.consumables_gold,
+                    "capture_attempts": b.capture_attempts,
+                    "capture_successes": b.capture_successes,
+                    "balls_gold": b.balls_gold,
+                    "last_chance": b.last_chance,
+                    "last_ball_id": b.last_ball_id,
                 }
             )
         # as partes de minutos antigos não servem mais: a fila não atrasa uma hora
