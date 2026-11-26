@@ -23,6 +23,8 @@ export const PLUGIN_INFO: Record<string, PluginInfo> = {
   },
   ball_thrower: { label: "Lançador de bolas", hint: "Joga bola em todo shiny e na captura ativa.", alwaysOn: true },
   market_prices: { label: "Preços do Mercado", hint: "Lê as médias e os anúncios do Mercado de hora em hora.", alwaysOn: true },
+  // card próprio (NotifierEditor): um interruptor por tipo de aviso e o aviso de teste
+  notifier: { label: "Avisos no Discord", hint: "Shiny, captura rara, drop raro, queda, rank e nível.", alwaysOn: true, activeKey: true },
 };
 
 export type PluginRow = { plugin: string; enabled: boolean; config: Record<string, unknown> };

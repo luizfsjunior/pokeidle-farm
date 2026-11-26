@@ -652,3 +652,28 @@ async def test_exit_check_off_connects_without_asking(fake_game, make_session, s
     await task
     connected = next(e for e in store.events if e["type"] == "session.connected")
     assert connected["data"]["exit_ip"] is None
+
+
+async def test_always_on_plugins_boot_with_the_saved_config(
+    fake_game, make_session, store, account
+):
+    """Antes os sempre ligados subiam com a config padrão e o `active: false` só valia depois de
+    um plugin.set; o notifier precisa disso para não avisar a queda de uma conta desligada."""
+    await store.set_plugin_config(account.id, "outland_tier", True, {"active": False})
+
+    async def script(ws, hello, n):
+        await ws.send('{"t":"erro","chave":"auth.sessaoInvalida"}')
+        await keep_open(ws)
+
+    game = await fake_game(script)
+    session = make_session(game.url)
+    seen: dict[str, object] = {}
+    original = session.plugins.start_all
+
+    async def spy(bus, configs, make_ctx, **kw):
+        seen.update(configs)
+        await original(bus, configs, make_ctx, **kw)
+
+    session.plugins.start_all = spy  # type: ignore[method-assign]
+    await asyncio.wait_for(session.run(), 3)
+    assert seen["outland_tier"] == (True, {"active": False})

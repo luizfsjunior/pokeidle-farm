@@ -16,7 +16,7 @@ a DigitalOcean, [ADR 0011](decisions/0011-worker-em-ip-residencial.md)); hoje, o
 | `AccountSession` | Uma por conta. Faz a conexão WebSocket, o handshake com o token, o heartbeat e a reconexão com backoff exponencial. |
 | `protocol` | Modelos Pydantic das mensagens do jogo (entrada e saída). Nada de JSON solto fora daqui. |
 | `events` | `Translator`: traduz as mensagens do jogo em eventos tipados (abate, drop, captura, estado, troca de hunt, Top Catch, ranking, médias do Mercado). A sessão publica no barramento (`bus`); os plugins assinam. |
-| `plugins/` | Plugins com interface comum (`Plugin`, `PluginContext`), ligados e configurados por conta em `strategy_configs`: `telemetry` e `market_prices` (sempre ligados), `restock`, `rank`, `gems` e `seller`. Ver [ADR 0008](decisions/0008-escopo-completo-modular.md) e os desenhos em `design/`. |
+| `plugins/` | Plugins com interface comum (`Plugin`, `PluginContext`), ligados e configurados por conta em `strategy_configs`: `telemetry`, `market_prices` e `notifier` (avisos no Discord) sempre ligados, `restock`, `rank`, `gems` e `seller`. Ver [ADR 0008](decisions/0008-escopo-completo-modular.md) e os desenhos em `design/`. |
 | `actions` | `ActionGateway`: único caminho para mandar ações ao jogo (`ShopBuy`, `AutoSet`, `HuntSelect`, `TopCatchRequest`, `RankingRequest`, `MarketAverages`), com o `ACTION_MODE` e um `RateLimiter` por ação e conta, para cumprir o "não sobrecarregar o servidor". |
 | `gamedata` | Catálogo de hunts (do `welcome`), Pokedex e itens (dos JSON públicos do jogo, por ETag), gravados no banco só quando mudam. |
 | `commands` | `Supervisor` (sessões de todas as contas) e `CommandLoop`: busca os comandos pendentes do painel a cada `COMMANDS_POLL_S` (5 s) e executa um por vez. |

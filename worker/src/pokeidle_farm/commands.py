@@ -92,11 +92,13 @@ class Supervisor:
         make_session: SessionFactory,
         available_plugins: dict[str, type[Plugin]],
         holder: str,
+        settings: Any = None,
     ) -> None:
         self.store = store
         self.make_session = make_session
         self.available = available_plugins
         self.holder = holder
+        self.settings = settings  # para o aviso de teste (DISCORD_WEBHOOK_URL, PANEL_URL)
         self.accounts: dict[UUID, AccountRecord] = {}
         self.live: dict[UUID, _Live] = {}
         self._stopping = False
@@ -221,6 +223,15 @@ class Supervisor:
         if self._is_running(acc.id):
             applied = await self.live[acc.id].session.restart_plugin(p.plugin)
         return {"enabled": enabled, "applied": "agora" if applied else "na próxima conexão"}
+
+    async def _notify_test(self, acc: AccountRecord, _p: dict[str, Any]) -> dict[str, Any]:
+        """Aviso de teste no Discord (plugin notifier): sai já, mesmo com a conta desconectada."""
+        from .plugins.notifier import send_test
+
+        try:
+            return await send_test(self.settings, acc.nick, acc.id)
+        except Exception as exc:
+            raise CommandError(f"aviso não enviado: {exc}") from exc
 
     async def _send_now(
         self,
@@ -1005,6 +1016,7 @@ _HANDLERS: dict[str, Handler] = {
     "team.apply": Supervisor._team_apply,
     "collection.move": Supervisor._collection_move,
     "depot.sell": Supervisor._depot_sell,
+    "notify.test": Supervisor._notify_test,
 }
 
 

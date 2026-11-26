@@ -69,6 +69,14 @@ class Settings(BaseSettings):
     # Ações. Na fase 2 o gateway só observa.
     action_mode: str = "observe_only"
 
+    # Avisos no Discord (plugin notifier, épico A). Sem a URL o notifier fica degradado e nada sai.
+    # É segredo (quem tem a URL posta no canal): só no .env, nunca no banco.
+    discord_webhook_url: SecretStr | None = None
+    # base dos links dos avisos (ex.: https://painel.vercel.app); vazio: aviso sem link
+    panel_url: str | None = None
+    # avisos por minuto, somando as contas (um webhook só; o Discord corta perto de 30/min)
+    notify_per_minute: int = Field(10, ge=1, le=30)
+
     log_level: str = "INFO"
 
     # Modo memória: uma conta vinda do .env (ACCOUNT_1_*).

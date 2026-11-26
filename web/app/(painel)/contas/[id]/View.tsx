@@ -19,6 +19,7 @@ import { OutlandCard } from "./OutlandCard";
 import { PlanCard } from "./PlanCard";
 import { pluginRows } from "@/lib/plugins";
 import { PluginEditor } from "./PluginEditor";
+import { NotifierEditor } from "./NotifierEditor";
 import { ProfileSections } from "./ProfileSections";
 import { Collection } from "./Collection";
 import { RankCard } from "./RankCard";
@@ -123,9 +124,9 @@ export function AccountView() {
             Agora; aqui é para ligar ou desligar à mão. O worker valida a config antes de gravar e reinicia o plugin na hora.</>}>
             <div className="stack">
               {!d && loading}
-              {d && pluginRows(d.plugins).map((p) => (
-                <PluginEditor key={p.plugin} accountId={d.account.id} plugin={p.plugin} enabled={p.enabled} config={p.config} />
-              ))}
+              {d && pluginRows(d.plugins).map((p) => p.plugin === "notifier"
+                ? <NotifierEditor key={p.plugin} accountId={d.account.id} config={p.config} />
+                : <PluginEditor key={p.plugin} accountId={d.account.id} plugin={p.plugin} enabled={p.enabled} config={p.config} />)}
             </div>
           </Panel>
           <Panel title="Últimos comandos" flush>
