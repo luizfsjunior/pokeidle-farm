@@ -1,7 +1,8 @@
 """Plugin de telemetria: grava os eventos brutos no Supabase, em lotes.
 
-Os abates e o consumo de itens não viram uma linha cada: são somados por minuto e gravados em
-kill_minute quando o minuto fecha (kill_minutes.py, docs/design/retencao-eventos.md).
+Os abates, o consumo de itens e as bolas lançadas não viram uma linha cada: são somados por minuto e
+gravados em kill_minute quando o minuto fecha (kill_minutes.py, docs/design/retencao-eventos.md). O
+`action.sent` das ações de alto volume (QUIET_ACTIONS) não é gravado.
 
 Se o banco falhar, guarda as linhas num buffer local (JSONL, um arquivo por tabela) e reenvia
 depois, para não perder evento por queda de rede.
@@ -16,7 +17,7 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, ClassVar
 
-from ..events import NOT_PERSISTED, Event, utcnow
+from ..events import NOT_PERSISTED, QUIET_ACTIONS, Event, utcnow
 from ..kill_minutes import AGGREGATED, KillMinutes
 from .base import Plugin, PluginContext
 
@@ -44,6 +45,8 @@ class TelemetryPlugin(Plugin):
     async def on_event(self, event: Event) -> None:
         if event.type in AGGREGATED:
             self._minutes.add(event)
+            return
+        if event.type == "action.sent" and event.data.get("action") in QUIET_ACTIONS:
             return
         self._batch.append(event.to_row())
         if len(self._batch) >= self._batch_size:

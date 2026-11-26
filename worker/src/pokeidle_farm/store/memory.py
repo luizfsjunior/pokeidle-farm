@@ -286,6 +286,11 @@ class MemoryStore:
             if row.get("kills_leveled"):
                 s, n = levels.get(slug, (0.0, 0))
                 levels[slug] = (s + row["active_level_sum"], n + row["kills_leveled"])
+            chance = row.get("last_chance")
+            if chance is not None:
+                prev = chances.get(slug)
+                if prev is None or minute >= prev[0]:
+                    chances[slug] = (minute, float(chance), row.get("last_ball_id"))
         for row in self.events:
             if str(row.get("account_id")) != str(account_id):
                 continue

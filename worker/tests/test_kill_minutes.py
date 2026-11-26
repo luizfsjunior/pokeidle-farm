@@ -28,6 +28,17 @@ def consumed(at: datetime, qty: int, price: int) -> Event:
     return Event(account_id=ACC, session_id=SES, type="item.consumed", received_at=at, data=data)
 
 
+def throw(at: datetime, **data) -> Event:
+    base = {"hunt_slug": "rochaz", "ball_id": 1, "ball_price": 10, "success": False, "chance": 0.05}
+    return Event(
+        account_id=ACC,
+        session_id=SES,
+        type="capture_attempt",
+        received_at=at,
+        data={**base, **data},
+    )
+
+
 def test_sums_a_minute():
     km = KillMinutes()
     km.add(kill(T0, gold_autosell=5, active_level=30, drops=[{"name": "Pena", "qty": 2}]))
@@ -87,10 +98,31 @@ def test_late_kill_goes_to_a_new_part():
     assert first["minute"] == late["minute"] and late["kills"] == 1
 
 
+def test_sums_ball_throws_in_the_consumption_row():
+    km = KillMinutes()
+    km.add(throw(T0, chance=0.05, ball_id=1))
+    km.add(throw(T0 + timedelta(seconds=20), success=True, chance=0.2, ball_id=4, ball_price=50))
+    km.add(throw(T0 + timedelta(seconds=30), chance=None, ball_id=2, ball_price=None))
+    km.add(consumed(T0, 1, 26))
+    [row] = km.take()  # sem pokémon ativo nem dia sazonal: a mesma linha do consumo
+    assert (row["kills"], row["active_species_id"], row["season"]) == (0, 0, "")
+    assert (row["capture_attempts"], row["capture_successes"], row["balls_gold"]) == (3, 1, 60)
+    # a última bola com chance conhecida (a sem chance não apaga a anterior)
+    assert (row["last_chance"], row["last_ball_id"]) == (0.2, 4)
+    assert row["consumables_gold"] == 26
+
+
+def test_minute_without_throws_has_no_chance():
+    km = KillMinutes()
+    km.add(kill(T0))
+    [row] = km.take()
+    assert (row["capture_attempts"], row["last_chance"], row["last_ball_id"]) == (0, None, None)
+
+
 def test_aggregated_types_are_not_persisted_as_events():
-    assert AGGREGATED == {"kill", "item.consumed"}
+    assert AGGREGATED == {"kill", "item.consumed", "capture_attempt"}
     assert not AGGREGATED & NOT_PERSISTED  # vão para kill_minute, não somem
-    assert "battle.cura" in NOT_PERSISTED
+    assert {"battle.cura", "wild_fled"} <= NOT_PERSISTED
 
 
 async def test_memory_store_ignores_repeated_rows():
@@ -113,6 +145,18 @@ async def test_rank_hunt_stats_reads_kill_minutes():
     [stats] = await store.rank_hunt_stats(ACC, T0 - timedelta(hours=1))
     assert (stats.hunt_slug, stats.kills, stats.active_minutes, stats.xp) == ("rochaz", 3, 2, 300)
     assert stats.avg_active_level == 31
+    assert stats.last_chance is None
+
+
+async def test_rank_hunt_stats_reads_last_chance_from_kill_minutes():
+    store = MemoryStore()
+    km = KillMinutes()
+    km.add(throw(T0, chance=0.05, ball_id=1))
+    km.add(throw(T0 + timedelta(minutes=1), chance=0.08, ball_id=4))
+    await store.insert_kill_minutes(km.take())
+    [stats] = await store.rank_hunt_stats(ACC, T0 - timedelta(hours=1))
+    assert (stats.hunt_slug, stats.kills, stats.active_minutes) == ("rochaz", 0, 0)
+    assert (stats.last_chance, stats.last_ball_id) == (0.08, 4)
 
 
 @pytest.fixture
@@ -148,6 +192,22 @@ async def test_telemetry_keeps_open_minute_until_stop(telemetry):
     assert [m["kills"] for m in store.kill_minutes] == [1]
     await plugin.stop()  # ao parar, o minuto aberto também vai
     assert sum(m["kills"] for m in store.kill_minutes) == 2
+
+
+async def test_telemetry_skips_ball_throw_action_sent(telemetry):
+    store = MemoryStore()
+    plugin = await telemetry(store)
+
+    def sent(action: str) -> Event:
+        data = {"action": action, "source": "ball_thrower", "input": {}}
+        return Event(account_id=ACC, session_id=SES, type="action.sent", data=data)
+
+    await plugin.on_event(sent("ball.throw"))
+    await plugin.on_event(sent("market.criar"))
+    await plugin.on_event(throw(datetime.now(UTC) - timedelta(minutes=2)))
+    await plugin.stop()
+    assert [e["data"]["action"] for e in store.events] == ["market.criar"]
+    assert [m["capture_attempts"] for m in store.kill_minutes] == [1]
 
 
 async def test_telemetry_buffers_minutes_when_store_fails(telemetry, tmp_path):
