@@ -59,7 +59,8 @@ export function AccountView() {
         {/* Agora */}
         <>
           {!d ? loading : (
-            <TrainerCard account={d.account} profile={profile} atlas={atlas} looktypes={d.looktypes} wide hideNick />
+            <TrainerCard account={d.account} profile={profile} atlas={atlas} looktypes={d.looktypes} wide hideNick
+              switchActive={{ training: d.plugins.some((p) => p.plugin === "team_train" && p.enabled) }} />
           )}
           {d && (
             <NowCard accountId={d.account.id} plugins={d.plugins} capture={d.capture} hold={d.hold} hunts={d.huntOptions}

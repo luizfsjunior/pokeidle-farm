@@ -340,6 +340,13 @@ a:hover > .trainer-nick { color: var(--accent); }
 .team-strip { list-style: none; margin: 0; padding: 0; display: flex; gap: .4rem; flex-wrap: wrap; }
 .team-strip li { display: grid; justify-items: center; font-size: .74rem; color: var(--text-muted); padding: .2rem .25rem; border-radius: 8px; background: var(--surface-0); }
 .team-strip li.is-active { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+/* página da conta: tocar num pokémon da equipe o torna o ativo */
+.team-pick { display: grid; justify-items: center; gap: 0; background: none; border: 0; padding: 0; margin: 0; min-height: 0;
+  color: inherit; font: inherit; cursor: pointer; border-radius: 6px; }
+.team-strip li:has(.team-pick):hover { box-shadow: inset 0 0 0 1px var(--border); }
+.team-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.team-pick:disabled { opacity: .6; cursor: progress; }
+.team-hint { margin: .35rem 0 0 !important; }
 
 .sprite { display: inline-block; flex-shrink: 0; background-repeat: no-repeat; image-rendering: pixelated; }
 img.sprite { object-fit: contain; transform: scale(1.35); } /* o sprite nacional tem margem transparente */
@@ -1023,6 +1030,14 @@ button.danger:disabled { opacity: .5; }
   padding: .4rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); box-shadow: var(--shadow); }
 .more-menu-list button { justify-content: flex-start; text-align: left; width: 100%; }
 .more-menu-list hr { border: 0; border-top: 1px solid var(--grid); margin: .2rem 0; width: 100%; }
+/* celular: o "⋯" pode ficar na borda esquerda (cabeçalho quebrado, cartões da visão geral), e a lista
+   presa à direita dele saía da tela; vira uma folha no pé da tela (26/11) */
+@media (max-width: 760px) {
+  .page-actions { margin-left: auto; }
+  .more-menu-list { position: fixed; left: .75rem; right: .75rem; top: auto; bottom: calc(.75rem + env(safe-area-inset-bottom));
+    z-index: 45; min-width: 0; box-shadow: 0 -10px 40px #0008; }
+  .more-menu-list button { min-height: 44px; }
+}
 .danger-text { color: var(--critical) !important; }
 /* aba Pokémons (refatoracao-2026-11-20, 4.2) */
 .coll-summary { margin: 0 0 .7rem; }

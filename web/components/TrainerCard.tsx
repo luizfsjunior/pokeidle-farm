@@ -4,9 +4,10 @@ import { activeMon, levelProgress, type Profile } from "@/lib/profile";
 import type { Atlas } from "@/lib/sprites";
 import { STATUS_LABEL, type Account } from "@/lib/types";
 import { Sprite } from "./Sprite";
+import { TeamStrip } from "./TeamStrip";
 
 /** Cartão de treinador: o ativo em destaque, nick, nível, moedas e a equipe. */
-export function TrainerCard({ account, profile, atlas, looktypes, href, wide = false, hideNick = false, compact = false, children }: {
+export function TrainerCard({ account, profile, atlas, looktypes, href, wide = false, hideNick = false, compact = false, switchActive, children }: {
   account: Account;
   profile: Profile | undefined;
   atlas: Atlas | null;
@@ -15,6 +16,7 @@ export function TrainerCard({ account, profile, atlas, looktypes, href, wide = f
   wide?: boolean;
   hideNick?: boolean; // a página da conta já tem o nick no título
   compact?: boolean; // visão geral: sem os chips de coleção (estão na conta)
+  switchActive?: { training: boolean }; // página da conta: tocar na equipe troca o ativo
   children?: React.ReactNode;
 }) {
   const active = activeMon(profile);
@@ -67,15 +69,8 @@ export function TrainerCard({ account, profile, atlas, looktypes, href, wide = f
             <Coin kind="diamond" label="Diamantes" value={profile.diamonds} />
           </div>
           {profile.team.length > 0 && (
-            <ol className="team-strip" aria-label="Equipe">
-              {profile.team.map((m) => (
-                <li key={m.id} title={`${m.name ?? ""} nv ${m.level ?? "?"}`}
-                  className={m.id === profile.active_pokemon_id ? "is-active" : undefined}>
-                  <Sprite mon={m} atlas={atlas} looktypes={looktypes} size={40} />
-                  <span className="num">{m.level ?? ""}</span>
-                </li>
-              ))}
-            </ol>
+            <TeamStrip team={profile.team} activeId={profile.active_pokemon_id} atlas={atlas} looktypes={looktypes}
+              switchFor={switchActive && { ...switchActive, accountId: account.id, enabled: account.enabled }} />
           )}
           {!compact && <div className="trainer-foot chips" title={`perfil de ${ago(profile.updated_at)}`}>
             <span className="chip"><strong>{num(profile.pokemon_count)}</strong> pokémons</span>

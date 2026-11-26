@@ -368,6 +368,9 @@ class Supervisor:
             return {"steps": [], "detail": "a equipe já está assim"}
 
         back = view.hunt_slug if not view.in_center else None
+        # só o `team.move` pede o Pokécenter; trocar só o ativo o jogo aceita na hunt (26/11: as
+        # trocas de ativo pelo "Aplicar" iam ao centro e voltavam sem precisar)
+        needs_center = any(st.kind != "active" for st in plan)
         until = datetime.now(UTC) + timedelta(minutes=6)
         for a in APPLY_HOLDS:
             gateway.hold(a, until, APPLY_OWNER, "montar equipe")
@@ -376,7 +379,7 @@ class Supervisor:
         went = False
         try:
             await gateway.note("team.apply.started", {"steps": [s.label() for s in plan]})
-            if not view.in_center:
+            if needs_center and not view.in_center:
                 await self._go_to_center(session)
                 went = True
                 done.append("foi ao centro")
@@ -407,7 +410,7 @@ class Supervisor:
             await gateway.note("team.apply.finished", {"done": done, "failed": failure is not None})
         if failure is not None:
             raise CommandError(f"{failure}. Feito: {', '.join(done) or 'nada'}")
-        return {"steps": done, "back": back}
+        return {"steps": done, "back": back if went else None}
 
     async def _go_to_center(self, session: Any) -> None:
         """`centro.ir` só vale numa folga sem tomar nem dar dano (o `centroLivreEm`, que cada golpe

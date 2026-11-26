@@ -133,6 +133,19 @@ async def test_apply_goes_to_center_swaps_and_returns(rig):  # noqa: F811
     assert game.holds == {"hunt.select": {"hunt_hold": ("x", "brave_steelix")}}  # a do outro fica
 
 
+async def test_apply_only_active_switches_in_the_hunt(rig):  # noqa: F811
+    """Só o ativo muda: troca na hunt, sem ir ao centro e sem voltar (26/11)."""
+    acc = farm(rig.store, "farm1")
+    await rig.boot()
+    game = Game([{"id": 1, "slot": 0}, {"id": 2, "slot": 1}], active=1, hunt="brave_steelix")
+    await _wire(rig, game)
+    c = await rig.cmd(acc, "team.apply", team=[1, 2], active=2)
+    assert c["status"] == "done", c
+    assert game.sent == [{"t": "team.active", "pokemonId": 2}]
+    assert game.view.active_pokemon == {"id": 2} and game.view.in_center is False
+    assert game.view.hunt_slug == "brave_steelix"
+
+
 async def test_apply_rejects_an_active_outside_the_team(rig):  # noqa: F811
     acc = farm(rig.store, "farm1")
     await rig.boot()
