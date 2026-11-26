@@ -318,3 +318,19 @@ async def test_notify_test_command(rig):  # noqa: F811
     (p,) = posted
     assert p["embeds"][0]["title"] == "Aviso de teste"
     assert p["embeds"][0]["url"] == f"https://painel.test/contas/{acc.id}"
+
+
+async def test_webhook_goes_to_the_vault_at_boot_and_failure_is_harmless():
+    from pokeidle_farm.main import _sync_notify_settings
+
+    store = MemoryStore()
+    await _sync_notify_settings(store, settings())
+    assert store.notify_settings == (HOOK, "https://painel.test/")
+    await _sync_notify_settings(store, settings(discord_webhook_url=None, panel_url=None))
+    assert store.notify_settings == (None, None)
+
+    class Broken(MemoryStore):
+        async def set_notify_settings(self, webhook, panel_url):
+            raise RuntimeError("rpc fora")
+
+    await _sync_notify_settings(Broken(), settings())  # não sobe a exceção

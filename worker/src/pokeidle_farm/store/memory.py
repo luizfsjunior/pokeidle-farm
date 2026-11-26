@@ -263,6 +263,9 @@ class MemoryStore:
         files[path] = {"etag": etag, "content": content}
         self.game_files = files
 
+    async def set_notify_settings(self, webhook: str | None, panel_url: str | None) -> None:
+        self.notify_settings = (webhook, panel_url)
+
     async def save_catalog_entry(self, key: str, version: str, data: Any) -> None:
         self.game_catalog[key] = {"version": version, "data": data}
 

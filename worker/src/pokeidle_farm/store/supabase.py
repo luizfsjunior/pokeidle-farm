@@ -91,6 +91,11 @@ class SupabaseStore:
         ).execute()
         return int(res.data or 0)
 
+    async def set_notify_settings(self, webhook: str | None, panel_url: str | None) -> None:
+        await self._db.rpc(
+            "set_notify_settings", {"p_webhook": webhook or "", "p_panel_url": panel_url or ""}
+        ).execute()
+
     async def plugin_configs(self, account_id: UUID) -> dict[str, tuple[bool, dict[str, Any]]]:
         res = await (
             self._db.table("strategy_configs")
