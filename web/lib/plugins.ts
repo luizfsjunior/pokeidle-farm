@@ -10,4 +10,5 @@ export const PLUGIN_INFO: Record<string, { label: string; hint: string; managed?
   market_prices: { label: "Preços do Mercado", hint: "Lê as médias e os anúncios do Mercado de hora em hora." },
   daily: { label: "Prêmios diários", hint: "Resgata o passe e os prêmios do dia." },
   evolve: { label: "Evolução automática", hint: "Evolui o ativo quando tem a pedra." },
+  outland_tier: { label: "Tier da Outland", hint: "Sobe para o maior tier da Outland que o nível libera." },
 };

@@ -205,6 +205,7 @@ class StateSnapshotData(_Data):
     automation: dict[str, Any] | None = None
     top_catch: dict[str, Any] | None = None
     in_center: bool | None = None  # estado.noCentro
+    outland_tier: int | None = None  # estado.outlandTier (id 101+ ou degrau antigo 1–8)
 
 
 # Campos do patch `estado` que vão para `data` (o patch inteiro fica no `raw`).
@@ -219,6 +220,7 @@ PATCH_FIELDS = {
     "automation": "automation",
     "topCatch": "top_catch",
     "noCentro": "in_center",
+    "outlandTier": "outland_tier",
 }
 
 # Mensagens de alto volume: viram evento no barramento, mas não são gravadas.
@@ -335,6 +337,9 @@ class Translator:
                         top_catch=estado.get("topCatch"),
                         in_center=estado.get("noCentro")
                         if isinstance(estado.get("noCentro"), bool)
+                        else None,
+                        outland_tier=estado.get("outlandTier")
+                        if isinstance(estado.get("outlandTier"), int)
                         else None,
                     ),
                     # só o estado da conta; as tabelas do jogo (hunts, mercado...) não são gravadas

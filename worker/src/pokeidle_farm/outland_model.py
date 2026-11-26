@@ -89,6 +89,84 @@ def tier_mult_at(rules: dict[str, Any], level: int | None) -> tuple[float, str |
     return best
 
 
+ID_BASE_OUTLAND = 100  # shared/outland-tiers.mjs: o tier N tem id 100 + N
+# degraus de antes de 16/11 (id 1–8) que o servidor ainda aceita: o nível de cada um vira o tier novo
+# mais alto até ele (ehDegrauAntigo / fichaDoDegrauAntigo)
+LEGACY_TIER_LEVEL = {
+    1: 150,
+    2: 1_000,
+    3: 2_000,
+    4: 4_000,
+    5: 8_000,
+    6: 16_000,
+    7: 24_000,
+    8: 36_000,
+}
+
+
+@dataclass(frozen=True)
+class OutlandTier:
+    tier: int  # o id que vai no `outland.tier` (101, 102...)
+    number: int  # Outland N
+    level: int  # nível do treinador que libera
+    mult: float
+
+
+def outland_tiers(rules: dict[str, Any]) -> list[OutlandTier]:
+    """Os tiers das regras do welcome (`outlandTiers`), em ordem. Sem o `tier` (formato antigo), o id
+    sai da posição, como no jogo."""
+    raw = rules.get("outlandTiers")
+    out: list[OutlandTier] = []
+    if not isinstance(raw, list):
+        return out
+    for i, t in enumerate(raw):
+        if not isinstance(t, dict):
+            continue
+        lv, mult = t.get("nivel"), t.get("mult")
+        if not isinstance(lv, int | float) or not isinstance(mult, int | float):
+            continue
+        tid = t.get("tier")
+        num = t.get("numero")
+        out.append(
+            OutlandTier(
+                tier=int(tid) if isinstance(tid, int) else ID_BASE_OUTLAND + i + 1,
+                number=int(num) if isinstance(num, int) else i + 1,
+                level=int(lv),
+                mult=float(mult),
+            )
+        )
+    return out
+
+
+def current_tier(tiers: list[OutlandTier], tier: int | None) -> OutlandTier | None:
+    """O tier que vale para o valor do `estado.outlandTier` (None ou desconhecido: o primeiro, que é o
+    padrão do jogo; degrau antigo: o tier novo equivalente)."""
+    if not tiers:
+        return None
+    if tier in LEGACY_TIER_LEVEL:
+        lv = LEGACY_TIER_LEVEL[tier]
+        return max((t for t in tiers if t.level <= lv), key=lambda t: t.level, default=tiers[0])
+    return next((t for t in tiers if t.tier == tier), tiers[0])
+
+
+def best_tier(tiers: list[OutlandTier], level: int | None) -> OutlandTier | None:
+    """O maior tier liberado nesse nível do treinador (None abaixo do 150)."""
+    if level is None:
+        return None
+    unlocked = [t for t in tiers if t.level <= level]
+    return max(unlocked, key=lambda t: t.level, default=None)
+
+
+def tier_upgrade(rules: dict[str, Any], level: int | None, tier: int | None) -> OutlandTier | None:
+    """O tier para onde subir, ou None se a conta já está no melhor liberado (ou não sabemos)."""
+    tiers = outland_tiers(rules)
+    best = best_tier(tiers, level)
+    now = current_tier(tiers, tier)
+    if best is None or now is None:
+        return None
+    return best if best.level > now.level else None
+
+
 def item_value(prices: dict[str, float], mult: float) -> tuple[float, float]:
     """(gemas líquidas por abate, itens por abate) com o multiplicador do tier."""
     gems = items = 0.0

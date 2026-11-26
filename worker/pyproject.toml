@@ -41,6 +41,7 @@ evolve = "pokeidle_farm.plugins.evolve:EvolvePlugin"
 team_train = "pokeidle_farm.plugins.team_train:TeamTrainPlugin"
 watchdog = "pokeidle_farm.plugins.watchdog:WatchdogPlugin"
 ball_thrower = "pokeidle_farm.plugins.ball_thrower:BallThrowerPlugin"
+outland_tier = "pokeidle_farm.plugins.outland_tier:OutlandTierPlugin"
 
 [build-system]
 requires = ["hatchling"]
