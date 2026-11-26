@@ -171,6 +171,11 @@ class Store(Protocol):
         """Grava uma linha em game_catalog (ex.: `loot_stones`, as constantes das pedras)."""
         ...
 
+    async def set_notify_settings(self, webhook: str | None, panel_url: str | None) -> None:
+        """Grava o webhook do Discord e a base dos links no Vault (vazio apaga), para o aviso de
+        "worker caiu" que o próprio banco manda (check_worker_alive, pg_cron)."""
+        ...
+
     # --- perfil da conta para o painel (docs/design/painel-perfil.md) ----------------
 
     async def upsert_account_profile(self, row: dict[str, Any]) -> None:

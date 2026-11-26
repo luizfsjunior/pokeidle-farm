@@ -122,6 +122,9 @@ async def run(settings: Settings, *, fake: bool = False) -> int:
             species=lambda: species_sync.catalog if species_sync else None,
         )
 
+    if not fake:
+        await _sync_notify_settings(store, settings)
+
     sup = Supervisor(store, make_session, available, settings.worker_holder, settings)
     try:
         await sup.load()
@@ -246,6 +249,18 @@ async def simulate(settings: Settings, nick: str, days: float, live: bool, seed:
         "depois: select public.refresh_metric_hourly('2026-01-01', now());"
     )
     return 0
+
+
+async def _sync_notify_settings(store: Store, settings: Settings) -> None:
+    """O webhook do .env vai para o Vault: o banco avisa sozinho se o worker inteiro cair
+    (check_worker_alive no pg_cron). Falhar aqui não impede o worker de subir."""
+    secret = settings.discord_webhook_url
+    try:
+        await store.set_notify_settings(
+            secret.get_secret_value() if secret else None, settings.panel_url
+        )
+    except Exception as exc:
+        log.warning("webhook não gravado no Vault (aviso de worker caído): %r", exc)
 
 
 def cli() -> None:
