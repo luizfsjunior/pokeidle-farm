@@ -12,12 +12,12 @@ import { TrainerCard } from "@/components/TrainerCard";
 import { TrendChart } from "@/components/TrendChart";
 import { useAccounts, useAtlas, usePanel } from "@/lib/query/hooks";
 import { loadAccount } from "./data";
-import { NewPlugin } from "./NewPlugin";
 import { IncubatorCard } from "./IncubatorCard";
 import { MarketCard } from "./MarketCard";
 import { NowCard } from "./NowCard";
 import { OutlandCard } from "./OutlandCard";
 import { PlanCard } from "./PlanCard";
+import { pluginRows } from "@/lib/plugins";
 import { PluginEditor } from "./PluginEditor";
 import { ProfileSections } from "./ProfileSections";
 import { Collection } from "./Collection";
@@ -123,10 +123,9 @@ export function AccountView() {
             Agora; aqui é para ligar ou desligar à mão. O worker valida a config antes de gravar e reinicia o plugin na hora.</>}>
             <div className="stack">
               {!d && loading}
-              {d?.plugins.map((p) => (
-                <PluginEditor key={p.plugin} accountId={d.account.id} plugin={p.plugin} enabled={p.enabled} config={p.config ?? {}} />
+              {d && pluginRows(d.plugins).map((p) => (
+                <PluginEditor key={p.plugin} accountId={d.account.id} plugin={p.plugin} enabled={p.enabled} config={p.config} />
               ))}
-              {d && <NewPlugin accountId={d.account.id} existing={d.plugins.map((p) => p.plugin)} />}
             </div>
           </Panel>
           <Panel title="Últimos comandos" flush>
