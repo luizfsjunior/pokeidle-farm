@@ -122,7 +122,7 @@ async def run(settings: Settings, *, fake: bool = False) -> int:
             species=lambda: species_sync.catalog if species_sync else None,
         )
 
-    sup = Supervisor(store, make_session, available, settings.worker_holder)
+    sup = Supervisor(store, make_session, available, settings.worker_holder, settings)
     try:
         await sup.load()
     except CommandError as exc:

@@ -157,7 +157,14 @@ class AccountSession:
         """Roda até um estado terminal ou `stop()`. Retorna o estado final."""
         # Plugins "always_on" (ex.: telemetria) vivem a sessão inteira, para
         # registrar também quedas e rejeições. Os demais sobem no primeiro READY.
-        await self.plugins.start_all(self.bus, {}, self._make_ctx, only_always_on=True)
+        # com a config gravada: antes subiam com a padrão e um `active: false` só valia depois
+        # de um plugin.set (26/11, notifier)
+        configs: dict[str, tuple[bool, dict[str, Any]]] = {}
+        try:
+            configs = await self.store.plugin_configs(self.account.id)
+        except Exception:
+            log.warning("[%s] configs dos plugins não lidas; sobem com a padrão", self.account.nick)
+        await self.plugins.start_all(self.bus, configs, self._make_ctx, only_always_on=True)
         try:
             while not self._stopping.is_set():
                 try:
