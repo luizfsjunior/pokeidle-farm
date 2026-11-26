@@ -31,6 +31,7 @@ from .actions import (
     IncubatorPut,
     MarketCancel,
     MarketCreate,
+    OutlandTierSelect,
     SellDepot,
     ShopBuy,
     TeamActive,
@@ -38,6 +39,7 @@ from .actions import (
 )
 from .catalog import BALLS, EGG_ITEMS, ITEM_PRICES
 from .events import Event
+from .outland_model import best_tier, current_tier, outland_tiers
 from .plugins.base import Plugin
 from .profile import set_travado
 from .store.base import AccountRecord, CommandRecord, Store
@@ -715,6 +717,48 @@ class Supervisor:
         p = _parse(MarketCancelParams, params)
         return await self._send_now(acc, MarketCancel(id=p.listing_id))
 
+    async def _outland_tier(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
+        """Escolhe o tier da Outland pelo número (1 a 40); sem número, o maior liberado. Recusa tier
+        acima do nível do treinador (o jogo cairia no maior liberado). Confirma pelo estado.outlandTier."""
+        p = _parse(OutlandTierParams, params)
+        live = self.live.get(acc.id)
+        catalog = getattr(live.session if live else None, "catalog", None)
+        tiers = outland_tiers(getattr(catalog, "rules", None) or {})
+        if not tiers:
+            raise CommandError("as regras da Outland ainda não chegaram (espere o welcome)")
+        view = self._view(acc)
+        level = getattr(view, "level", None)
+        if p.number is None:
+            target = best_tier(tiers, level)
+            if target is None:
+                raise CommandError(
+                    f"a Outland pede nível {tiers[0].level}; a conta está no {level}"
+                )
+        else:
+            target = next((t for t in tiers if t.number == p.number), None)
+            if target is None:
+                raise CommandError(f"não existe a Outland {p.number} (vai de 1 a {len(tiers)})")
+            if isinstance(level, int) and target.level > level:
+                raise CommandError(
+                    f"a Outland {p.number} pede nível {target.level} e a conta está no {level}"
+                )
+        now = current_tier(tiers, getattr(view, "outland_tier", None))
+        if now is not None and now.tier == target.tier and view.outland_tier is not None:
+            return {"tier": target.tier, "number": target.number, "detail": "já estava nesse tier"}
+        out = await self._send_now(
+            acc,
+            OutlandTierSelect(tier=target.tier),
+            confirm=lambda v: getattr(v, "outland_tier", None) == target.tier,
+        )
+        result = {**out, "tier": target.tier, "number": target.number, "mult": target.mult}
+        top = best_tier(tiers, level)
+        if top is not None and target.level < top.level:
+            result["warning"] = (
+                f"a Outland {top.number} está liberada: o plugin outland_tier sobe de novo; "
+                "desligue o active dele para ficar neste tier"
+            )
+        return result
+
     async def _focus_set(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
         """Foco da conta (captura, ouro-xp-drop, rank ou gemas): restock, rank e gems juntos.
 
@@ -835,6 +879,12 @@ class IncubatorPutParams(BaseModel):
     slot: int | None = Field(None, ge=0, le=5)  # None: a primeira vaga livre
 
 
+class OutlandTierParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    number: int | None = Field(None, ge=1, le=40)  # Outland N; None: o maior liberado
+
+
 class MarketCancelParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -944,6 +994,7 @@ _HANDLERS: dict[str, Handler] = {
     "market.sell": Supervisor._market_sell,
     "market.cancel": Supervisor._market_cancel,
     "incubator.put": Supervisor._incubator_put,
+    "outland.tier": Supervisor._outland_tier,
     "hunt.select": Supervisor._hunt_select,
     "hunt.release": Supervisor._hunt_release,
     "capture.start": Supervisor._capture_start,

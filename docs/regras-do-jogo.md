@@ -240,7 +240,7 @@ dois por 1 h; 100 → Shiny Secret Lure 30 min; 150 / 200 / 300 → os três por
 ### Outland (desde 16/11)
 
 - **40 degraus**, do ×1 no nível 150 ao ×20 no 65.000 (10: 2.500 ×2,15; 20: 11.000 ×4,25; 30: 36.000 ×9). Mapa,
-  pokémon, nível 150, XP e ouro iguais em todos; só muda a chance dos cinco raros. **O seletor não sobe sozinho.**
+  pokémon, nível 150, XP e ouro iguais em todos; só muda a chance dos cinco raros. **O seletor não sobe sozinho**: o plugin `outland_tier` do worker sobe (desde 26/11).
 - Outland 1: Bronze Boss Token 1 em 10 mil; Fragmento de Chave, de Shiny Stone, de Bicicleta e **Osso do
   Sacrifício** 1 em 250 mil cada. O Loot Boost multiplica por cima. 10 fragmentos fazem um item no Professor
   Carvalho.

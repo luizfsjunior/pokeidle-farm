@@ -380,6 +380,21 @@ class HuntSelect(ActionSpec):
         return {"t": "hunt.select", "slug": self.slug}
 
 
+class OutlandTierSelect(ActionSpec):
+    """Escolhe o tier da Outland (app.js, seletor `#f-outland` do Mapa, 26/11). O jogo confirma pelo
+    `estado.outlandTier` e por um `batalha` k "outlandTier" com o `nome`."""
+
+    name: ClassVar[str] = "outland.tier"
+    description: ClassVar[str] = "Escolhe o tier da Outland (id 101 a 140)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 10.0
+
+    tier: int = Field(ge=101)
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "outland.tier", "tier": self.tier}
+
+
 class BallThrow(ActionSpec):
     name: ClassVar[str] = "ball.throw"
     description: ClassVar[str] = "Joga uma bola num selvagem abatido (uma por corpo, 30 s no chão)"

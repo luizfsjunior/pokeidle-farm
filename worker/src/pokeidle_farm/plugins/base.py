@@ -61,6 +61,8 @@ class AccountStateView:
     battle_pass: dict[str, Any] | None = None  # estado.passe ({degrau, ultimo, total...})
     # no Pokécenter (estado.noCentro / campo do centro): a caça está parada até curar e voltar
     in_center: bool | None = None
+    # tier escolhido da Outland (estado.outlandTier; id 101–140 ou degrau antigo 1–8, ver outland_model)
+    outland_tier: int | None = None
     # quem o team_train quer treinar (id): o foco XP planeja a hunt para ele (refatoracao-2026-11-20, 2.5)
     train_target: int | None = None
     # captura ativa do painel ({species_id, species_name, ball_id}; ball_id None = a que vale a pena),
@@ -121,7 +123,7 @@ class AccountStateView:
         lock = d.get("centro_livre_em")
         if isinstance(lock, int | float):
             self.combat_free_at = datetime.fromtimestamp(lock / 1000, UTC)
-        for name in ("level", "hunt_slug", "gold", "automation", "in_center"):
+        for name in ("level", "hunt_slug", "gold", "automation", "in_center", "outland_tier"):
             if d.get(name) is not None:
                 setattr(self, name, d[name])
         # bolas e itens: merge, porque um patch pode trazer só parte do mapa
