@@ -12,6 +12,15 @@ export function PluginEditor({ accountId, plugin, enabled, config }: {
   const [text, setText] = useState(JSON.stringify(config, null, 2));
   const [parseError, setParseError] = useState<string | null>(null);
   const info = PLUGIN_INFO[plugin];
+  // Sempre ligado: o worker ignora o `enabled`. Com activeKey o interruptor vale pelo `active` da config;
+  // sem ele, não há o que desligar.
+  const viaActive = !!info?.alwaysOn && !!info.activeKey;
+  const on = viaActive ? config.active !== false : enabled;
+
+  function toggle(next: boolean) {
+    if (viaActive) void send(accountId, "plugin.set", { plugin, config: { ...config, active: next } });
+    else void send(accountId, "plugin.set", { plugin, enabled: next });
+  }
 
   function save(e: React.FormEvent) {
     e.preventDefault();
@@ -29,11 +38,13 @@ export function PluginEditor({ accountId, plugin, enabled, config }: {
           <strong>{info?.label ?? plugin}</strong> <code className="small muted">{plugin}</code>
           <span className="small muted plugin-hint">{info?.hint}{info?.managed && <> Ajuste pelo {info.managed}.</>}</span>
         </span>
-        <label className="row plugin-toggle">
-          <input type="checkbox" role="switch" checked={enabled} disabled={busy}
-            onChange={(e) => void send(accountId, "plugin.set", { plugin, enabled: e.target.checked })} />
-          {enabled ? <span className="good-text small">ligado</span> : <span className="muted small">desligado</span>}
-        </label>
+        {info?.alwaysOn && !viaActive
+          ? <span className="good-text small plugin-toggle">sempre ligado</span>
+          : <label className="row plugin-toggle">
+              <input type="checkbox" role="switch" checked={on} disabled={busy}
+                onChange={(e) => toggle(e.target.checked)} />
+              {on ? <span className="good-text small">ligado</span> : <span className="muted small">desligado</span>}
+            </label>}
       </div>
       <details className="plugin-advanced">
         <summary className="small muted">Avançado (config em JSON)</summary>
