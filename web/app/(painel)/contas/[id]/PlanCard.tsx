@@ -18,9 +18,18 @@ export type XpOption = {
   slug: string; name: string | null; level: number; kills_per_hour: number; kph_source: GemOption["kph_source"];
   xp_per_kill: number; xp_source: "measured" | "formula"; xp_per_hour: number;
 };
+/** Foco Outland (docs/design/foco-outland.md): uma hunt da Outland no plano. */
+export type OutlandPick = {
+  slug: string; name: string | null; level: number; kills_per_hour: number; kph_source: GemOption["kph_source"];
+  gems_per_hour: number; drops_per_day: number;
+};
 export type GemsPlanData = {
   at: string;
-  objective?: "gems" | "xp";
+  objective?: "gems" | "xp" | "outland";
+  /** Foco Outland antes do 150 (ou sem hunt segura lá): o plano é o do XP. */
+  outland_locked?: boolean;
+  outland_tier?: number | null;
+  tier_mult?: number;
   active_level?: number | null;
   reason: string;
   dry_run: boolean;
@@ -72,6 +81,7 @@ export function PlanCard({ plan, progress: raw = null, huntSlug = null, hold = n
   // conta que já passou do marco (ex.: nível 381 com marco 150): o plano até ele não diz mais nada
   const progress = raw && raw.trainer_level < raw.goal ? raw : null;
   if (plan?.objective === "xp") return <XpCard plan={plan} progress={progress} huntSlug={huntSlug} hold={hold} capture={capture} />;
+  if (plan?.objective === "outland") return <OutlandPlanCard plan={plan} huntSlug={huntSlug} hold={hold} capture={capture} />;
   return progress ? <section className="card stack"><ProgressPlan progress={progress} /></section> : null;
 }
 
@@ -108,6 +118,11 @@ function XpCard({ plan, progress, huntSlug, hold, capture }: {
         {why && <span className="warn-text"> · {why}</span>}
         {(plan.degraded?.length ?? 0) > 0 && <span className="error"> · {plan.degraded?.join(", ")}</span>}
       </p>
+      {plan.outland_locked && (
+        <p className="small" style={{ margin: 0 }}>
+          <strong>Foco Outland:</strong> a Outland abre no nível 150 do treinador. Até lá, a conta sobe de nível como no foco XP.
+        </p>
+      )}
       {plan.stone_hunt && (
         <p className="small" style={{ margin: 0 }}>
           <strong>Buscando {plan.stone_hunt.stone}</strong> para evoluir no {plan.stone_hunt.evolve_level}:{" "}
@@ -136,6 +151,66 @@ function XpCard({ plan, progress, huntSlug, hold, capture }: {
   );
 }
 
+
+const two = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+
+/** Foco Outland (docs/design/foco-outland.md): a hunt da Outland onde o ativo abate mais rápido. */
+function OutlandPlanCard({ plan, huntSlug, hold, capture }: {
+  plan: GemsPlanData; huntSlug: string | null; hold: HuntHold; capture: ActiveCapture | null;
+}) {
+  const target = plan.target as unknown as OutlandPick | null;
+  const here = huntSlug ?? plan.current_hunt;
+  const acting = !plan.dry_run && plan.acting;
+  const holding = hold && new Date(hold.until) > new Date() ? hold : null;
+  const why = !target || target.slug === here ? null
+    : !acting ? "o plano está em ensaio (não troca)"
+    : capture ? `a captura de ${capture.species_name ?? "uma espécie"} segura a hunt`
+    : holding ? `a hunt manual segura até ${dateTime(holding.until)}`
+    : "trocando: espera uma folga no combate";
+  const stale = Date.now() - new Date(plan.at).getTime() > 30 * 60_000;
+  const options = (plan.options as unknown as OutlandPick[]) ?? [];
+  const maxKph = Math.max(0, ...options.slice(0, 5).map((o) => o.kills_per_hour));
+  return (
+    <section className="card stack">
+      <div className="spread">
+        <div className="with-hint"><h2 style={{ margin: 0 }}>Plano da Outland</h2><Hint>
+          Os drops raros (fragmentos de Key, Shiny Stone e Bicycle, Boss Token) e o tier são os mesmos em toda a Outland, então
+          a hunt boa é a de mais abates por hora para o pokémon ativo. Gemas/h = abates/h × chance × multiplicador do tier ×
+          mediana das vendas reais × 0,85. O tier sobe sozinho (plugin Tier da Outland).
+        </Hint></div>
+        <span className={`small ${stale ? "warn-text" : "muted"}`}>plano {ago(plan.at)}{plan.active_level ? ` · ativo nível ${plan.active_level}` : ""}</span>
+      </div>
+      <p className="small" style={{ margin: 0 }}>
+        <span className={`badge ${acting ? "ready" : ""}`}>{acting ? "Agindo" : "Em ensaio"}</span>{" "}
+        Agora em {here ?? "—"} · alvo{" "}
+        {target ? `${target.name ?? target.slug} (~${num(target.kills_per_hour)} abates/h)` : "nenhum"}
+        {why && <span className="warn-text"> · {why}</span>}
+        {(plan.degraded?.length ?? 0) > 0 && <span className="error"> · {plan.degraded?.join(", ")}</span>}
+      </p>
+      <p className="small muted" style={{ margin: 0 }}>
+        Outland {plan.outland_tier ?? 1} (×{two.format(plan.tier_mult ?? 1)}) · ~{two.format(target?.gems_per_hour ?? 0)} gemas/h · ~
+        {num(plan.month_gems_24h ?? 0)} gemas por mês a 24 h
+      </p>
+      <div className="table-scroll">
+        <table>
+          <thead><tr><th>Hunt</th><th>Abates/h</th><th>Drops/dia</th><th>Gemas/h</th></tr></thead>
+          <tbody>
+            {options.slice(0, 5).map((o) => (
+              <tr key={o.slug}>
+                <td>{o.name ?? o.slug}</td>
+                <td title={KPH_SOURCE[o.kph_source]}>
+                  <Bar value={o.kills_per_hour} max={maxKph} tone="link" label={<strong>{num(o.kills_per_hour)}</strong>} />
+                </td>
+                <td>{two.format(o.drops_per_day)}</td>
+                <td>{two.format(o.gems_per_hour)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
 
 /** Plano até o marco (camada 2 do simulador): fases, evoluções e previsão de chegada. */
 function ProgressPlan({ progress }: { progress: ProgressPlanData }) {

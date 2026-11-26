@@ -13,7 +13,7 @@ function duration(c: Command): string {
   return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
 }
 
-const MODE: Record<string, string> = { xp: "XP", gold_xp_drop: "Ouro e drop", rank: "Rank", gems: "Gemas", capture: "Ouro e drop + bola em tudo" };
+const MODE: Record<string, string> = { xp: "XP", gold_xp_drop: "Ouro e drop", rank: "Rank", gems: "Gemas", outland: "Outland", capture: "Ouro e drop + bola em tudo" };
 const fmtNum = (v: unknown) => (typeof v === "number" ? v.toLocaleString("pt-BR") : String(v ?? "?"));
 
 /**

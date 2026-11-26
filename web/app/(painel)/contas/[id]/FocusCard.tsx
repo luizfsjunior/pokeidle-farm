@@ -10,7 +10,7 @@ import { useCommand } from "@/lib/useCommand";
  * "treinar a equipe" são opções do modo, não focos separados (antes "Captura" era um foco e confundia com o
  * "Capturar esta espécie" da Pokédex, que é um desvio).
  */
-export type Mode = "xp" | "gold_xp_drop" | "rank" | "gems";
+export type Mode = "xp" | "gold_xp_drop" | "rank" | "gems" | "outland";
 type PluginRow = { plugin: string; enabled: boolean; config: Record<string, unknown> };
 
 export const MODE_LABEL: Record<Mode, string> = {
@@ -18,14 +18,16 @@ export const MODE_LABEL: Record<Mode, string> = {
   gold_xp_drop: "Ouro e drop",
   rank: "Rank semanal",
   gems: "Gemas (pedras)",
+  outland: "Outland (drops raros)",
 };
 const MODE_HINT: Record<Mode, string> = {
   xp: "Vai para a hunt de mais XP por hora que o pokémon aguenta.",
   gold_xp_drop: "Fica na hunt em que está (ou na que você escolher) e só cuida de poções e bolas.",
   rank: "Percorre a fila de espécies do rank semanal, lançando até capturar.",
   gems: "Hunt que mais rende pedras. Pedras vendem a 2 gemas: prefira outro modo.",
+  outland: "Hunt da Outland onde o pokémon abate mais rápido (fragmentos e Boss Token). Antes do 150, sobe de nível como no XP.",
 };
-const OFFERED: Mode[] = ["xp", "gold_xp_drop", "rank"];
+const OFFERED: Mode[] = ["xp", "outland", "gold_xp_drop", "rank"];
 // ordem de preferência dos padrões do RankConfig (Ultra, Super, Great, Poke); os nomes vêm de lib/sprites
 const BALLS = [4, 3, 2, 1].map((id) => ({ id, name: BALL_NAMES[String(id)] ?? `Bola ${id}` }));
 
@@ -49,7 +51,9 @@ export function currentMode(plugins: PluginRow[]): ModeState {
   const train = { on: tt?.enabled === true, target: typeof tt?.config.target_level === "number" ? tt.config.target_level : 300 };
   let mode: Mode = "gold_xp_drop";
   let warn: string | null = null;
-  if (gems?.enabled && gems.config.dry_run === false) mode = gems.config.objective === "xp" ? "xp" : "gems";
+  if (gems?.enabled && gems.config.dry_run === false) {
+    mode = gems.config.objective === "xp" ? "xp" : gems.config.objective === "outland" ? "outland" : "gems";
+  }
   else if (restockFocus === "rank") {
     mode = "rank";
     if (!(rank?.enabled && rank.config.dry_run === false)) warn = "o plugin rank está desligado ou em ensaio";
