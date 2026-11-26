@@ -1,6 +1,19 @@
-# Foco Outland (planejado)
+# Foco Outland
 
-Status: **em estudo** (17/11/2026). O caminho de renda mais provável são os bosses a partir de Johto (nível 650); a Outland é a fonte (fraca) de tokens.
+Status: **feito em 26/11/2026** (hunt e tier); a venda dos fragmentos e tokens pelo `seller` ainda falta.
+
+## O que foi feito (26/11)
+
+- `gems` com `objective: "outland"` (`focus.set` com `focus: "outland"`; opção "Outland (drops raros)" no card Modo).
+- **Hunt:** a da Outland de **mais abates/h** para o ativo. Os drops raros e o tier são os mesmos em toda a Outland,
+  então o ritmo decide sozinho; as gemas/h (abates/h × chance × mult. do tier atual × mediana das vendas × 0,85) vão
+  no `gems.plan` para o card "Plano da Outland". Mesma histerese (15%) e o mesmo filtro de hunts perigosas do XP.
+- **Tier:** fica com o plugin `outland_tier`, que sobe sempre para o maior liberado (não há o que pesar: o tier não
+  muda abates/h).
+- **Antes do 150** (ou sem hunt segura na Outland): o plano é o do foco XP, com `outland_locked: true`.
+- Falta: o `seller` vender fragmentos e tokens.
+
+Antes (17/11, **em estudo**): O caminho de renda mais provável são os bosses a partir de Johto (nível 650); a Outland é a fonte (fraca) de tokens.
 
 ## Por quê
 

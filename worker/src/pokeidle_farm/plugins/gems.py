@@ -8,6 +8,11 @@ Ver docs/design/foco-gemas-e-ritmo.md. Resumo:
 - grava `gems.plan` a cada decisão; com `dry_run` (padrão) grava `gems.would` em vez de trocar;
 - as bolas ficam com o `restock` em `gold_xp_drop` (o `focus.set` "gems" cuida disso);
 - com várias contas no worker, cada uma desconta da liquidez o que as outras já tiram.
+
+Foco Outland (`objective: "outland"`, docs/design/foco-outland.md): fica na hunt da Outland onde o ativo
+abate mais rápido. Os drops raros e o tier são os mesmos em toda a Outland (o plugin outland_tier cuida do
+tier), então quem decide é o ritmo; as gemas/h (abates/h × chance × mult. do tier × mediana das vendas)
+vão no plano para o painel. Antes do 150, ou sem hunt da Outland segura, cai no plano do foco XP.
 """
 
 from __future__ import annotations
@@ -32,6 +37,13 @@ from ..gems_model import (
 )
 from ..hunt_switch import HuntSwitcher
 from ..model.predict import ModelRates, season_adjust
+from ..outland_model import (
+    current_tier,
+    outland_pick_dict,
+    outland_picks,
+    outland_prices,
+    outland_tiers,
+)
 from ..pace import PaceBook, rates_for
 from ..progress import Progress
 from ..xp_model import xp_option_dict, xp_options
@@ -43,7 +55,8 @@ class GemsConfig(BaseModel):
 
     dry_run: bool = True
     # o que maximizar: gemas das pedras (foco gemas) ou XP por hora (foco XP, docs/design/foco-xp.md)
-    objective: Literal["gems", "xp"] = "gems"
+    # ou os drops raros da Outland (foco Outland, docs/design/foco-outland.md)
+    objective: Literal["gems", "xp", "outland"] = "gems"
     # ritmo das hunts não medidas pelo simulador de combate (docs/design/simulador-1-combate.md)
     use_model: bool = True
     # foco XP: plano até o marco (progress.plan) e evolução automática (docs/design/simulador-2-progressao.md)
@@ -101,6 +114,7 @@ class GemsPlugin(Plugin):
         self._xp: dict[str, tuple[float, float]] = {}  # slug -> (XP, abates), banco + sessão
         self._default_kph = self.cfg.default_kills_per_hour
         self._prices: dict[str, StonePrice] = {}
+        self._outland_prices: dict[str, float] = {}
         self._chances = STONE_CHANCE_BY_POSITION
         self._by_type = STONE_BY_TYPE
         self._degraded: list[str] = []
@@ -207,6 +221,14 @@ class GemsPlugin(Plugin):
                 self._by_type = {str(k).upper(): str(v) for k, v in bt.items()}
 
     async def _load_prices(self) -> None:
+        if self.cfg.objective == "outland":
+            try:
+                self._outland_prices = outland_prices(await self.ctx.store.market_reference())
+            except Exception as exc:
+                self.ctx.log.warning("gems: não consegui ler as vendas da Outland (%s)", exc)
+                if "prices" not in self._degraded:
+                    self._degraded.append("prices")
+            return
         try:
             rows = await self.ctx.store.latest_item_prices()
         except Exception as exc:
@@ -339,6 +361,9 @@ class GemsPlugin(Plugin):
         if self.cfg.objective == "xp":
             await self._plan_xp(reason, cat, rate)
             return
+        if self.cfg.objective == "outland":
+            await self._plan_outland(reason, cat, rate)
+            return
         options = rank_options(
             cat,
             species,
@@ -410,10 +435,11 @@ class GemsPlugin(Plugin):
         return lvl if isinstance(lvl, int) else self.ctx.state.active_level
 
     def _max_hunt_level(self) -> int | None:
-        """Teto de nível das hunts: o do treinador e, no foco XP, o que o pokémon aguenta."""
+        """Teto de nível das hunts: o do treinador e, nos focos XP e Outland, o que o pokémon aguenta
+        (a Outland é toda do mesmo nível; o teto vale para o plano do XP antes dela)."""
         top = self._level or None
         mon_level = self._planned_level()
-        if self.cfg.objective == "xp" and isinstance(mon_level, int):
+        if self.cfg.objective in ("xp", "outland") and isinstance(mon_level, int):
             cap = mon_level + self.cfg.max_over_active
             top = min(top, cap) if top else cap
         return top
@@ -465,7 +491,61 @@ class GemsPlugin(Plugin):
 
         self._warm = asyncio.get_running_loop().create_task(run())
 
-    async def _plan_xp(self, reason: str, cat: Any, rate: dict[str, tuple[float, str]]) -> None:
+    async def _plan_outland(
+        self, reason: str, cat: Any, rate: dict[str, tuple[float, str]]
+    ) -> None:
+        """Foco Outland: a hunt da Outland de mais abates/h para o ativo (as gemas/h vão no plano)."""
+        planned = (self._planned() or {}).get("id")
+        unsafe = {s for s in cat.hunts if self.ctx.state.is_dangerous(planned, s, self.now())}
+        rules = getattr(cat, "rules", None) or {}
+        tier = current_tier(outland_tiers(rules), self.ctx.state.outland_tier)
+        mult = tier.mult if tier else 1.0
+        options = outland_picks(
+            cat.hunts, self._level, rate, self._outland_prices, mult, skip=unsafe
+        )
+        if not options:  # antes do 150 (ou nada seguro lá): sobe de nível no plano do XP
+            await self._plan_xp(reason, cat, rate, outland_locked=True)
+            return
+        best = options[0]
+        current = self.switch.current
+        here = next((o for o in options if o.slug == current), None)
+        target = best
+        if (
+            here is not None
+            and here is not best
+            and best.kills_per_hour <= here.kills_per_hour * (1 + self.cfg.hysteresis)
+        ):
+            target = here
+        await self.ctx.actions.note(
+            "gems.plan",
+            {
+                "objective": "outland",
+                "reason": reason,
+                "dry_run": self.cfg.dry_run,
+                "acting": self._acting,
+                "trainer_level": self._level,
+                "active_level": self.ctx.state.active_level,
+                "current_hunt": current,
+                "outland_tier": tier.number if tier else None,
+                "tier_mult": mult,
+                "prices": dict(self._outland_prices),
+                "target": outland_pick_dict(target),
+                "here": outland_pick_dict(here) if here and here is not target else None,
+                "options": [outland_pick_dict(o) for o in options[: self.cfg.preview]],
+                "month_gems_24h": round(target.gems_per_hour * 24 * 30, 1),
+                "degraded": list(self._degraded),
+            },
+        )
+        await self._go(target.slug, current, reason)
+
+    async def _plan_xp(
+        self,
+        reason: str,
+        cat: Any,
+        rate: dict[str, tuple[float, str]],
+        *,
+        outland_locked: bool = False,
+    ) -> None:
         """Foco XP: a hunt de maior XP/h projetada (ritmo pelo nível do ativo × XP por abate).
 
         Perto do nível de evoluir e sem a pedra do tipo, a hunt que mais dropa essa pedra por hora
@@ -511,6 +591,8 @@ class GemsPlugin(Plugin):
                 "options": [xp_option_dict(o) for o in options[: self.cfg.preview]],
                 "stone_hunt": stone_data,
                 "degraded": list(self._degraded),
+                # foco Outland sem hunt da Outland alcançável: sobe de nível como no XP
+                **({"outland_locked": True} if outland_locked else {}),
             },
         )
         await self._go(target.slug if target else None, current, reason)

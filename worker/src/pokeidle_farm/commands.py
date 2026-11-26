@@ -760,7 +760,7 @@ class Supervisor:
         return result
 
     async def _focus_set(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
-        """Foco da conta (captura, ouro-xp-drop, rank ou gemas): restock, rank e gems juntos.
+        """Foco da conta (captura, ouro-xp-drop, rank, gemas, XP ou Outland): restock, rank e gems juntos.
 
         Ver docs/design/fase-3b-rank-ligado.md, seção 7, e docs/design/foco-gemas-e-ritmo.md.
         Valida as configs antes de gravar qualquer uma; preserva o resto da config de cada
@@ -800,7 +800,7 @@ class Supervisor:
         elif "rank" in configs:
             writes.append(("rank", False, configs["rank"][1]))
         # gems depois do rank: ao subir, ele confere se o rank ainda está agindo
-        if p.focus in ("gems", "xp"):
+        if p.focus in ("gems", "xp", "outland"):
             gems_cfg = {
                 **configs.get("gems", (False, {}))[1],
                 **(p.gems or {}),
@@ -965,7 +965,7 @@ class TrainParams(BaseModel):
 class FocusSetParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    focus: Literal["capture", "gold_xp_drop", "rank", "gems", "xp"]
+    focus: Literal["capture", "gold_xp_drop", "rank", "gems", "xp", "outland"]
     # campos do rank (rank_balls, rank_ball_rule, fallback_hunt...) e o fallback_focus do restock
     rank: dict[str, Any] | None = None
     # campos do gems (max_market_share, hysteresis...)

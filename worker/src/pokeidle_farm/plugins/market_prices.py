@@ -27,7 +27,14 @@ from ..actions import (
     MarketListPokemon,
 )
 from ..events import Event
-from ..outland_model import DROPS, GOAL_LEVEL, outland_dict, outland_options, tier_mult_at
+from ..outland_model import (
+    DROPS,
+    GOAL_LEVEL,
+    outland_dict,
+    outland_options,
+    outland_prices,
+    tier_mult_at,
+)
 from .base import Plugin, PluginContext
 
 
@@ -214,13 +221,7 @@ async def compute_outland(
     ]
     if not hunts:
         return None
-    ref = await ctx.store.market_reference()
-    by_lower = {k.lower(): v for k, v in ref.items()}
-    prices: dict[str, float] = {}
-    for name, _c, _s in DROPS:
-        r = by_lower.get(name.lower())
-        if r and r.get("median"):
-            prices[name] = float(r["median"])
+    prices = outland_prices(await ctx.store.market_reference())
     raw = getattr(species, "raw", {}) or {}
     trainer = ctx.state.level
     proj, options = await asyncio.to_thread(

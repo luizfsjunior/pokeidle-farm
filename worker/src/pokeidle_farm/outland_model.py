@@ -232,3 +232,79 @@ def outland_dict(o: OutlandOption) -> dict[str, Any]:
         "gems_per_hour_top": round(o.gems_per_hour_top, 2),
         "drops_per_day": round(o.drops_per_day, 2),
     }
+
+
+# --- foco Outland (plugin gems, objective "outland"; docs/design/foco-outland.md) --------------
+
+
+def outland_prices(reference: dict[str, dict[str, Any]]) -> dict[str, float]:
+    """Mediana das vendas reais (`market_reference`) dos drops da Outland, por nome do Mercado."""
+    by_lower = {k.lower(): v for k, v in reference.items()}
+    prices: dict[str, float] = {}
+    for name, _c, _s in DROPS:
+        r = by_lower.get(name.lower())
+        if r and r.get("median"):
+            prices[name] = float(r["median"])
+    return prices
+
+
+def is_outland(hunt: Any) -> bool:
+    return str(getattr(hunt, "area", "") or "").lower() == "outland"
+
+
+@dataclass(frozen=True)
+class OutlandPick:
+    slug: str
+    name: str | None
+    level: int
+    kills_per_hour: float
+    kph_source: str  # de onde veio o ritmo: medido, simulador, nível...
+    gems_per_hour: float  # no tier atual da conta, líquido de comissão
+    drops_per_day: float  # itens raros por dia a 24 h no tier atual
+
+
+def outland_picks(
+    hunts: Any,  # o catálogo de hunts (slug -> hunt com level, area, name, species_name)
+    trainer_level: int,
+    rate: dict[str, tuple[float, str]],  # slug -> (abates/h, fonte), o mesmo do foco XP
+    prices: dict[str, float],
+    mult: float,
+    skip: set[str] | frozenset[str] = frozenset(),
+) -> list[OutlandPick]:
+    """As hunts da Outland alcançáveis, da que mais rende para a que menos.
+
+    Os drops e o tier são os mesmos em todas as hunts da Outland, então quem decide é o ritmo de
+    abates do ativo (o empate fica com o slug, para a escolha não oscilar)."""
+    per_kill, items_kill = item_value(prices, mult)
+    out: list[OutlandPick] = []
+    for h in hunts.values():
+        if not is_outland(h) or h.level > trainer_level or h.slug in skip or h.slug not in rate:
+            continue
+        kph, source = rate[h.slug]
+        if kph <= 0:
+            continue
+        out.append(
+            OutlandPick(
+                slug=h.slug,
+                name=getattr(h, "species_name", None) or getattr(h, "name", None),
+                level=h.level,
+                kills_per_hour=kph,
+                kph_source=source,
+                gems_per_hour=kph * per_kill,
+                drops_per_day=kph * items_kill * 24,
+            )
+        )
+    out.sort(key=lambda o: (-o.kills_per_hour, o.slug))
+    return out
+
+
+def outland_pick_dict(o: OutlandPick) -> dict[str, Any]:
+    return {
+        "slug": o.slug,
+        "name": o.name,
+        "level": o.level,
+        "kills_per_hour": round(o.kills_per_hour, 1),
+        "kph_source": o.kph_source,
+        "gems_per_hour": round(o.gems_per_hour, 3),
+        "drops_per_day": round(o.drops_per_day, 3),
+    }
