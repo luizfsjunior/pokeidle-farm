@@ -395,6 +395,38 @@ class OutlandTierSelect(ActionSpec):
         return {"t": "outland.tier", "tier": self.tier}
 
 
+class BossEnter(ActionSpec):
+    """Entra na arena de um boss lendário (`boss.entrar`, app.js, botão "Desafiar"). Gasta a entrada
+    do boss (1 Bronze Boss Token, item 70000, no `bossesJogaveis` do welcome). Ainda não visto ao vivo
+    (épico C3): o plugin boss só manda fora do ensaio."""
+
+    name: ClassVar[str] = "boss.entrar"
+    description: ClassVar[str] = "Entra no boss lendário (gasta 1 Boss Token)"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 30.0
+
+    key: str = Field(min_length=1, max_length=40)
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "boss.entrar", "key": self.key}
+
+
+class BossAuto(ActionSpec):
+    """Liga ou desliga a repetição do boss (`boss.auto`, app.js, caixa "Repetir"): o jogo entra de novo
+    enquanto houver token. Com outra `key`, troca o boss repetido. Ainda não visto ao vivo (épico C3)."""
+
+    name: ClassVar[str] = "boss.auto"
+    description: ClassVar[str] = "Liga/desliga a repetição automática de um boss"
+    result_model: ClassVar[type[BaseModel]] = Ack
+    min_interval_s: ClassVar[float] = 30.0
+
+    key: str = Field(min_length=1, max_length=40)
+    ativo: bool
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"t": "boss.auto", "ativo": self.ativo, "key": self.key}
+
+
 class BallThrow(ActionSpec):
     name: ClassVar[str] = "ball.throw"
     description: ClassVar[str] = "Joga uma bola num selvagem abatido (uma por corpo, 30 s no chão)"

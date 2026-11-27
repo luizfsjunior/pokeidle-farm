@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { CommandStatus } from "@/components/CommandStatus";
 import { MonSheet } from "@/components/MonSheet";
 import { Panel } from "@/components/Page";
@@ -14,7 +15,8 @@ import { num } from "@/lib/format";
 import { TYPE_PT, TYPES, tierIvSum, tierPotency, tierQuality } from "@/lib/pokemon";
 import { fairOf, loadMonPrices } from "@/lib/prices";
 import type { Profile } from "@/lib/profile";
-import { usePanel } from "@/lib/query/hooks";
+import { keepsOutOfDepot, loadProtected, reasonsOf, reasonsText, setProtected } from "@/lib/protection";
+import { supabaseBrowser, usePanel } from "@/lib/query/hooks";
 import type { Atlas } from "@/lib/sprites";
 import { useCommand } from "@/lib/useCommand";
 import { MonTable } from "./MonTable";
@@ -54,11 +56,13 @@ export function Collection({ accountId, profile, atlas, looktypes, training = fa
 
   const prices = usePanel(["mon-prices", accountId], (sb) => loadMonPrices(sb, accountId), { staleTime: 10 * 60_000 }).data;
   const priceOf = useMemo(() => (m: CollectionMon) => fairOf(prices?.get(m.id)), [prices]);
+  const manual = usePanel(["protected", accountId], (sb) => loadProtected(sb, accountId), { staleTime: 30_000 }).data;
 
   const [text, setText] = useState("");
   const [place, setPlace] = useState<Place>("todos");
   const [type, setType] = useState("");
   const [shinyOnly, setShinyOnly] = useState(false);
+  const [protOnly, setProtOnly] = useState(false);
   const [sort, setSort] = useState<SortKey>("quality");
   const [limit, setLimit] = useState(PAGE);
   const [view, setView] = useState<View>("grade");
@@ -85,6 +89,7 @@ export function Collection({ accountId, profile, atlas, looktypes, training = fa
     const list = all.filter((m) => {
       if (place !== "todos" && placeOf(m) !== place) return false;
       if (shinyOnly && !m.shiny) return false;
+      if (protOnly && reasonsOf(m, manual).length === 0) return false;
       if (type) {
         const tt = m.species_id != null ? types?.get(m.species_id) : undefined;
         if (!tt || (tt[0] !== type && tt[1] !== type)) return false;
@@ -93,7 +98,7 @@ export function Collection({ accountId, profile, atlas, looktypes, training = fa
       return true;
     });
     return sortCollection(list, sort, priceOf);
-  }, [all, text, place, type, shinyOnly, sort, types, priceOf]);
+  }, [all, text, place, type, shinyOnly, protOnly, manual, sort, types, priceOf]);
 
   const sheetMon = open ? all.find((m) => m.id === open.id) ?? open : null;
   const draftIds = building && draft ? new Set(draft.team.filter((x): x is number => x != null)) : null;
@@ -123,7 +128,8 @@ export function Collection({ accountId, profile, atlas, looktypes, training = fa
           ) : (
             <div className="coll-actions">
               <button type="button" className="small" disabled={!draft} onClick={() => setBuilding(true)}>Montar equipe</button>
-              <SellDepot accountId={accountId} depot={all.filter((m) => placeOf(m) === "depot")} />
+              {/* protegidos no Depot vão para a Coleção antes da venda (o worker faz): não contam */}
+              <SellDepot accountId={accountId} depot={all.filter((m) => placeOf(m) === "depot" && !keepsOutOfDepot(m, manual))} />
             </div>
           )}
           <div className="coll-controls">
@@ -148,6 +154,9 @@ export function Collection({ accountId, profile, atlas, looktypes, training = fa
             <label className="dex-mode">
               <input type="checkbox" role="switch" checked={shinyOnly} onChange={(e) => { setShinyOnly(e.target.checked); setLimit(PAGE); }} /> Só shiny
             </label>
+            <label className="dex-mode">
+              <input type="checkbox" role="switch" checked={protOnly} onChange={(e) => { setProtOnly(e.target.checked); setLimit(PAGE); }} /> Só protegidos
+            </label>
             <div className="segmented" role="radiogroup" aria-label="Ver como">
               {(["grade", "tabela"] as View[]).map((v) => (
                 <button key={v} type="button" role="radio" aria-checked={view === v} className={view === v ? "on" : undefined}
@@ -157,7 +166,7 @@ export function Collection({ accountId, profile, atlas, looktypes, training = fa
             <span className="muted small">{num(shown.length)} na lista</span>
           </div>
 
-          <BatchBar accountId={accountId} selected={selected} byId={byId} onClear={() => setSelected(new Set())} />
+          <BatchBar accountId={accountId} selected={selected} byId={byId} manual={manual} onClear={() => setSelected(new Set())} />
 
           {view === "tabela" ? (
             <MonTable mons={shown.slice(0, Math.max(limit, PAGE * 2))} types={types} atlas={atlas} looktypes={looktypes}
@@ -178,6 +187,9 @@ export function Collection({ accountId, profile, atlas, looktypes, training = fa
                       {m.iv_sum != null && <span className={`mini-selo tier-${tierIvSum(m.iv_sum)}`}>IV {m.iv_sum}</span>}
                       {m.potency != null && <span className={`mini-selo tier-${tierPotency(m.potency)}`}>P{m.potency}</span>}
                       {priceOf(m) != null && <span className="mini-selo" title="Preço justo no Mercado, em gemas">💎 {num(priceOf(m)!, { compact: true })}</span>}
+                      {manual?.has(m.id) || m.shiny
+                        ? <span className="mini-selo selo-protegido" title={`Protegido: ${reasonsText(reasonsOf(m, manual))}`} aria-label="protegido">🔒</span>
+                        : null}
                     </span>
                     <span className="coll-place small muted">
                       {PLACE_PT[placeOf(m)]}{m.slot != null ? ` ${m.slot + 1}` : ""}{m.id === profile.active_pokemon_id ? " · ativo" : ""}
@@ -199,8 +211,9 @@ export function Collection({ accountId, profile, atlas, looktypes, training = fa
         <MonSheet mon={sheetMon} atlas={atlas} looktypes={looktypes} active={sheetMon.id === profile.active_pokemon_id} onClose={() => setOpen(null)}
           price={prices ? prices.get(sheetMon.id) ?? null : undefined}>
           {building && draft && <DraftActions draft={draft} update={update} mon={sheetMon} />}
+          <ProtectToggle accountId={accountId} mon={sheetMon} manual={manual} />
           <MonActions accountId={accountId} mon={sheetMon} team={profile.team} isActive={sheetMon.id === profile.active_pokemon_id}
-            inCollection={!!sheetMon.in_collection} training={training} />
+            inCollection={!!sheetMon.in_collection} training={training} protectedFirm={keepsOutOfDepot(sheetMon, manual)} />
         </MonSheet>
       )}
     </Panel>
@@ -223,23 +236,68 @@ function DraftActions({ draft, update, mon }: { draft: Draft; update: (d: Draft)
   );
 }
 
-/** Ações nos selecionados: guardar na Coleção ou mandar para o Depot (comando em lote). */
-function BatchBar({ accountId, selected, byId, onClear }: {
-  accountId: string; selected: Set<number>; byId: Map<number, CollectionMon>; onClear: () => void;
+/** Proteger ou tirar a proteção (marca do painel, direto na tabela protected_pokemon). Shiny, equipe e Coleção
+ * protegem sozinhos: a ficha mostra o motivo. */
+function ProtectToggle({ accountId, mon, manual }: { accountId: string; mon: CollectionMon; manual: Set<number> | undefined }) {
+  const { toggle, busy, error } = useProtect(accountId);
+  const rs = reasonsOf(mon, manual);
+  const marked = !!manual?.has(mon.id);
+  return (
+    <div className="mon-actions">
+      <span className="small">
+        {rs.length > 0 ? <>🔒 Protegido: {reasonsText(rs)}. Nenhuma automação vende, sacrifica ou troca.</> : <span className="muted">Não protegido.</span>}
+      </span>
+      <button type="button" className={marked ? "ghost small" : "small"} disabled={busy || manual === undefined}
+        onClick={() => void toggle([mon.id], !marked)}>
+        {marked ? "Tirar a proteção" : "Proteger"}
+      </button>
+      {error && <span className="error small">{error}</span>}
+    </div>
+  );
+}
+
+function useProtect(accountId: string) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const toggle = async (ids: number[], on: boolean) => {
+    setBusy(true); setError(null);
+    try {
+      await setProtected(supabaseBrowser(), accountId, ids, on);
+      await qc.invalidateQueries({ queryKey: ["protected", accountId] });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "não deu para gravar");
+    } finally { setBusy(false); }
+  };
+  return { toggle, busy, error };
+}
+
+/** Ações nos selecionados: guardar na Coleção, mandar para o Depot (comando em lote) e proteger. */
+function BatchBar({ accountId, selected, byId, manual, onClear }: {
+  accountId: string; selected: Set<number>; byId: Map<number, CollectionMon>; manual: Set<number> | undefined; onClear: () => void;
 }) {
   const { send, cmd, error, busy } = useCommand();
+  const prot = useProtect(accountId);
   if (selected.size === 0 && !cmd) return null;
   // quem está na equipe não tem marca de Coleção/Depot que importe agora
   const ids = [...selected].filter((id) => byId.get(id)?.slot == null).slice(0, BATCH_MAX);
-  const move = (to: "colecao" | "depot") => void send(accountId, "collection.move", { pokemon_ids: ids, to });
+  const toDepot = ids.filter((id) => { const m = byId.get(id); return m != null && !keepsOutOfDepot(m, manual); });
+  const move = (to: "colecao" | "depot") => void send(accountId, "collection.move", { pokemon_ids: to === "depot" ? toDepot : ids, to });
+  const all = [...selected];
   return (
     <div className="batch-bar">
       {selected.size > 0 && (
         <>
           <span className="small"><strong>{num(selected.size)}</strong> selecionados{ids.length < selected.size ? ` (${ids.length} fora da equipe)` : ""}</span>
           <button type="button" className="small" disabled={busy || ids.length === 0} onClick={() => move("colecao")}>Guardar na Coleção</button>
-          <button type="button" className="ghost small" disabled={busy || ids.length === 0} onClick={() => move("depot")}>Mandar para o Depot</button>
+          <button type="button" className="ghost small" disabled={busy || toDepot.length === 0} onClick={() => move("depot")}
+            title={toDepot.length < ids.length ? `${ids.length - toDepot.length} protegido(s) ficam onde estão` : undefined}>
+            Mandar para o Depot
+          </button>
+          <button type="button" className="ghost small" disabled={prot.busy || manual === undefined} onClick={() => void prot.toggle(all, true)}>🔒 Proteger</button>
+          <button type="button" className="ghost small" disabled={prot.busy || manual === undefined} onClick={() => void prot.toggle(all, false)}>Tirar a proteção</button>
           <button type="button" className="ghost small" onClick={onClear}>Limpar</button>
+          {prot.error && <span className="error small">{prot.error}</span>}
         </>
       )}
       <CommandStatus cmd={cmd} error={error} inline />

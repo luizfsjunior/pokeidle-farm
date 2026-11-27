@@ -294,6 +294,15 @@ class SupabaseStore:
                 .execute()
             )
 
+    async def protected_pokemon(self, account_id: UUID) -> set[int]:
+        res = await (
+            self._db.table("protected_pokemon")
+            .select("pokemon_id")
+            .eq("account_id", str(account_id))
+            .execute()
+        )
+        return {int(r["pokemon_id"]) for r in res.data or []}
+
     async def market_reference(self) -> dict[str, dict[str, Any]]:
         res = await self._db.rpc("market_reference", {}).execute()
         out: dict[str, dict[str, Any]] = {}

@@ -28,6 +28,7 @@ class MemoryStore:
         self.game_species: dict[int, dict[str, Any]] = {}
         self.game_catalog: dict[str, dict[str, Any]] = {}  # key -> {"version", "data"}
         self.catalog_writes = 0
+        self.protected: dict[UUID, set[int]] = {}  # protected_pokemon
         self._clock = clock
 
     def add_account(self, account: AccountRecord, token: str, device_id: str) -> None:
@@ -244,6 +245,9 @@ class MemoryStore:
 
     async def market_reference(self) -> dict[str, dict[str, Any]]:
         return dict(getattr(self, "reference", {}))
+
+    async def protected_pokemon(self, account_id: UUID) -> set[int]:
+        return set(self.protected.get(account_id, set()))
 
     async def save_market_asks(self, rows: list[dict[str, Any]]) -> None:
         self.market_asks = [*getattr(self, "market_asks", []), *rows]
