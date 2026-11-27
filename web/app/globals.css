@@ -228,6 +228,8 @@ code { font-size: .85em; background: var(--surface-2); border-radius: 5px; paddi
 .stats-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem .75rem; }
 .stat .label { font-size: .78rem; color: var(--text-muted); }
 .stat .value { font-family: var(--font-num); font-weight: 700; font-variant-numeric: tabular-nums; font-size: 1.15rem; }
+.supplies { margin-top: .4rem; }
+.history-table td, .history-table th { white-space: nowrap; }
 
 .badge { display: inline-flex; align-items: center; gap: .35rem; font-size: .76rem; font-weight: 600; padding: .1rem .55rem; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-secondary); white-space: nowrap; }
 .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }

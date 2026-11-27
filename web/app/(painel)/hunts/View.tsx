@@ -14,7 +14,7 @@ import { HuntDrawerProvider, HuntOpen } from "./HuntDrawer";
 export function HuntsView() {
   const sp = useSearchParams();
   const dias = sp.get("dias");
-  const period: Period = dias === "1" || dias === "30" ? dias : "7";
+  const period: Period = dias === "1" || dias === "30" || dias === "90" ? dias : "7";
   const accountsQ = useAccounts();
   const accounts = accountsQ.data ?? [];
   const conta = accounts.find((a) => a.id === sp.get("conta"))?.id ?? null;
@@ -87,6 +87,7 @@ function AccountFold({ a, open, period, face, catalog }: {
         </span>
         <span className="acc-stats small num">
           <span title="Tempo caçando no período">{dur(t.minutes)}</span>
+          <span title="XP por hora no período">{num(perHour(t.xp, t.minutes), { compact: true })} XP/h</span>
           <span title="Gemas por hora no período (sem pedras)"><b>{num(perHour(t.gems, t.minutes))}</b> gemas/h</span>
           <span title="Ouro líquido por hora">{num(perHour(t.goldNet, t.minutes), { compact: true })} ouro/h</span>
           {t.captures > 0 && <span>{num(t.captures)} capturas{t.shinies ? ` · ${num(t.shinies)} ✨` : ""}</span>}
@@ -99,7 +100,7 @@ function AccountFold({ a, open, period, face, catalog }: {
         <div className="panel-flush">
           <table>
             <thead>
-              <tr><th>Hunt</th><th>Tempo</th><th>Abates/h</th><th>Gemas/h</th><th>Ouro líquido/h</th><th>Capturas</th><th>Última vez</th></tr>
+              <tr><th>Hunt</th><th>Tempo</th><th>Abates/h</th><th>XP/h</th><th>Gemas/h</th><th>Ouro líquido/h</th><th>Capturas</th><th>Última vez</th></tr>
             </thead>
             <tbody>
               {a.visited.map((v) => {
@@ -113,6 +114,7 @@ function AccountFold({ a, open, period, face, catalog }: {
                     </td>
                     <td>{dur(v.active_minutes)}</td>
                     <td>{num(perHour(v.kills, v.active_minutes))}</td>
+                    <td>{num(perHour(v.xp, v.active_minutes), { compact: true })}</td>
                     <td><strong>{num(perHour(v.drops_value_orb, v.active_minutes))}</strong></td>
                     <td>{num(perHour(v.gold_net, v.active_minutes), { compact: true })}</td>
                     <td>{num(v.captures)}{v.shinies > 0 && <span className="small"> ({num(v.shinies)} ✨)</span>}</td>

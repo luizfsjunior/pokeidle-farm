@@ -2,7 +2,13 @@
 export type NavItem = { href: string; label: string; icon: string };
 
 export const NAV_GROUPS: { title: string | null; items: NavItem[] }[] = [
-  { title: null, items: [{ href: "/", label: "Contas", icon: "home" }] },
+  {
+    title: null,
+    items: [
+      { href: "/", label: "Contas", icon: "home" },
+      { href: "/historico", label: "Histórico", icon: "chart" },
+    ],
+  },
   {
     title: "Jogo",
     items: [

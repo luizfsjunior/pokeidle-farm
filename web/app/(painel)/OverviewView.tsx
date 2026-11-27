@@ -7,7 +7,8 @@ import { Icon } from "@/components/icons";
 import { Ld, LdBlock } from "@/components/Loading";
 import { ErrorNote, Kpi, PageHeader, Stat } from "@/components/Page";
 import { TrainerCard } from "@/components/TrainerCard";
-import { ago, num, todaySP } from "@/lib/format";
+import { ago, num, pct, todaySP } from "@/lib/format";
+import { farmTime, hoursToLevel, supplies } from "@/lib/supplies";
 import { useAccounts, useAtlas, usePanel } from "@/lib/query/hooks";
 import type { Account } from "@/lib/types";
 import { useCommand } from "@/lib/useCommand";
@@ -37,7 +38,8 @@ export function OverviewView() {
         title="Contas"
         subtitle={`Hoje, ${today.split("-").reverse().join("/")}`}
         hint={<><p>Números do dia por hora ativa, recalculados a cada 10 min. Gemas: drops pelo preço do Mercado, sem as
-          pedras (não são fonte de gemas).</p><p>Moedas e equipe vêm do perfil, a cada 2 min.</p></>}
+          pedras (não são fonte de gemas).</p><p>Moedas, equipe, HP, poções, revives e bolas vêm do perfil, a cada 2 min. O tempo até o próximo nível é o
+          XP que falta dividido pelo XP por hora ativa de hoje.</p><p>O histórico de 7, 30 e 90 dias fica em Histórico.</p></>}
       />
       <ErrorNote message={d?.err} />
       {d && accounts.length === 0 && !d.err && (
@@ -58,8 +60,11 @@ export function OverviewView() {
           const t = d.totals.get(a.id);
           const mins = t?.active_minutes ?? 0;
           const rank = d.ranks.get(a.id);
+          const profile = d.profiles.get(a.id);
+          const sup = supplies(profile);
+          const toLevel = hoursToLevel(profile, perHour(t?.xp ?? 0, mins));
           return (
-            <TrainerCard key={a.id} account={a} profile={d.profiles.get(a.id)} atlas={atlas} looktypes={d.looktypes}
+            <TrainerCard key={a.id} account={a} profile={profile} atlas={atlas} looktypes={d.looktypes}
               href={`/contas/${a.id}`} compact>
               <Alerts items={d.alerts.get(a.id)} compact />
               <div className="today">
@@ -72,6 +77,19 @@ export function OverviewView() {
                   <Stat label="Gemas" value={num(perHour(t?.drops_value_orb ?? 0, mins))} />
                   <Stat label="Ouro líq." value={num(perHour(t?.gold_net ?? 0, mins), { compact: true })} />
                 </div>
+                {sup && (
+                  <div className="stats stats-4 supplies">
+                    <Stat label="HP do ativo" value={<span className={sup.hpPct != null && sup.hpPct < 0.3 ? "warn-text" : undefined}>{pct(sup.hpPct, 0)}</span>} />
+                    <Stat label="Poções" value={num(sup.potions)} />
+                    <Stat label="Revives" value={num(sup.revives)} />
+                    <Stat label="Bolas" value={num(sup.balls, { compact: true })} />
+                  </div>
+                )}
+                {toLevel != null && (
+                  <div className="small secondary" title="XP que falta para o próximo nível ÷ XP por hora ativa de hoje">
+                    Próximo nível em ~{farmTime(toLevel)} de farm
+                  </div>
+                )}
                 {rank && (
                   <div className="small">
                     Rank: {num(rank.species ?? 0)} espécies na semana{rank.target && <>, alvo {rank.target}</>}
