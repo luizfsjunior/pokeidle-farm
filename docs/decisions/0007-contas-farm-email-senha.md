@@ -16,18 +16,18 @@ Pontos levantados:
 
 - As **3 contas de farm** são criadas com **e-mail e senha**, não com Google. Vale testar aliases do mesmo Gmail (`email+farm1@gmail.com`), se o jogo aceitar o `+`.
 - A **conta pessoal** continua com login pelo Google.
-- As **senhas ficam num gerenciador de senhas** (Bitwarden, 1Password ou outro). Elas **não** vão para o `.env`, o banco nem o droplet.
+- As **senhas ficam num gerenciador de senhas** (Bitwarden, 1Password ou outro). Elas **não** vão para o `.env`, o banco nem a máquina do worker.
 - O worker recebe só `nick`, `token` e `dispositivo` de cada conta, e atualiza o token sempre que chega um `sessao.renovada`.
 - O login é sempre manual, no navegador (o Turnstile aparece para a pessoa, como para qualquer jogador). O worker **nunca** tenta logar com senha.
 
 ## Consequências
 
 - Não é preciso criar nem manter 3 contas Google.
-- Se o droplet ou o banco vazarem, o atacante leva tokens, não senhas. Para cortar o acesso, basta trocar a senha da conta no jogo.
+- Se o worker ou o banco vazarem, o atacante leva tokens, não senhas. Para cortar o acesso, basta trocar a senha da conta no jogo.
 - Quando um token morre, o painel mostra `needs_login`. Aí é logar na mão, extrair o token (ver o passo a passo em [protocolo.md](../protocolo.md)) e atualizar.
 - A frequência do login manual depende de o worker salvar direito os tokens renovados. Isso vira requisito da fase 2.
 
 ## Alternativas consideradas
 
-- **Usuário e senha no `.env`, com login automatizado:** rejeitada. Exigiria contornar o Turnstile (proibido pelos termos) e deixaria as senhas expostas no servidor.
+- **Usuário e senha no `.env`, com login automatizado:** rejeitada. Exigiria contornar o Turnstile (proibido pelos termos) e deixaria as senhas expostas na máquina do worker.
 - **Uma conta Google por conta de farm:** funciona, mas dá mais trabalho e não traz ganho em relação ao e-mail e senha.

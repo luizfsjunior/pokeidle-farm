@@ -5,7 +5,7 @@
 
 ## Contexto
 
-O projeto vai ser construído aos poucos, e várias escolhas (hospedagem, auth, protocolo) dependem de informações que mudam, como preços e termos do jogo. Sem registro, fica difícil lembrar por que algo foi decidido.
+O projeto vai ser construído aos poucos, e várias escolhas (rede, auth, protocolo) dependem de informações que mudam, como preços e termos do jogo. Sem registro, fica difícil lembrar por que algo foi decidido.
 
 ## Decisão
 

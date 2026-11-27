@@ -13,7 +13,7 @@ O worker é um cliente WebSocket em Python (asyncio + `websockets`), com as mens
 
 ## Consequências
 
-- Consumo baixo de RAM e CPU, o que permite um droplet pequeno (512 MB–1 GB).
+- Consumo baixo de RAM e CPU, o que permite uma máquina pequena (512 MB–1 GB).
 - Depende de mapear o protocolo (fase 1), e uma mudança no protocolo pode quebrar o worker. Os modelos Pydantic devem falhar de forma explícita quando chegar uma mensagem desconhecida.
 - A stack é a mesma de outros projetos (Python, Pydantic).
 

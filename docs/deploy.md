@@ -1,10 +1,10 @@
 # Deploy: Supabase, worker e painel
 
-> ⚠️ **O jogo bloqueia conexões da DigitalOcean** (`auth.provedorBanido`, ver [ADR 0011](decisions/0011-worker-em-ip-residencial.md)). O worker precisa rodar numa máquina com **IP residencial**. O caminho testado é a seção [3a (PC de casa com Docker Desktop)](#3a-pc-de-casa-docker-desktop-no-windows). A seção 3 (droplet) fica só como referência de comandos.
+> ⚠️ **O jogo recusa IP de datacenter** (`auth.provedorBanido`, ver [ADR 0011](decisions/0011-worker-em-ip-residencial.md)). O tráfego do jogo precisa sair por IP residencial: direto de casa (seção [3a](#3a-pc-de-casa-docker-desktop-no-windows)), por proxy de IP fixo (3b) ou pelo celular (3c).
 
-Guia para subir tudo sem precisar abrir o jogo no computador. Dá para fazer só com o navegador (Supabase e console web da DigitalOcean) e com o celular (para pegar o token).
+Guia para subir tudo sem precisar abrir o jogo no computador. Dá para fazer só com o navegador (Supabase) e com o celular (para pegar o token).
 
-> ⚠️ A conexão a partir de IP de datacenter ainda é uma decisão em aberto ([ADR 0004](decisions/0004-hospedagem-digitalocean.md)). Para o primeiro teste: **uma conta de farm só**, nova, em modo `observe_only` (só escuta), por pouco tempo.
+> Para o primeiro teste: **uma conta de farm só**, nova, em modo `observe_only` (só escuta), por pouco tempo.
 
 ## 1. Supabase
 
@@ -54,64 +54,37 @@ Caminho testado em 12/11/2026: conectou, gravou abates reais e o painel passou a
 3. feche a aba **sem "Sair"** (o token do worker continua valendo);
 4. `docker compose up -d`.
 
-## 3. Droplet
+## 3b. Proxy ou VPN de IP fixo (24/7, ADR 0013)
 
-1. Na DigitalOcean, crie um droplet: **Ubuntu 24.04**, plano **Basic de US$ 4** (512 MB), região **NYC** ou **ATL**.
-2. Abra o **Console** (botão no painel do droplet; funciona pelo navegador, sem SSH).
-3. Instale o Docker e baixe o projeto:
-   ```bash
-   curl -fsSL https://get.docker.com | sh
-   git clone https://github.com/luizfsjunior/pokeidle-farm.git
-   cd pokeidle-farm
-   ```
-4. Crie o `.env`:
-   ```bash
-   cp .env.example .env
-   nano .env
-   ```
-   Preencha `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` e `WORKER_HOLDER=droplet-1`. Deixe `ACCOUNT_1_*` vazio.
-5. Grave o token no Vault. Ele é pedido sem aparecer na tela:
-   ```bash
-   docker compose run --rm worker set-token --nick <nick> --device <dispositivo>
-   ```
-6. Suba o worker:
-   ```bash
-   docker compose up -d --build
-   docker compose logs -f
-   ```
-
-## 3b. Servidor na nuvem com proxy ou VPN de IP fixo (24/7, ADR 0013)
-
-O servidor sozinho não serve: o jogo recusa IP de datacenter. O tráfego do jogo sai por um proxy ou VPN de **IP fixo**
+O tráfego do jogo sai por um proxy ou VPN de **IP fixo**
 (residencial ou ISP estático, dedicado), liberado pelo suporte em 16/11.
 
 1. **O proxy**: contrate um IP **estático dedicado** (procure por "static residential" ou "ISP proxy"), nunca um
    pool rotativo. Anote host, porta, usuário e senha e o protocolo (HTTP ou SOCKS5).
-2. **O servidor**: qualquer Linux com 1 GB de RAM (Ubuntu 24.04). Siga os passos 2 a 5 do Droplet abaixo, com
-   `WORKER_HOLDER=droplet-1` e, no `.env`:
+2. **O worker**: siga os passos 2 e 3 da seção 3a, com `WORKER_HOLDER=worker-1` e, no `.env`:
    ```bash
    GAME_PROXY_URL=http://usuario:senha@host:porta   # ou socks5://...
    ```
-3. **Pare o worker de casa** (`docker compose down` no PC) antes de subir o do servidor.
+3. **Pare o worker de casa** (`docker compose down` no PC) antes de subir o outro.
 4. Suba (`docker compose up -d --build`) e confira no log a primeira linha útil:
    - `IP de saída pelo proxy do jogo: 189.10.x.x (Provedor, tipo isp)`: ok, as sessões sobem em seguida.
-   - `IP de saída ... é de datacenter ... Não conectei.`: o proxy entrega IP de servidor. Troque de plano ou de
+   - `IP de saída ... é de datacenter ... Não conectei.`: o proxy entrega IP de datacenter. Troque de plano ou de
      provedor; não force (`EXIT_IP_CHECK=false` só para diagnóstico, nunca para conectar mesmo assim).
-5. No painel, na página da conta: **Ping** deve voltar `sessão ready em droplet-1`.
-6. Em `/economia`, em **Custos do mês**, preencha o fixo (servidor + proxy) e marque que a máquina fica ligada de
+5. No painel, na página da conta: **Ping** deve voltar `sessão ready em worker-1`.
+6. Em `/economia`, em **Custos do mês**, preencha o fixo (proxy) e marque que a máquina fica ligada de
    qualquer jeito (o PC de casa não entra mais na conta).
 
 ## 3c. Saída pelo celular com Tailscale (ADR 0015)
 
-O celular vira o *exit node* do droplet: todo o tráfego do droplet sai pela internet dele. `GAME_PROXY_URL` fica
-vazio. O jogo **nunca** pode ver o IP do droplet, por isso a trava do passo 5.
+O celular vira o *exit node* da máquina do worker: todo o tráfego dela sai pela internet dele. `GAME_PROXY_URL` fica
+vazio. O jogo **nunca** pode ver o IP da máquina, por isso a trava do passo 5.
 
 1. **No celular (Android):** instale o Tailscale, entre na conta, toque em **Exit Node → Run as exit node**.
    Em Configurações → Conexões → Mais configurações de conexão → VPN, ligue **VPN sempre ativa** para o
    Tailscale, e tire o app da otimização de bateria. Deixe na tomada.
 2. **No painel do Tailscale** (Machines): no celular, **⋯ → Edit route settings → Use as exit node**. No
-   celular e no droplet, **⋯ → Disable key expiry**.
-3. **No droplet:** instale (`curl -fsSL https://tailscale.com/install.sh | sh`, `tailscale up`) e **teste o SSH
+   celular e na máquina do worker, **⋯ → Disable key expiry**.
+3. **Na máquina do worker:** instale (`curl -fsSL https://tailscale.com/install.sh | sh`, `tailscale up`) e **teste o SSH
    pelo IP 100.x do Tailscale antes do próximo passo**: ligar o exit node derruba o SSH pelo IP público.
 4. **Exit node e SSH pelo IP público** (troque `SEU_IP_PUBLICO`):
    ```bash
@@ -141,7 +114,7 @@ vazio. O jogo **nunca** pode ver o IP do droplet, por isso a trava do passo 5.
    com prioridade maior:
    ```bash
    ip rule add to 1.1.1.1/32 lookup main priority 99
-   curl -s -m 5 https://1.1.1.1/cdn-cgi/trace | grep ip=   # host: o IP do droplet (rota pela eth0)
+   curl -s -m 5 https://1.1.1.1/cdn-cgi/trace | grep ip=   # host: o IP da própria máquina (rota pela eth0)
    docker run --rm --network pokeidle-farm_default curlimages/curl -s -m 5 https://1.1.1.1/cdn-cgi/trace | grep ip=   # vazio
    ip rule del priority 99
    iptables -L DOCKER-USER -v -n   # pkts > 0 na regra br-+
@@ -149,7 +122,7 @@ vazio. O jogo **nunca** pode ver o IP do droplet, por isso a trava do passo 5.
    E o caminho certo: `docker run --rm --network pokeidle-farm_default curlimages/curl -s https://ipinfo.io/org`
    mostra a operadora do celular.
 7. **Nunca** rode `tailscale set --exit-node=` para "desfazer" com o worker ligado nem rode o worker fora do
-   Docker nesse droplet: a trava só vale para containers.
+   Docker nessa máquina: a trava só vale para containers.
 
 O worker também confere o IP antes de cada conexão (ADR 0015): no log, `IP de saída não confirmado; não
 conectei` ou `IP de saída de datacenter; não conectei` quer dizer que ele esperou em vez de arriscar.
@@ -168,7 +141,7 @@ Se der errado:
 | `NEEDS_LOGIN (auth.sessaoInvalida)` | token errado ou vencido; extraia de novo |
 | `NEEDS_LOGIN (close 4001...)` | a conta está aberta em outro lugar (aba esquecida?). Feche a aba sem "Sair" e `docker compose up -d` |
 | `timeout esperando welcome` repetido | o handshake mudou; precisamos revisar o `hello` |
-| `REJECTED (auth.ipBanido / provedorBanido)` | o IP do droplet foi barrado. Pare e reavalie o ADR 0004 |
+| `REJECTED (auth.ipBanido / provedorBanido)` | o IP de saída foi barrado. Pare e reavalie o ADR 0011 |
 
 Para parar: `docker compose down`. Para atualizar o código: `git pull && docker compose up -d --build`.
 

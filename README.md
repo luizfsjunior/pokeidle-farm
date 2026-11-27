@@ -8,7 +8,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
 
 🟡 Em uso numa conta, crescendo por fases (detalhes no [roadmap](docs/roadmap.md)):
 
-- **No ar:** worker num servidor na nuvem com a saída do jogo pelo celular, via Tailscale ([ADR 0015](docs/decisions/0015-saida-pelo-celular-e-trava-de-ip.md)),
+- **No ar:** worker 24/7 com a saída do jogo pelo celular, via Tailscale ([ADR 0015](docs/decisions/0015-saida-pelo-celular-e-trava-de-ip.md)),
   4 contas; plugins `restock` (bola e consumíveis), `gems` (modo XP: a hunt de mais XP/h que o pokémon aguenta),
   `team_train` (treina a equipe), `watchdog` (vigia: cura, morte em loop, conta parada), `rank`, `capture_target`,
   `ball_thrower` (joga a bola à mão: shiny sempre e a espécie da captura; a bola automática do jogo exige VIP),
@@ -28,7 +28,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
                                                      ▲
                     lê comandos / grava estado e métricas
                                                      │
-[Servidor — Docker] worker Python (asyncio) ── WebSocket (proxy autorizado) ──> pokeidle.io
+[Docker] worker Python (asyncio) ── WebSocket (proxy autorizado) ──> pokeidle.io
    ├─ AccountSession × 4
    ├─ Plugins: restock, gems (modo XP), team_train, watchdog, rank, capture_target, ball_thrower, hunt_hold, seller...
    └─ ActionGateway (RateLimiter + travas por dono) + telemetry
@@ -73,17 +73,16 @@ pokeidle-farm/
 | [0001](docs/decisions/0001-registrar-decisoes.md) | Registrar decisões em ADRs | Aceita |
 | [0002](docs/decisions/0002-worker-headless-websocket.md) | Worker headless via WebSocket (sem navegador) | Aceita |
 | [0003](docs/decisions/0003-supabase-como-intermediario.md) | Supabase como intermediário entre painel e worker | Aceita |
-| [0004](docs/decisions/0004-hospedagem-digitalocean.md) | Hospedagem do worker na DigitalOcean | Substituída pela 0011 |
 | [0005](docs/decisions/0005-auth-por-token-de-sessao.md) | Auth no jogo por token de sessão reaproveitado | Proposta |
 | [0006](docs/decisions/0006-contas.md) | 4 contas: 3 de farm + 1 pessoal | Aceita (alterada pela 0007) |
 | [0007](docs/decisions/0007-contas-farm-email-senha.md) | Contas de farm com e-mail e senha; senhas fora do worker | Aceita |
 | [0008](docs/decisions/0008-escopo-completo-modular.md) | Escopo completo (até o Mercado), com estratégias plugáveis e métricas em camadas | Aceita |
 | [0009](docs/decisions/0009-licenca-agpl.md) | Licença AGPL-3.0 | Aceita |
 | [0010](docs/decisions/0010-supabase-desde-o-inicio.md) | Supabase desde o início do desenvolvimento | Aceita |
-| [0011](docs/decisions/0011-worker-em-ip-residencial.md) | Worker em IP residencial (o jogo bloqueia a DigitalOcean) | Aceita |
+| [0011](docs/decisions/0011-worker-em-ip-residencial.md) | Worker em IP residencial (o jogo recusa IP de datacenter) | Aceita |
 | [0012](docs/decisions/0012-metricas-em-camadas.md) | Métricas em camadas no Postgres, com objetivos e previsão | Aceita |
-| [0013](docs/decisions/0013-servidor-com-proxy-autorizado.md) | Worker em servidor na nuvem com a saída do jogo por proxy ou VPN de IP fixo (liberado pelo suporte) | Aceita (revista pela 0015) |
-| [0015](docs/decisions/0015-saida-pelo-celular-e-trava-de-ip.md) | Saída do jogo pelo celular (Tailscale), trava de rede no servidor e IP conferido antes de cada conexão | Aceita |
+| [0013](docs/decisions/0013-proxy-autorizado.md) | Worker 24/7 com a saída do jogo por proxy ou VPN de IP fixo (liberado pelo suporte) | Aceita (revista pela 0015) |
+| [0015](docs/decisions/0015-saida-pelo-celular-e-trava-de-ip.md) | Saída do jogo pelo celular (Tailscale), trava de rede e IP conferido antes de cada conexão | Aceita |
 
 ## Referências e créditos
 
