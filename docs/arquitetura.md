@@ -8,8 +8,8 @@ Manter 3 contas de farm rodando 24/7 de forma headless, com um painel web para a
 
 ### 1. Worker (`worker/`)
 
-Python 3.12 com asyncio, `websockets` e Pydantic. Roda em Docker numa máquina com IP residencial (o jogo bloqueia
-a DigitalOcean, [ADR 0011](decisions/0011-worker-em-ip-residencial.md)); hoje, o PC de casa.
+Python 3.12 com asyncio, `websockets` e Pydantic. Roda em Docker numa máquina com IP residencial (o jogo recusa
+IP de datacenter, [ADR 0011](decisions/0011-worker-em-ip-residencial.md)); hoje, o PC de casa.
 
 | Módulo | Responsabilidade |
 |---|---|
@@ -22,7 +22,7 @@ a DigitalOcean, [ADR 0011](decisions/0011-worker-em-ip-residencial.md)); hoje, o
 | `commands` | `Supervisor` (sessões de todas as contas) e `CommandLoop`: busca os comandos pendentes do painel a cada `COMMANDS_POLL_S` (5 s) e executa um por vez. |
 
 Princípios:
-- Toda a configuração vem de variáveis de ambiente, para a mesma imagem rodar local ou no VPS.
+- Toda a configuração vem de variáveis de ambiente, para a mesma imagem rodar em qualquer máquina.
 - Nenhuma porta é exposta: o worker só abre conexões de saída (para o jogo e para o Supabase).
 - Estado e histórico ficam no banco, não no processo. Trocar o lugar onde o worker roda não perde nada.
 

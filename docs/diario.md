@@ -32,7 +32,7 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 ### Pendente
 
-- Deploy no VPS depois do merge (as migrations rodam sozinhas): `git pull && docker compose up -d --build`. Até lá, o
+- Deploy depois do merge (as migrations rodam sozinhas): `git pull && docker compose up -d --build`. Até lá, o
   worker antigo continua gravando os abates em `events`, e as métricas leem os dois lugares.
 
 ## 2026-11-22
@@ -54,7 +54,7 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 ### Pendente
 
-- Deploy no VPS: `git pull && docker compose up -d --build`. Até lá, a conta 3 e a pessoal seguem com o lease vencido
+- Deploy: `git pull && docker compose up -d --build`. Até lá, a conta 3 e a pessoal seguem com o lease vencido
   (a tarefa de renovação já morreu) e podem cair numa queda de conexão.
 - O `rank` troca de hunt mas não joga bola: passar o alvo dele ao `ball_thrower` quando ele voltar a ser usado.
 
@@ -102,7 +102,7 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 ### Pendente
 
-- Deploy: push na `main` (Vercel e a migration `20261120010000_loja_e_mercado.sql` sobem sozinhas) e, no VPS,
+- Deploy: push na `main` (Vercel e a migration `20261120010000_loja_e_mercado.sql` sobem sozinhas) e, no worker,
   `git pull && docker compose up -d --build`. Até o worker novo subir, o painel novo falha no `focus.set` com as
   opções novas e nos comandos de loja e Mercado.
 - Religar o "Treinar a equipe" na `luizfsjunior_1` depois do deploy e acompanhar os `team_train.waiting_hunt`.
@@ -114,12 +114,12 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 ### Feito
 
-- **Worker 24/7 sem máquina em casa** ([ADR 0013](decisions/0013-vps-com-proxy-autorizado.md), revisa a 0011): o
-  suporte, pelo Discord, não libera IP de servidor mas liberou proxy ou VPN. O worker ganhou `GAME_PROXY_URL` (só o
+- **Worker 24/7 sem máquina em casa** ([ADR 0013](decisions/0013-proxy-autorizado.md), revisa a 0011): o
+  suporte, pelo Discord, não libera IP de datacenter mas liberou proxy ou VPN. O worker ganhou `GAME_PROXY_URL` (só o
   tráfego do jogo: WebSocket e downloads da Pokedex/itens; o Supabase vai direto; HTTP ou SOCKS5) e a conferência do
   IP de saída no ipapi.is antes de conectar (`EXIT_IP_CHECK`): IP de datacenter não conecta. Guia em
   [deploy.md](deploy.md), seção 3b. 293 testes passando.
-- **Worker no VPS**: droplet da DigitalOcean com o proxy (holder `vps1`), ~US$ 10/mês os dois; Ping `ready em vps1`
+- **Worker 24/7** com o proxy, ~US$ 10/mês; Ping `ready`
   às 12:08 UTC. A evolução automática deu certo duas vezes (Bulbasaur → Ivysaur no 40, Ivysaur → Venusaur no 80).
 - **Painel (PRs #1 a #16)**: perfil, Pokédex, gráficos, Vendas, redesign de app, PWA e pré-busca.
 - **Painel com dados no navegador** ([painel-swr.md](design/painel-swr.md)): medido no celular, o `router.refresh()`
@@ -128,7 +128,7 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
   valores carregam. Vendas de 3–6 s para ~0,85 s (o `like "seller.%"` varria os eventos com o RLS).
 - **Painel no celular**: tabelas viram cartões, ícones dos itens corrigidos, gráfico de um dia vira número, log do
   seller recolhido, abas da conta escondendo de verdade (o `.stack` vencia o `hidden`).
-- **Compensa?** com custo fixo mensal (`fixed_cost_usd`: VPS e proxy) somado à energia; teste SQL passando.
+- **Compensa?** com custo fixo mensal (`fixed_cost_usd`: proxy) somado à energia; teste SQL passando.
 
 ### Problemas e soluções
 
@@ -144,14 +144,14 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 - Guardar o print da conversa com o suporte (fora do repo).
 - No `/compensa`, preencher o custo fixo (~US$ 10) e marcar "a máquina fica ligada de qualquer jeito".
 - **`offline` com a conta jogando (resolvido)**: o Docker Desktop do PC foi aberto para os testes SQL e o worker antigo
-  (`restart: unless-stopped`) subiu junto. Ele não pegava o lease (é do `vps1`), mas o estado `LEASE_BUSY` gravava
+  (`restart: unless-stopped`) subiu junto. Ele não pegava o lease (é do worker 24/7), mas o estado `LEASE_BUSY` gravava
   `offline` por cima do `ready` a cada minuto. Agora o `LEASE_BUSY` não grava status (teste novo; 316 passando). No
-  PC: `docker compose down` na pasta do projeto, para o worker de casa não voltar com o Docker. No VPS: `git pull` e
+  PC: `docker compose down` na pasta do projeto, para o worker de casa não voltar com o Docker. No worker 24/7: `git pull` e
   `docker compose up -d --build` para levar a correção.
 - Lint: dois B008 em `model/combat.py` (de 15/11).
 - Fase 5, contas 2 e 3: o jogo só aceita Gmail, Live e Yahoo e normaliza `+alias` e pontos; o Google barrou o celular
   por excesso de verificações. Esperar uns dias e criar dois Gmail (ou Yahoo); depois: nicks no Supabase, plugins,
-  `set-token` no VPS e `docker compose restart worker` (o worker só carrega contas novas ao reiniciar).
+  `set-token` no worker e `docker compose restart worker` (o worker só carrega contas novas ao reiniciar).
 
 ## 2026-11-15
 
@@ -361,7 +361,7 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
    - plugin `rank` em `observe_only` (grava `rank.plan` e o que faria) e o foco `rank` no `restock`;
    - seletor de foco e parâmetros do rank no painel;
    - depois de conferir alguns dias: ligar o `hunt.select` e o Lançar até Capturar de verdade.
-4. **Pendências antigas**: apagar o droplet da DigitalOcean e os Actions secrets que sobraram.
+4. **Pendências antigas**: apagar os Actions secrets que sobraram.
 
 ## 2026-11-12
 
@@ -369,9 +369,9 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 - **Design e núcleo da fase 2**: sessão WebSocket, barramento de eventos, plugins, telemetria
   e a migration inicial (contas, tokens no Vault, leases, eventos, configs). Docker e guia de deploy.
-- **DigitalOcean bloqueada**: o jogo respondeu `provedorBanido` para o IP do droplet.
+- **IP de datacenter bloqueado**: o jogo respondeu `provedorBanido`.
   Virou o [ADR 0011](decisions/0011-worker-em-ip-residencial.md): o worker roda em IP residencial.
-  Pedido formal enviado ao suporte perguntando sobre VPS/proxy. Sem autorização, nada de proxy, VPN ou túnel.
+  Pedido formal enviado ao suporte perguntando sobre IP fixo/proxy. Sem autorização, nada de proxy, VPN ou túnel.
 - **Simulador** (`pokeidle-farm simulate`): gera dias de eventos com os sorteios dos Termos, para
   desenvolver métricas e painel sem o jogo. Agora carimba `hunt_slug` em abates e capturas.
 - **Codespaces**: devcontainer com Python 3.12 e Node, para trabalhar do PC do trabalho sem instalar nada.
@@ -406,14 +406,14 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 | Sintoma | Causa | Solução |
 |---|---|---|
-| `REJECTED (provedorBanido)` no droplet | IP de datacenter barrado pelo jogo | ADR 0011: só IP residencial |
+| `REJECTED (provedorBanido)` | IP de datacenter barrado pelo jogo | ADR 0011: só IP residencial |
 | pip: `requires a different Python: 3.14` no codespace | codespace criado antes do devcontainer | `git pull` + **Rebuild Container** |
 | `pokeidle-farm: command not found` | terminal aberto antes da instalação | abrir terminal novo (ou `python -m pokeidle_farm.main`) |
 | "Supabase não configurado", conta não encontrada | segredos criados em *Actions secrets* | criar em **Codespaces secrets** e reiniciar o codespace |
 | `PGRST202 refresh_metric_hourly` | migration de métricas não aplicada | rodar `20261112010000_metrics.sql` |
 | `relation "accounts" already exists` | migration inicial rodada de novo | cada migration roda uma vez só; aplicar só o arquivo novo |
 | Painel sem conectar na Vercel | variáveis `NEXT_PUBLIC_` entram no build | colocar antes do deploy ou dar **Redeploy** depois |
-| Card mostra "Rejeitada" | status que ficou da tentativa no droplet; o simulador não mexe em status | normal; o worker atualiza quando rodar em casa (confirmado: virou `ready`) |
+| Card mostra "Rejeitada" | status que ficou da tentativa barrada; o simulador não mexe em status | normal; o worker atualiza quando rodar em casa (confirmado: virou `ready`) |
 | `dockerDesktopLinuxEngine: The system cannot find the file specified` | Docker Desktop fechado | abrir o Docker Desktop e esperar o engine subir |
 | Worker caiu em `NEEDS_LOGIN (close 4001)` | conta aberta no navegador para trocar de hunt | esperado (sessão única). Fechar a aba sem "Sair" e `docker compose up -d`; o token continua valendo |
 | Worker sai com `ValueError: 'enable' is not a valid ActionMode` | `ACTION_MODE=enable` no `.env` | o valor é `enabled` (com "d") |
@@ -421,8 +421,8 @@ As decisões em si ficam nos [ADRs](decisions/); aqui fica o caminho até elas.
 
 ### Pendente
 
-- Apagar o droplet da DigitalOcean e os *Actions secrets* que sobraram.
-- Esperar a resposta do suporte sobre VPS/proxy (ADR 0011).
+- Apagar os *Actions secrets* que sobraram.
+- Esperar a resposta do suporte sobre IP fixo/proxy (ADR 0011).
 - Fase 3a: confirmar os ids 203, 204 e 206.
 - Fase 3b (rank semanal de espécies): desenhar.
 - Ver uma captura real (para o `pokemon.captured`): a bola automática "sem parar" (exige VIP) já está

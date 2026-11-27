@@ -5,7 +5,7 @@
 
 ## Contexto
 
-O painel fica na Vercel e o worker num VPS ou na máquina local. Os dois precisam conversar, e o painel precisa de autenticação.
+O painel fica na Vercel e o worker em outra máquina. Os dois precisam conversar, e o painel precisa de autenticação.
 
 ## Decisão
 
@@ -16,11 +16,11 @@ Os dois falam só com o Supabase:
 
 ## Consequências
 
-- O worker não expõe porta, API nem HTTPS no VPS, o que diminui a superfície de ataque.
-- Trocar o worker de lugar (local ↔ droplet) não exige mudar o painel.
+- O worker não expõe porta, API nem HTTPS, o que diminui a superfície de ataque.
+- Trocar o worker de lugar de máquina não exige mudar o painel.
 - Depende do plano grátis do Supabase. Conferir os limites de Realtime e de armazenamento quando os eventos crescerem.
 
 ## Alternativas consideradas
 
-- **FastAPI no droplet + painel chamando direto:** exige expor porta, configurar TLS e escrever auth própria.
+- **FastAPI no worker + painel chamando direto:** exige expor porta, configurar TLS e escrever auth própria.
 - **Fila (Redis):** é mais uma peça para manter, sem ganho nesse volume.

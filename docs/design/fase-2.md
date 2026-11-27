@@ -180,7 +180,7 @@ create table account_tokens (
 -- Lease: só uma instância do worker por conta ao mesmo tempo.
 create table account_leases (
   account_id  uuid primary key references accounts(id) on delete cascade,
-  holder      text not null,          -- ex.: "local-notebook", "droplet-1"
+  holder      text not null,          -- ex.: "local-notebook", "pc-casa"
   expires_at  timestamptz not null    -- renovado a cada ~30 s pelo dono do lease
 );
 
@@ -223,7 +223,7 @@ create policy own_configs on strategy_configs
 
 ### Token no Supabase Vault
 
-O token fica criptografado no [Supabase Vault](https://supabase.com/docs/guides/database/vault). Qualquer worker que tenha a `SUPABASE_SERVICE_ROLE_KEY` (local, droplet, outro PC) pega o token atual, sem precisar logar de novo. E quando um worker recebe `sessao.renovada`, todos passam a usar o token novo.
+O token fica criptografado no [Supabase Vault](https://supabase.com/docs/guides/database/vault). Qualquer worker que tenha a `SUPABASE_SERVICE_ROLE_KEY` (local ou outro PC) pega o token atual, sem precisar logar de novo. E quando um worker recebe `sessao.renovada`, todos passam a usar o token novo.
 
 Acesso só por funções `security definer`, executáveis apenas pela `service_role`:
 
