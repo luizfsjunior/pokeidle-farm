@@ -8,13 +8,14 @@ import { useCommand } from "@/lib/useCommand";
  * Botões de um pokémon fora da montagem: tornar ativo (quem está na equipe) e Coleção/Depot (quem não
  * está). Pôr e tirar da equipe fica só no "Montar equipe", que vai ao Pokécenter (o jogo só aceita lá).
  */
-export function MonActions({ accountId, mon, team, isActive, inCollection, training = false }: {
+export function MonActions({ accountId, mon, team, isActive, inCollection, training = false, protectedFirm = false }: {
   accountId: string;
   mon: Mon;
   team: Mon[];
   isActive: boolean;
   inCollection?: boolean; // undefined: não sabe (sem a coleção completa), não mostra o botão
   training?: boolean; // treino ligado: ele escolhe o ativo e desfaz a troca à mão em ~20 s (20/11)
+  protectedFirm?: boolean; // shiny ou protegido no painel: o worker recusa mandar para o Depot
 }) {
   const { send, cmd, error, busy } = useCommand();
   const inTeam = team.some((t) => t.id === mon.id);
@@ -30,7 +31,7 @@ export function MonActions({ accountId, mon, team, isActive, inCollection, train
           Tornar ativo
         </button>
       )}
-      {!inTeam && inCollection !== undefined && (
+      {!inTeam && inCollection !== undefined && !(inCollection && protectedFirm) && (
         <button type="button" className="ghost small" disabled={busy}
           title={inCollection ? "Volta para o Depot e entra na próxima venda" : "Fica guardado: a venda do Depot não leva"}
           onClick={() => void send(accountId, "collection.move", { pokemon_id: mon.id, to: inCollection ? "depot" : "colecao" })}>

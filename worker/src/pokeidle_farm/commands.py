@@ -42,6 +42,7 @@ from .events import Event
 from .outland_model import best_tier, current_tier, outland_tiers
 from .plugins.base import Plugin
 from .profile import set_travado
+from .protection import keeps_out_of_depot, needs_mirror
 from .store.base import AccountRecord, CommandRecord, Store
 from .team_apply import TEAM_SLOTS, Step, plan_moves, team_by_slot
 
@@ -316,7 +317,7 @@ class Supervisor:
         out = await self._send_now(acc, TeamMove(pokemon_id=pid, slot=slot), confirm=done)
         if slot is None and p.to is not None:
             try:
-                out["moved_to"] = await self._set_place(acc, {pid: p.to}) and p.to
+                out["moved_to"] = (await self._set_place(acc, {pid: p.to})).get(pid)
             except CommandError as exc:  # saiu da equipe; só a marca de Coleção/Depot falhou
                 out["place_error"] = str(exc)
         return out
@@ -401,8 +402,8 @@ class Supervisor:
                 done.append(st.label())
             left = {pid: p.left_to.get(str(pid)) for pid in current.values() if pid not in ids}
             places = {pid: to for pid, to in left.items() if to is not None}
-            for pid in await self._set_place(acc, places):
-                done.append(f"{pid} {'na Coleção' if places[pid] == 'colecao' else 'no Depot'}")
+            for pid, to in (await self._set_place(acc, places)).items():
+                done.append(f"{pid} {'na Coleção' if to == 'colecao' else 'no Depot'}")
         except CommandError as exc:
             failure = str(exc)
         finally:
@@ -479,12 +480,32 @@ class Supervisor:
         state = self._profile(acc)
         return getattr(state, "pokemons", None) if state is not None else None
 
-    async def _set_place(self, acc: AccountRecord, places: dict[int, str]) -> list[int]:
+    async def _manual_protected(self, acc: AccountRecord) -> set[int]:
+        """Os protegidos marcados no painel, lidos na hora (a marca pode ter acabado de mudar). Sem a
+        lista não dá para saber o que é seguro: o comando falha em vez de arriscar."""
+        try:
+            return await self.store.protected_pokemon(acc.id)
+        except Exception as exc:
+            raise CommandError(f"não deu para ler a lista de protegidos ({exc!r})") from exc
+
+    async def _set_place(
+        self, acc: AccountRecord, places: dict[int, str], *, protected: set[int] | None = None
+    ) -> dict[int, str]:
         """Marca cada pokémon como da Coleção ("colecao") ou do Depot ("depot"), quem sai da equipe.
-        Devolve os que mudaram (quem já estava no lugar pedido fica como está)."""
+        Devolve os que mudaram, com o lugar em que ficaram (quem já estava no lugar fica como está).
+
+        Protegido (marcado no painel ou shiny) nunca vai para o Depot: fica na Coleção (épico C1)."""
         mons = self._mons(acc) or {}
         state = self._profile(acc)
-        moved: list[int] = []
+        if any(to == "depot" for to in places.values()):
+            manual = protected if protected is not None else await self._manual_protected(acc)
+            places = {
+                pid: "colecao"
+                if to == "depot" and keeps_out_of_depot(mons.get(pid), pid, manual)
+                else to
+                for pid, to in places.items()
+            }
+        moved: dict[int, str] = {}
         for pid, to in places.items():
             mon = mons.get(pid)
             want = to == "colecao"
@@ -493,7 +514,7 @@ class Supervisor:
             if moved:  # o gateway segura 1 s entre marcações: espera em vez de falhar
                 await asyncio.sleep(CollectionMove.min_interval_s + 0.05)
             await self._mark_place(acc, mons, pid, want)
-            moved.append(pid)
+            moved[pid] = to
         return moved
 
     async def _collection_move(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
@@ -505,16 +526,30 @@ class Supervisor:
         mons = self._mons(acc)
         if mons is None:
             raise CommandError("a coleção ainda não carregou; tente em alguns segundos")
+        manual = await self._manual_protected(acc) if p.to == "depot" else set()
         if p.pokemon_ids:  # em lote, pela tabela do painel (refatoracao-2026-11-20, 4.2)
             missing = [pid for pid in p.pokemon_ids if pid not in mons]
             if missing:
                 raise CommandError(f"pokémon não encontrado na conta: {missing[:5]}")
-            moved = await self._set_place(acc, {pid: p.to for pid in p.pokemon_ids})
-            return {"moved": len(moved), "to": p.to}
+            kept = [pid for pid in p.pokemon_ids if keeps_out_of_depot(mons[pid], pid, manual)]
+            ids = (
+                [pid for pid in p.pokemon_ids if pid not in kept]
+                if p.to == "depot"
+                else p.pokemon_ids
+            )
+            moved = await self._set_place(acc, {pid: p.to for pid in ids}, protected=manual)
+            out: dict[str, Any] = {"moved": len(moved), "to": p.to}
+            if p.to == "depot" and kept:
+                out["protected"] = kept  # ficaram onde estavam
+            return out
         assert p.pokemon_id is not None
         mon = mons.get(p.pokemon_id)
         if mon is None:
             raise CommandError("pokémon não encontrado na conta")
+        if p.to == "depot" and keeps_out_of_depot(mon, p.pokemon_id, manual):
+            raise CommandError(
+                "pokémon protegido (shiny ou marcado no painel): tire a proteção antes"
+            )
         want = p.to == "colecao"
         if self._profile(acc).in_collection(p.pokemon_id) == want:
             return {"detail": "já estava assim"}
@@ -550,8 +585,8 @@ class Supervisor:
         return out
 
     async def _depot_sell(self, acc: AccountRecord, params: dict[str, Any]) -> dict[str, Any]:
-        """Vende o Depot inteiro. Recusa se ele cresceu desde o que o painel mostrou, ou se tem
-        shiny e o pedido não liberou."""
+        """Vende o Depot inteiro. Recusa se ele cresceu desde o que o painel mostrou. Protegidos que
+        estiverem no Depot vão para a Coleção antes; se o jogo não confirmar, não vende nada."""
         try:
             p = DepotSellParams.model_validate(params)
         except ValidationError as exc:
@@ -560,19 +595,38 @@ class Supervisor:
         if mons is None:
             raise CommandError("a coleção ainda não carregou; tente em alguns segundos")
         state = self._profile(acc)
-        depot = [
-            m for pid, m in mons.items() if m.get("slot") is None and not state.in_collection(pid)
-        ]
+
+        def in_depot() -> dict[Any, dict[str, Any]]:
+            return {
+                pid: m
+                for pid, m in mons.items()
+                if m.get("slot") is None and not state.in_collection(pid)
+            }
+
+        depot = in_depot()
         if not depot:
             return {"sold": 0, "detail": "o Depot está vazio"}
-        if len(depot) > p.expected:
+        # protegidos no Depot (shiny, marcados no painel) vão para a Coleção antes: a venda nunca
+        # leva um protegido (épico C1). O que o painel mostrou como Depot conta sem eles.
+        manual = await self._manual_protected(acc)
+        guard = needs_mirror(depot, manual, ())
+        if len(depot) - len(guard) > p.expected:
             raise CommandError(
-                f"o Depot tem {len(depot)} e o painel mostrou {p.expected}: confira e venda de novo"
+                f"o Depot tem {len(depot) - len(guard)} e o painel mostrou {p.expected}: confira e "
+                "venda de novo"
             )
-        shinies = [m for m in depot if m.get("shiny")]
-        if shinies and not p.allow_shiny:
-            raise CommandError(f"há {len(shinies)} shiny no Depot: mova para a Coleção antes")
-        ids = {m.get("id") for m in depot}
+        if guard:
+            await self._set_place(acc, dict.fromkeys(guard, "colecao"), protected=manual)
+            depot = in_depot()
+            left = [pid for pid in needs_mirror(depot, manual, ()) if pid in depot]
+            if left:
+                raise CommandError(
+                    f"{len(left)} protegido(s) ainda no Depot (o jogo não confirmou a Coleção): "
+                    "nada vendido"
+                )
+            if not depot:
+                return {"sold": 0, "detail": "só havia protegidos no Depot", "protected": guard}
+        ids = {m.get("id") for m in depot.values()}
         session = self.live[acc.id].session
         since = time.monotonic()
 
@@ -944,7 +998,7 @@ class DepotSellParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     expected: int = Field(ge=0)  # quantos o painel mostrou: não vende se o Depot cresceu
-    allow_shiny: bool = False
+    allow_shiny: bool = False  # ignorado desde o épico C1: shiny é protegido e vai para a Coleção
 
 
 class HuntSelectParams(BaseModel):

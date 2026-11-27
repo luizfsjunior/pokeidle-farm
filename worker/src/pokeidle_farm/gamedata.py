@@ -107,6 +107,7 @@ WELCOME_RULES = (
     "multShinyStats",
     "outlandTiers",
     "economia",
+    "bossesJogaveis",  # bosses lendários: entrada, teamLevel, equipeIdeal, nível mínimo (épico C)
 )
 
 

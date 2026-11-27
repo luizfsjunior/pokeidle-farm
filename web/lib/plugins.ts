@@ -23,6 +23,13 @@ export const PLUGIN_INFO: Record<string, PluginInfo> = {
   },
   ball_thrower: { label: "Lançador de bolas", hint: "Joga bola em todo shiny e na captura ativa.", alwaysOn: true },
   market_prices: { label: "Preços do Mercado", hint: "Lê as médias e os anúncios do Mercado de hora em hora.", alwaysOn: true },
+  protect: {
+    label: "Protegidos na Coleção", hint: "Guarda na Coleção do jogo os shiny e os protegidos no painel.", alwaysOn: true,
+  },
+  boss: {
+    label: "Bosses automáticos",
+    hint: "Luta no boss do prêmio escolhido enquanto houver Boss Token. Começa em ensaio (dry_run): só registra. A página Bosses mostra o que ele faria.",
+  },
   // card próprio (NotifierEditor): um interruptor por tipo de aviso e o aviso de teste
   notifier: { label: "Avisos no Discord", hint: "Shiny, captura rara, drop raro, queda, rank e nível.", alwaysOn: true, activeKey: true },
 };

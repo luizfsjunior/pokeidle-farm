@@ -194,6 +194,11 @@ class Store(Protocol):
         de `upsert` são a coleção inteira, e o que não estiver nela sai."""
         ...
 
+    async def protected_pokemon(self, account_id: UUID) -> set[int]:
+        """Os pokémons marcados como protegidos no painel (`protected_pokemon`, épico C1). Os motivos
+        automáticos (shiny, equipe, Coleção) não estão na tabela: saem de `protection.reasons`."""
+        ...
+
     async def rank_hunt_stats(self, account_id: UUID, since: datetime) -> list[HuntStats]:
         """Por hunt, desde `since`: abates e minutos ativos e a última chance de captura."""
         ...

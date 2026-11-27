@@ -17,6 +17,7 @@ import { loadGameRules, loadSpeciesInfo, type GameRules, RULES_VERSION } from "@
 import { loadProfiles, type Mon, type Profile } from "@/lib/profile";
 import { useAccounts, useAtlas, usePanel } from "@/lib/query/hooks";
 import type { Atlas } from "@/lib/sprites";
+import { AutoBossCard } from "./AutoBossCard";
 
 const mult = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
 const TEAM_SIZE = 5;
@@ -73,6 +74,8 @@ export function BossesView() {
         {profile && <> · {chosen?.nick} está no nível {num(trainer)}{trainer >= bossLevel(region) ? " e pode lutar" : `: faltam ${num(bossLevel(region) - trainer)}`}</>}
         {" · "}o prêmio gira {dateTime(new Date(nextRotation()).toISOString())}
       </p>
+
+      {chosen && profile && <AutoBossCard accountId={chosen.id} nick={chosen.nick} profile={profile} />}
 
       {!species.data || !rules ? <LdBlock h={420} /> : (
         <div className="boss-grid">

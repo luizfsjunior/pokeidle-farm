@@ -234,19 +234,16 @@ async def test_depot_sell_guards(rig):  # noqa: F811
     }
     await _wire(rig, game)
     _with_mons(rig, game, mons)
+    c = await rig.cmd(acc, "depot.sell", expected=0)
+    assert c["status"] == "failed" and "tem 1" in c["error"]  # o shiny protegido não conta
     c = await rig.cmd(acc, "depot.sell", expected=1)
-    assert c["status"] == "failed" and "tem 2" in c["error"]
-    c = await rig.cmd(acc, "depot.sell", expected=2)
-    assert c["status"] == "failed" and "shiny" in c["error"]
-    c = await rig.cmd(acc, "collection.move", pokemon_id=4, to="colecao")
-    assert c["status"] == "done", c
-    c = await rig.cmd(acc, "depot.sell", expected=1)
-    assert c["status"] == "done" and c["result"]["sold"] == 1
-    assert set(mons) == {1, 2, 4}
-    # em lote: a 2 e a 4 voltam para o Depot
+    assert c["status"] == "done" and c["result"]["sold"] == 1, c
+    assert set(mons) == {1, 2, 4} and mons[4]["colecao"]  # o shiny foi para a Coleção antes
+    # em lote: a 2 volta para o Depot; o shiny é protegido e fica
     c = await rig.cmd(acc, "collection.move", pokemon_ids=[2, 4], to="depot")
-    assert c["status"] == "done" and c["result"] == {"moved": 2, "to": "depot"}, c
-    assert not mons[2].get("colecao") and not mons[4].get("colecao")
+    assert c["status"] == "done", c
+    assert c["result"] == {"moved": 1, "to": "depot", "protected": [4]}, c
+    assert not mons[2].get("colecao") and mons[4]["colecao"]
     c = await rig.cmd(acc, "collection.move", pokemon_id=2, pokemon_ids=[4])
     assert c["status"] == "failed" and "params" in c["error"]
 
