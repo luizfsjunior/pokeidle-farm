@@ -6,6 +6,7 @@ import { TypeChip } from "@/components/SpeciesFacts";
 import { placeOf, PLACE_PT, type CollectionMon } from "@/lib/collection";
 import { num } from "@/lib/format";
 import { STAT_LABEL, STATS, type Stat } from "@/lib/pokemon";
+import { fairOf, type MonPrice } from "@/lib/prices";
 import type { Atlas } from "@/lib/sprites";
 
 /**
@@ -25,7 +26,7 @@ const n = (v: unknown): number | null => (typeof v === "number" && Number.isFini
 const dec = (v: number) => num(v);
 const STAT_SHORT: Record<Stat, string> = { hp: "HP", atk: "Atk", def: "Def", spAtk: "SpA", spDef: "SpD", speed: "Vel" };
 
-const COLS: Col[] = [
+const BASE_COLS: Col[] = [
   { id: "quality", label: "Q", title: "Qualidade", value: (m) => n(m.quality), fmt: dec },
   { id: "grade", label: "Nota", value: (m) => n(m.grade), fmt: dec },
   { id: "iv", label: "IV", title: "IV total", value: (m) => n(m.iv_sum) },
@@ -36,7 +37,8 @@ const COLS: Col[] = [
 ];
 const DEFAULT_SORT = ["quality", "grade"];
 
-export function MonTable({ mons, types, atlas, looktypes, activeId, draftIds, selected, onToggleSelect, onOpen, onDraft }: {
+export function MonTable({ mons, types, atlas, looktypes, activeId, draftIds, selected, onToggleSelect, onOpen, onDraft, prices }: {
+  prices?: Map<number, MonPrice>;
   mons: CollectionMon[];
   types: Map<number, [string, string | null]> | undefined;
   atlas: Atlas | null;
@@ -49,6 +51,11 @@ export function MonTable({ mons, types, atlas, looktypes, activeId, draftIds, se
   onDraft?: (m: CollectionMon) => void;
 }) {
   const [sort, setSort] = useState<{ id: string; asc: boolean } | null>(null);
+  const COLS = useMemo<Col[]>(() => [
+    ...BASE_COLS,
+    { id: "price", label: "💎", title: "Preço justo no Mercado, em gemas (vendas reais parecidas)",
+      value: (m) => fairOf(prices?.get(m.id)), fmt: (v) => num(v, { compact: true }) },
+  ], [prices]);
   const rows = useMemo(() => {
     const keys = sort ? [sort.id] : DEFAULT_SORT;
     const dir = sort?.asc ? 1 : -1;
@@ -60,7 +67,7 @@ export function MonTable({ mons, types, atlas, looktypes, activeId, draftIds, se
       }
       return a.id - b.id;
     });
-  }, [mons, sort]);
+  }, [mons, sort, COLS]);
   const best = useMemo(() => {
     const out = new Map<string, number>();
     for (const c of COLS) {
@@ -68,7 +75,7 @@ export function MonTable({ mons, types, atlas, looktypes, activeId, draftIds, se
       if (vs.length > 1) out.set(c.id, Math.max(...vs));
     }
     return out;
-  }, [mons]);
+  }, [mons, COLS]);
   const hasStats = mons.some((m) => m.stats && Object.keys(m.stats).length > 0);
   const cols = COLS.filter((c) => hasStats || !c.id.startsWith("st_"));
   const allOn = rows.length > 0 && rows.every((m) => selected.has(m.id));
@@ -100,7 +107,7 @@ export function MonTable({ mons, types, atlas, looktypes, activeId, draftIds, se
             {cols.slice(0, 3).map((c) => header(c, 2))}
             <th colSpan={6} className="group-head col-iv">IVs</th>
             {hasStats && <th colSpan={6} className="group-head col-stat">Stats</th>}
-            {cols.slice(-2).map((c) => header(c, 2))}
+            {cols.slice(-3).map((c) => header(c, 2))}
             {onDraft && <th rowSpan={2} aria-label="Equipe" />}
           </tr>
           <tr className="sub-head">

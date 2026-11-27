@@ -7,6 +7,7 @@ import { dateTime, num } from "@/lib/format";
 import {
   BAND_PT, RARITY_PT, bandOf, qualityPercentile, tierIvSum, tierPotency, tierQuality, gradeWithLineage, isLegendary, loadAncestors, loadGameRules, loadSpeciesInfo,
   type Stat, RULES_VERSION } from "@/lib/pokemon";
+import type { MonPrice } from "@/lib/prices";
 import type { Mon } from "@/lib/profile";
 import { usePanel } from "@/lib/query/hooks";
 import type { Atlas } from "@/lib/sprites";
@@ -24,7 +25,8 @@ function caughtLabel(v: unknown): string | null {
  * A ficha de um pokémon da conta, como a do jogo: nota e faixa, potência, qualidade e IV, os stats,
  * os tipos (fraquezas e forças), o alcance no PvP, os golpes e a evolução (docs/design/ficha-pokemon.md).
  */
-export function MonSheet({ mon, atlas, looktypes, active, onClose, children }: {
+export function MonSheet({ mon, atlas, looktypes, active, onClose, children, price }: {
+  price?: MonPrice | null; // undefined: a página não carrega preço; null: a espécie não tem vendas
   mon: Mon;
   atlas: Atlas | null;
   looktypes: Map<number, number>;
@@ -111,6 +113,8 @@ export function MonSheet({ mon, atlas, looktypes, active, onClose, children }: {
             </div>
           )}
 
+          {price !== undefined && <MarketPrice p={price} />}
+
           {children}
 
           <section>
@@ -158,6 +162,49 @@ export function MonSheet({ mon, atlas, looktypes, active, onClose, children }: {
         </div>
       </aside>
     </>
+  );
+}
+
+/** Preço justo no Mercado (docs/design/preco-justo-pokemon.md): três preços para vender e a raridade. */
+function MarketPrice({ p }: { p: MonPrice | null }) {
+  if (!p) {
+    return (
+      <section className="mon-price">
+        <h3>No Mercado</h3>
+        <p className="muted small">Nenhuma venda desta espécie nos últimos 30 dias.</p>
+      </section>
+    );
+  }
+  const low = p.confidence !== "ok";
+  return (
+    <section className="mon-price">
+      <h3>No Mercado</h3>
+      {low ? (
+        <p className="small">
+          <strong>Poucas referências</strong>: {p.sales === 0 ? "nenhuma venda" : `só ${num(p.sales)} ${p.sales === 1 ? "venda" : "vendas"}`} da
+          espécie com o mesmo shiny, potência e nível parecido (precisa de 5).
+          {p.fair != null && <span className="muted"> O que há sugere ~{num(p.fair)} gemas.</span>}
+        </p>
+      ) : (
+        <>
+          <div className="sheet-figures">
+            <Fig label="Rápido" value={`💎 ${num(p.quick)}`} title="Vende em pouco tempo: 1 em cada 4 vendas parecidas saiu por menos" />
+            <Fig label="Justo" value={`💎 ${num(p.fair)}`} tier={3} title="O preço do meio das vendas parecidas (recentes e de nota parecida pesam mais)" />
+            <Fig label="Esperar" value={`💎 ${num(p.patient)}`} title="Para quem pode esperar: 3 em cada 4 vendas parecidas saíram por menos" />
+          </div>
+          <p className="small muted" style={{ margin: ".4rem 0 0" }}>
+            Pelo justo, entram {num(p.fair_net)} gemas depois da comissão. Base: {num(p.sales)} vendas
+            {p.match === "band" ? " de potência na mesma faixa" : " de mesma potência"}, nível entre a metade e o dobro
+            {p.outliers > 0 && `, ${num(p.outliers)} fora por preço fora da curva`}; mediana simples {num(p.median)}.
+          </p>
+        </>
+      )}
+      {p.top_pct != null && p.species_sales > 0 && (
+        <p className="small" style={{ margin: ".3rem 0 0" }}>
+          Raridade: <strong>top {num(p.top_pct)}%</strong> da nota entre {num(p.species_sales)} vendidos da espécie.
+        </p>
+      )}
+    </section>
   );
 }
 

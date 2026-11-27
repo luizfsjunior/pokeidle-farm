@@ -8,6 +8,7 @@ import { Bar, ErrorNote, Fold, Kpi, PageHeader, Panel } from "@/components/Page"
 import { ago, dateTime, num } from "@/lib/format";
 import { ORB_FEE, usd, USD_PER_ORB } from "@/lib/money";
 import { useAccounts, usePanel } from "@/lib/query/hooks";
+import { loadListingVerdicts, VERDICT_CLASS, type ListingVerdict } from "@/lib/prices";
 import { STATUS_LABEL } from "@/lib/sales";
 import { loadEvaluation, type EvalRow } from "./evaluation";
 import { DAYS as MARKET_DAYS, goldOf, loadMarket, orbOf, type Row } from "./market";
@@ -48,6 +49,7 @@ export function EconomyView() {
         <Verdict ev={ev} conta={conta} received={sales ? receivedGems(sales.rows) : null} />
         <SalesBlock d={sales} conta={conta} nicks={nicks} />
         <DropsBlock d={market} />
+        <ShowcaseBlock />
         {ev && ev.accounts.length > 1 && !conta && <PerAccount rows={ev.accounts} />}
         {ev && <Fold title="Custos do mês" meta={ev.total?.cost_usd != null ? usd(ev.total.cost_usd) : "não informado"}>
           <SettingsForm initial={ev.settings} />
@@ -186,6 +188,54 @@ function DropsBlock({ d }: { d: Awaited<ReturnType<typeof loadMarket>> | undefin
       )}
       {stones > 0 && <p className="small muted" style={{ margin: 0, padding: ".6rem 1rem" }}>{num(stones)} pedras ficaram fora do total (não são fonte de gemas).</p>}
     </Panel>
+  );
+}
+
+/**
+ * Pokémon anunciados na última varredura da vitrine (os mais caros e os shiny), cada um com o preço justo da
+ * ficha e o veredito de quem compra (docs/design/preco-justo-pokemon.md). Serve para conferir a régua.
+ */
+function ShowcaseBlock() {
+  const q = usePanel(["vitrine-vereditos"], loadListingVerdicts, { staleTime: 10 * 60_000 });
+  const rows = q.data ?? [];
+  const counts = new Map<string, number>();
+  for (const r of rows) counts.set(r.verdict, (counts.get(r.verdict) ?? 0) + 1);
+  return (
+    <Fold title="Pokémon na vitrine" flush meta={q.data ? `${num(rows.length)} anúncios · ${[...counts].map(([k, v]) => `${num(v)} ${k}`).join(" · ")}` : undefined}>
+      <p className="small muted" style={{ margin: 0, padding: ".6rem 1rem" }}>
+        A varredura de 6 em 6 horas pega os anúncios mais caros e os shiny, então a maioria sai cara. O preço justo vem das
+        vendas reais parecidas (mesma espécie, shiny e potência, nível entre a metade e o dobro, nota parecida) dos últimos
+        30 dias. Menos de 5 vendas: poucas referências, sem veredito.
+      </p>
+      {q.error ? <p className="panel-empty">{q.error.message}</p> : q.data && rows.length === 0 ? (
+        <p className="panel-empty">Nenhum anúncio de pokémon nas últimas 24 horas.</p>
+      ) : (
+        <div className="table-scroll">
+          <table>
+            <thead><tr><th>Pokémon</th><th className="r">Nv</th><th className="r">Nota</th><th className="r">Pedido</th><th className="r">Justo</th><th className="r">Diferença</th><th>Veredito</th></tr></thead>
+            <tbody>
+              {!q.data && <LdRows cols={7} rows={5} />}
+              {rows.slice(0, 60).map((r) => <ShowcaseRow key={r.listing_id} r={r} />)}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Fold>
+  );
+}
+
+function ShowcaseRow({ r }: { r: ListingVerdict }) {
+  return (
+    <tr>
+      <td>{r.name ?? `#${r.species_id}`}{r.shiny && " ✨"}{r.potency != null && <span className="muted small"> P{r.potency}</span>}
+        {r.top_pct != null && <span className="muted small" title="Nota entre os vendidos da espécie"> · top {num(r.top_pct)}%</span>}</td>
+      <td className="r num">{num(r.level, { compact: true })}</td>
+      <td className="r num">{num(r.grade)}</td>
+      <td className="r num">{num(r.price, { compact: true })}</td>
+      <td className="r num" title={`${num(r.sales)} vendas parecidas`}>{num(r.fair, { compact: true })}</td>
+      <td className="r num">{r.diff_pct != null && r.confidence === "ok" ? `${r.diff_pct > 0 ? "+" : ""}${num(r.diff_pct)}%` : "—"}</td>
+      <td><span className={`mini-selo ${VERDICT_CLASS[r.verdict]}`}>{r.verdict}</span></td>
+    </tr>
   );
 }
 

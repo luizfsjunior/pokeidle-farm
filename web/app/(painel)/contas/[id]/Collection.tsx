@@ -12,6 +12,7 @@ import {
 } from "@/lib/collection";
 import { num } from "@/lib/format";
 import { TYPE_PT, TYPES, tierIvSum, tierPotency, tierQuality } from "@/lib/pokemon";
+import { fairOf, loadMonPrices } from "@/lib/prices";
 import type { Profile } from "@/lib/profile";
 import { usePanel } from "@/lib/query/hooks";
 import type { Atlas } from "@/lib/sprites";
@@ -51,6 +52,9 @@ export function Collection({ accountId, profile, atlas, looktypes, training = fa
   const types = usePanel(["mon-types", speciesIds.join(",")], (sb) => loadTypes(sb, speciesIds),
     { enabled: speciesIds.length > 0, staleTime: 30 * 60_000 }).data;
 
+  const prices = usePanel(["mon-prices", accountId], (sb) => loadMonPrices(sb, accountId), { staleTime: 10 * 60_000 }).data;
+  const priceOf = useMemo(() => (m: CollectionMon) => fairOf(prices?.get(m.id)), [prices]);
+
   const [text, setText] = useState("");
   const [place, setPlace] = useState<Place>("todos");
   const [type, setType] = useState("");
@@ -88,8 +92,8 @@ export function Collection({ accountId, profile, atlas, looktypes, training = fa
       if (t && !`${m.name ?? ""} ${m.nickname ?? ""}`.toLowerCase().includes(t)) return false;
       return true;
     });
-    return sortCollection(list, sort);
-  }, [all, text, place, type, shinyOnly, sort, types]);
+    return sortCollection(list, sort, priceOf);
+  }, [all, text, place, type, shinyOnly, sort, types, priceOf]);
 
   const sheetMon = open ? all.find((m) => m.id === open.id) ?? open : null;
   const draftIds = building && draft ? new Set(draft.team.filter((x): x is number => x != null)) : null;
@@ -157,7 +161,7 @@ export function Collection({ accountId, profile, atlas, looktypes, training = fa
 
           {view === "tabela" ? (
             <MonTable mons={shown.slice(0, Math.max(limit, PAGE * 2))} types={types} atlas={atlas} looktypes={looktypes}
-              activeId={profile.active_pokemon_id} draftIds={draftIds} selected={selected} onToggleSelect={toggleSelect}
+              activeId={profile.active_pokemon_id} draftIds={draftIds} selected={selected} prices={prices} onToggleSelect={toggleSelect}
               onOpen={setOpen} onDraft={building && draft ? (m) => update(toggleInDraft(draft, m.id)) : undefined} />
           ) : (
             <div className="mons mons-small coll-grid">
@@ -173,6 +177,7 @@ export function Collection({ accountId, profile, atlas, looktypes, training = fa
                       {m.quality != null && <span className={`mini-selo tier-${tierQuality(m.quality)}`}>Q {num(m.quality)}</span>}
                       {m.iv_sum != null && <span className={`mini-selo tier-${tierIvSum(m.iv_sum)}`}>IV {m.iv_sum}</span>}
                       {m.potency != null && <span className={`mini-selo tier-${tierPotency(m.potency)}`}>P{m.potency}</span>}
+                      {priceOf(m) != null && <span className="mini-selo" title="Preço justo no Mercado, em gemas">💎 {num(priceOf(m)!, { compact: true })}</span>}
                     </span>
                     <span className="coll-place small muted">
                       {PLACE_PT[placeOf(m)]}{m.slot != null ? ` ${m.slot + 1}` : ""}{m.id === profile.active_pokemon_id ? " · ativo" : ""}
@@ -191,7 +196,8 @@ export function Collection({ accountId, profile, atlas, looktypes, training = fa
       )}
 
       {sheetMon && (
-        <MonSheet mon={sheetMon} atlas={atlas} looktypes={looktypes} active={sheetMon.id === profile.active_pokemon_id} onClose={() => setOpen(null)}>
+        <MonSheet mon={sheetMon} atlas={atlas} looktypes={looktypes} active={sheetMon.id === profile.active_pokemon_id} onClose={() => setOpen(null)}
+          price={prices ? prices.get(sheetMon.id) ?? null : undefined}>
           {building && draft && <DraftActions draft={draft} update={update} mon={sheetMon} />}
           <MonActions accountId={accountId} mon={sheetMon} team={profile.team} isActive={sheetMon.id === profile.active_pokemon_id}
             inCollection={!!sheetMon.in_collection} training={training} />
