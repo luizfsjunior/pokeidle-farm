@@ -87,7 +87,15 @@ Mudanças (migration `20261126190000_bolas_por_minuto.sql`):
     `action.sent` do Mercado saía em 2 dias (a página perdia os cancelamentos antigos) e o `action.blocked` de
     qualquer ação ficava 30 dias (103 mil linhas, 30 MB, quase todas de `shop.buy` com rate limit);
   - `unknown`: 2 dias, menos os avisos do jogo que a página de Vendas lê (`venda`, `marketComprado`, `aviso`,
-    `mktSorteio`), que ficam 30.
+    `mktSorteio`), que ficam 30;
+  - `market.reply` da aba `item` (a fila de anúncios de um item, com o `raw` inteiro): 2 dias, desde 27/11
+    (migration `20261127150000_painel_rapido.sql`). O worker grava o resumo em `market_asks` na hora; eram 10 mil
+    linhas e 24 MB. As abas `meus`, `criado`, `vitrine` e `historicoGlobal` continuam 30 dias.
+
+**Leituras do painel com RLS**: o painel lê como `authenticated`, e com RLS o Postgres não usa no índice um filtro
+no `data` (`data->>'campo'` não é *leakproof*). Leitura de `events` filtrada por campo do `data` vai numa função
+`security definer` que filtra as contas do dono (`market_sales_events`, `market_reference`), não direto pelo
+PostgREST. Ver a migration `20261127150000_painel_rapido.sql`.
 
 Com o worker novo, a `events` recebe uns 5 mil eventos por dia em vez de ~195 mil.
 

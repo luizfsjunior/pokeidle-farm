@@ -4,9 +4,6 @@ import { buildListings, noticeSummary, type Listing, type MarketEvent } from "@/
 import { itemIconUrl } from "@/lib/sprites";
 
 export const DAYS = 30;
-const MARKET_ACTIONS = new Set(["market.criar", "market.cancelar", "market.meus"]);
-const SELLER_TYPES = ["seller.plan", "seller.would", "seller.failed", "seller.probe"];
-const NOTICE_TYPES = new Set(["venda", "marketComprado", "aviso", "mktSorteio"]);
 
 export type Activity = { at: string; accountId: string; text: string; tone?: "error" | "muted" };
 export type SaleRow = Listing & { label: string; icon: string | null };
@@ -21,27 +18,16 @@ export type SellerCfg = { account_id: string; enabled: boolean; config: Record<s
 /** Anúncios das contas no Mercado: abertos, vendidos e cancelados, e o que o seller fez (docs/design/pagina-vendas.md). */
 export async function loadSales(supabase: SupabaseClient, conta: string | null) {
   const since = new Date(Date.now() - DAYS * 86400_000).toISOString();
-  // uma consulta por fonte, para nenhuma lotar o limite das outras; o `raw` só onde a página usa
-  const base = (cols = "received_at, account_id, type, data") => {
-    const b = supabase.from("events").select(cols).gte("received_at", since);
-    return conta ? b.eq("account_id", conta) : b;
-  };
-  const [replies, actions, seller, notes, sellerRes] = await Promise.all([
-    base("received_at, account_id, type, data, raw").eq("type", "market.reply").in("data->>aba", ["meus", "criado"])
-      .order("received_at", { ascending: false }).limit(1500),
-    base().in("type", ["action.sent", "action.blocked", "action.failed"]).in("data->>action", [...MARKET_ACTIONS])
-      .order("received_at", { ascending: false }).limit(1000),
-    // lista fechada em vez de like "seller.%": o like não usa o índice (type, received_at) e, com o RLS,
-    // o banco varria todos os eventos da conta (~7 s); os tipos vêm de worker/src/.../plugins/seller.py
-    base().in("type", SELLER_TYPES).order("received_at", { ascending: false }).limit(300),
-    base("received_at, account_id, type, data, raw").eq("type", "unknown").in("data->>t", [...NOTICE_TYPES])
-      .order("received_at", { ascending: false }).limit(200),
+  // as quatro fontes (respostas do Mercado, ações de Mercado, ciclos do seller e avisos de venda) numa função
+  // do banco: lida direto pelo PostgREST, o filtro no `data` passava pelo RLS sem usar índice e levava até 8 s
+  // (migration 20261127150000_painel_rapido.sql). Cada fonte tem o seu limite lá dentro.
+  const [eventsRes, sellerRes] = await Promise.all([
+    supabase.rpc("market_sales_events", { p_since: since, p_account: conta }),
     supabase.from("strategy_configs").select("account_id, enabled, config").eq("plugin", "seller"),
   ]);
   // sem os eventos, "nenhum anúncio" seria mentira: o erro sobe e a tela mantém os últimos dados bons
-  const failed = [replies, actions, seller, notes].find((r) => r.error);
-  if (failed?.error) throw new Error(failed.error.message);
-  const events = ([replies, actions, seller, notes].flatMap((r) => (r.data ?? []) as unknown[]) as MarketEvent[])
+  if (eventsRes.error) throw new Error(eventsRes.error.message);
+  const events = ((eventsRes.data ?? []) as MarketEvent[])
     .map((e) => ({ ...e, raw: e.raw ?? null }))
     .sort((a, b) => b.received_at.localeCompare(a.received_at));
   const listings = buildListings(events);
