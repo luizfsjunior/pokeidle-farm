@@ -4,12 +4,12 @@ import { num } from "@/lib/format";
 import { speciesLooktypes } from "@/lib/sprites";
 import type { HuntDetail } from "./HuntDrawer";
 
-export const PERIODS = { "1": "24 h", "7": "7 dias", "30": "30 dias" } as const;
+export const PERIODS = { "1": "24 h", "7": "7 dias", "30": "30 dias", "90": "90 dias" } as const;
 export type Period = keyof typeof PERIODS;
 
 export type CatalogHunt = { slug: string; name: string | null; level: number; area: string | null; region: string | null; species_id: number; species_name: string | null };
 export type Summary = {
-  hunt_slug: string; kills: number; active_minutes: number; gold: number; gold_net: number; drops: number;
+  hunt_slug: string; kills: number; xp: number; active_minutes: number; gold: number; gold_net: number; drops: number;
   drops_value_orb: number; drops_value_gold: number; capture_attempts: number; captures: number; shinies: number;
   rank_points: number; last_hour: string;
 };
@@ -17,7 +17,7 @@ export type Summary = {
 /** Uma conta na sanfona: onde está agora e o que cada hunt rendeu para ela no período. */
 export type AccountHunts = {
   id: string; nick: string; level: number | null; current: string | null; visited: Summary[];
-  totals: { minutes: number; kills: number; gems: number; goldNet: number; captures: number; shinies: number };
+  totals: { minutes: number; kills: number; xp: number; gems: number; goldNet: number; captures: number; shinies: number };
 };
 
 export const perHour = (v: number, mins: number) => (mins > 0 ? (v * 60) / mins : null);
@@ -48,7 +48,7 @@ export async function loadHunts(
     return {
       id, nick: nicks.get(id) ?? "?", level: prof?.level ?? null, current: prof?.hunt_slug ?? null, visited: rows,
       totals: {
-        minutes: sumOf(rows, (s) => s.active_minutes), kills: sumOf(rows, (s) => s.kills), gems: sumOf(rows, (s) => s.drops_value_orb),
+        minutes: sumOf(rows, (s) => s.active_minutes), kills: sumOf(rows, (s) => s.kills), xp: sumOf(rows, (s) => s.xp), gems: sumOf(rows, (s) => s.drops_value_orb),
         goldNet: sumOf(rows, (s) => s.gold_net), captures: sumOf(rows, (s) => s.captures), shinies: sumOf(rows, (s) => s.shinies),
       },
     };
@@ -77,6 +77,7 @@ export async function loadHunts(
       measured: rows.length === 0 ? [] : [
         { label: "Tempo no período", value: dur(mins) },
         { label: "Abates por hora", value: num(perHour(sumOf(rows, (s) => s.kills), mins)) },
+        { label: "XP por hora", value: num(perHour(sumOf(rows, (s) => s.xp), mins), { compact: true }) },
         { label: "Gemas por hora", value: num(perHour(sumOf(rows, (s) => s.drops_value_orb), mins)) },
         { label: "Ouro líquido por hora", value: num(perHour(sumOf(rows, (s) => s.gold_net), mins), { compact: true }) },
         { label: "Capturas", value: `${num(caps)}${shinies ? ` (${num(shinies)} shiny)` : ""}` },

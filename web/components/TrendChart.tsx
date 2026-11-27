@@ -10,11 +10,13 @@ export type Point = { day: string; value: number | null };
  * Hover e teclado (setas) movem a mira; o último valor fica escrito ao lado do título; a tabela
  * fica em "Ver valores". Ver a skill dataviz: marca de 2px, grade recessiva, sem legenda (série única).
  */
-export function TrendChart({ title, points, tone, compact = false }: {
+export function TrendChart({ title, points, tone, compact = false, domain, foot }: {
   title: string;
   points: Point[];
   tone: "accent" | "gold" | "gem" | "diamond" | "good";
   compact?: boolean;
+  domain?: [number, number]; // escala comum entre gráficos lado a lado (Histórico: uma conta por gráfico)
+  foot?: React.ReactNode; // no lugar do "+N em X dias" (séries de fluxo, como XP por dia, mostram o total)
 }) {
   const id = useId();
   const [hover, setHover] = useState<number | null>(null);
@@ -40,7 +42,8 @@ export function TrendChart({ title, points, tone, compact = false }: {
     );
   }
   const vals = data.map((d) => d.value);
-  let lo = Math.min(...vals), hi = Math.max(...vals);
+  let lo = domain ? Math.min(domain[0], ...vals) : Math.min(...vals);
+  let hi = domain ? Math.max(domain[1], ...vals) : Math.max(...vals);
   if (lo === hi) { lo -= 1; hi += 1; }
   const pad = (hi - lo) * 0.08;
   lo -= pad; hi += pad;
@@ -100,7 +103,7 @@ export function TrendChart({ title, points, tone, compact = false }: {
         <text x={W - PR} y={H - 5} className="trend-tick" textAnchor="end">{dayLabel(last.day)}</text>
       </svg>
       <div className="trend-foot small muted">
-        {data.length > 1 ? <>{delta >= 0 ? "+" : "−"}{fmt(Math.abs(delta))} em {data.length} dias</> : "1 dia"}
+        {foot ?? (data.length > 1 ? <>{delta >= 0 ? "+" : "−"}{fmt(Math.abs(delta))} em {data.length} dias</> : "1 dia")}
         <details>
           <summary>Ver valores</summary>
           <table className="trend-table">
