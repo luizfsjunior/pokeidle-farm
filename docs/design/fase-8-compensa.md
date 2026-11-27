@@ -29,7 +29,7 @@ lucro_mensal_usd = renda_mensal_usd − custo_mensal_usd
   em 15/11; bate com o `regras-do-jogo.md`). As faixas de 13%/10%/7,5% só valem para pokémon, que não entram aqui.
 - **US$ 0,009 por gema**: preço de recompra (saque) do jogo; saque mínimo de 1.000 gemas, com aprovação manual.
 - **Ouro** não vira dólar (só as gemas saem do jogo); aparece como informação, não entra na renda.
-- **Custo**: energia da máquina de casa e um custo fixo mensal em US$ (VPS e proxy, desde 16/11; parâmetros na
+- **Custo**: energia da máquina de casa e um custo fixo mensal em US$ (servidor e proxy, desde 16/11; parâmetros na
   seção 2). O Supabase e a Vercel estão no plano grátis.
 
 ## Proposta
@@ -62,7 +62,7 @@ Tabela nova `evaluation_settings` (uma linha por dono, editável na página, RLS
 | `kwh_price_brl` | vazio | tarifa de energia (R$/kWh, vem na conta de luz) |
 | `usd_brl` | vazio | câmbio para converter o custo em dólar |
 | `window_days` | `7` | janela da projeção |
-| `fixed_cost_usd` | vazio | custo fixo por mês em US$: VPS e proxy (migration `20261116070000`) |
+| `fixed_cost_usd` | vazio | custo fixo por mês em US$: servidor e proxy (migration `20261116070000`) |
 
 ```
 energia = marginal ? 0 : machine_watts / 1000 × 24 × 30 × kwh_price_brl ÷ usd_brl
@@ -71,8 +71,8 @@ custo_mensal_usd = energia + fixed_cost_usd   (o que estiver vazio conta 0)
 
 O custo só é **desconhecido** quando a energia não dá para calcular (`marginal = false` e algum dos três campos vazio)
 **e** o fixo está vazio: a função devolve `cost_usd` nulo, o lucro é calculado sem o custo e a página mostra "custo do
-mês não informado" ao lado do veredito, com os campos para preencher. O worker num VPS: `marginal = true` (o PC de
-casa não entra) e o fixo com o VPS e o proxy (~US$ 10 em 16/11).
+mês não informado" ao lado do veredito, com os campos para preencher. O worker no servidor: `marginal = true` (o PC de
+casa não entra) e o fixo com o servidor e o proxy (~US$ 10 em 16/11).
 
 ### 3. Liquidez (D-W)
 

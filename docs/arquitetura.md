@@ -22,7 +22,7 @@ a DigitalOcean, [ADR 0011](decisions/0011-worker-em-ip-residencial.md)); hoje, o
 | `commands` | `Supervisor` (sessões de todas as contas) e `CommandLoop`: busca os comandos pendentes do painel a cada `COMMANDS_POLL_S` (5 s) e executa um por vez. |
 
 Princípios:
-- Toda a configuração vem de variáveis de ambiente, para a mesma imagem rodar local ou no VPS.
+- Toda a configuração vem de variáveis de ambiente, para a mesma imagem rodar local ou no servidor.
 - Nenhuma porta é exposta: o worker só abre conexões de saída (para o jogo e para o Supabase).
 - Estado e histórico ficam no banco, não no processo. Trocar o lugar onde o worker roda não perde nada.
 

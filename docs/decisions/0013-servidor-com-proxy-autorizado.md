@@ -1,4 +1,4 @@
-# 0013 — Worker em VPS com a saída do jogo por proxy ou VPN
+# 0013 — Worker em servidor na nuvem com a saída do jogo por proxy ou VPN
 
 - **Status:** Aceita
 - **Data:** 2026-11-16
@@ -16,7 +16,7 @@
 
 ## Decisão
 
-- O worker pode rodar num **VPS**, com o **tráfego do jogo** (WebSocket e os downloads da Pokedex e dos itens)
+- O worker pode rodar num **servidor na nuvem**, com o **tráfego do jogo** (WebSocket e os downloads da Pokedex e dos itens)
   saindo por um **proxy ou VPN** configurado em `GAME_PROXY_URL`. O Supabase continua direto, sem proxy.
 - **Um IP de saída só, sempre o mesmo**: proxy residencial ou ISP **estático** (dedicado), ou VPN com IP fixo.
   Nada de pool rotativo: trocar de IP a cada conexão muda a "rede" das contas, deixa a contagem de contas por rede
@@ -26,12 +26,12 @@
 - **Antes de conectar**, o worker confere o IP de saída no ipapi.is (o serviço que a moderação usa, Termos seção 8)
   pelo mesmo caminho do tráfego do jogo. IP de datacenter/hosting **não conecta** (evita somar recusas
   `provedorBanido` na conta). VPN ou proxy marcado não bloqueia, porque foi liberado.
-- A credencial do proxy é segredo: só no `.env` do VPS, nunca no log, no banco, no painel ou no repositório.
-- Só um worker por conta: o lease já impede dois, mas o worker de casa fica parado enquanto o do VPS roda.
+- A credencial do proxy é segredo: só no `.env` do servidor, nunca no log, no banco, no painel ou no repositório.
+- Só um worker por conta: o lease já impede dois, mas o worker de casa fica parado enquanto o do servidor roda.
 
 ## Consequências
 
-- Worker 24/7 sem depender da casa. Custo: o VPS mais o proxy/VPN de IP fixo (entram no `/compensa` como custo
+- Worker 24/7 sem depender da casa. Custo: o servidor mais o proxy/VPN de IP fixo (entram no `/compensa` como custo
   da máquina, no lugar da energia).
 - A autorização é informal (Discord). Se a moderação ou os Termos mudarem de posição, o worker volta para IP
   residencial e esta ADR é revista. Reler os Termos a cada revisão deles.
@@ -40,6 +40,6 @@
 
 ## Alternativas consideradas
 
-- **Liberação do IP do VPS pelo suporte**: preferida, mas negada em 16/11.
+- **Liberação do IP do servidor pelo suporte**: preferida, mas negada em 16/11.
 - **Pool de proxies residenciais rotativos**: rejeitada (IP muda o tempo todo; ver acima).
 - **Máquina dedicada em casa ou celular**: inviável (nada pode ficar ligado em casa; celular é frágil).

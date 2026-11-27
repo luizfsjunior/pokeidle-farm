@@ -1,8 +1,8 @@
-# 0015 — Saída do jogo pelo celular (Tailscale) e trava contra o IP do VPS
+# 0015 — Saída do jogo pelo celular (Tailscale) e trava contra o IP do droplet
 
 - **Status:** Aceita
 - **Data:** 2026-11-24
-- **Revisa:** [0013](0013-vps-com-proxy-autorizado.md) (a parte "um IP de saída só, sempre o mesmo" e a
+- **Revisa:** [0013](0013-servidor-com-proxy-autorizado.md) (a parte "um IP de saída só, sempre o mesmo" e a
   conferência do IP só na subida)
 
 ## Contexto
@@ -11,7 +11,7 @@
   dia, a `luizfsjunior_3` foi recusada com `login.limiteOnlineIp` ("Esta rede já está com 4 contas
   conectadas") saindo pelo IP da GTI, com só duas contas nossas ligadas: o IP vendido como dedicado tinha
   gente de fora.
-- O celular (Android, Tailscale) passou a ser o *exit node* do droplet: todo o tráfego do VPS sai pela
+- O celular (Android, Tailscale) passou a ser o *exit node* do droplet: todo o tráfego do droplet sai pela
   internet do celular (Wi-Fi de casa ou 4G da operadora). As quatro contas conectaram com o IP da
   Telefônica, no mesmo ritmo de abates de antes.
 - O jogo **nunca** pode ver o IP da DigitalOcean (ADR 0011). Com o exit node, há caminhos em que o droplet

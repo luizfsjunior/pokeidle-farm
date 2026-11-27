@@ -31,7 +31,7 @@ DigitalOcean como opção principal, começando pelos créditos grátis e pelo B
 
 > **Respondida em 2026-11-12:** o primeiro teste a partir de um droplet da DigitalOcean (NYC2) foi recusado com `auth.provedorBanido`. Ver [ADR 0011](0011-worker-em-ip-residencial.md).
 
-O DiuleJR/pokeidle-manager-online conecta **cada conta por um proxy ISP dedicado** e, por padrão, não deixa nada sair pelo IP da VPS. Isso sugere que o autor considera o IP de datacenter um risco. Os Termos (seção 8) dizem que a moderação pode consultar o tipo de conexão (residencial, móvel, datacenter, VPN), mas só cita isso para avaliar pedidos de liberação de rede. Não há proibição explícita de datacenter.
+O DiuleJR/pokeidle-manager-online conecta **cada conta por um proxy ISP dedicado** e, por padrão, não deixa nada sair pelo IP do servidor. Isso sugere que o autor considera o IP de datacenter um risco. Os Termos (seção 8) dizem que a moderação pode consultar o tipo de conexão (residencial, móvel, datacenter, VPN), mas só cita isso para avaliar pedidos de liberação de rede. Não há proibição explícita de datacenter.
 
 Antes de subir para o droplet, decidir entre:
 1. Conectar direto do droplet (mais simples, risco desconhecido).

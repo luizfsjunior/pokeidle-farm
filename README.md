@@ -8,7 +8,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
 
 🟡 Em uso numa conta, crescendo por fases (detalhes no [roadmap](docs/roadmap.md)):
 
-- **No ar:** worker num VPS com a saída do jogo pelo celular, via Tailscale ([ADR 0015](docs/decisions/0015-saida-pelo-celular-e-trava-de-ip.md)),
+- **No ar:** worker num servidor na nuvem com a saída do jogo pelo celular, via Tailscale ([ADR 0015](docs/decisions/0015-saida-pelo-celular-e-trava-de-ip.md)),
   4 contas; plugins `restock` (bola e consumíveis), `gems` (modo XP: a hunt de mais XP/h que o pokémon aguenta),
   `team_train` (treina a equipe), `watchdog` (vigia: cura, morte em loop, conta parada), `rank`, `capture_target`,
   `ball_thrower` (joga a bola à mão: shiny sempre e a espécie da captura; a bola automática do jogo exige VIP),
@@ -28,7 +28,7 @@ Automação de farm para o [pokeidle.io](https://pokeidle.io), com um worker hea
                                                      ▲
                     lê comandos / grava estado e métricas
                                                      │
-[VPS — Docker] worker Python (asyncio) ── WebSocket (proxy autorizado) ──> pokeidle.io
+[Servidor — Docker] worker Python (asyncio) ── WebSocket (proxy autorizado) ──> pokeidle.io
    ├─ AccountSession × 4
    ├─ Plugins: restock, gems (modo XP), team_train, watchdog, rank, capture_target, ball_thrower, hunt_hold, seller...
    └─ ActionGateway (RateLimiter + travas por dono) + telemetry
@@ -82,8 +82,8 @@ pokeidle-farm/
 | [0010](docs/decisions/0010-supabase-desde-o-inicio.md) | Supabase desde o início do desenvolvimento | Aceita |
 | [0011](docs/decisions/0011-worker-em-ip-residencial.md) | Worker em IP residencial (o jogo bloqueia a DigitalOcean) | Aceita |
 | [0012](docs/decisions/0012-metricas-em-camadas.md) | Métricas em camadas no Postgres, com objetivos e previsão | Aceita |
-| [0013](docs/decisions/0013-vps-com-proxy-autorizado.md) | Worker em VPS com a saída do jogo por proxy ou VPN de IP fixo (liberado pelo suporte) | Aceita (revista pela 0015) |
-| [0015](docs/decisions/0015-saida-pelo-celular-e-trava-de-ip.md) | Saída do jogo pelo celular (Tailscale), trava de rede no VPS e IP conferido antes de cada conexão | Aceita |
+| [0013](docs/decisions/0013-servidor-com-proxy-autorizado.md) | Worker em servidor na nuvem com a saída do jogo por proxy ou VPN de IP fixo (liberado pelo suporte) | Aceita (revista pela 0015) |
+| [0015](docs/decisions/0015-saida-pelo-celular-e-trava-de-ip.md) | Saída do jogo pelo celular (Tailscale), trava de rede no servidor e IP conferido antes de cada conexão | Aceita |
 
 ## Referências e créditos
 

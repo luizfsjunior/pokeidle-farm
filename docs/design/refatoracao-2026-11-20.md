@@ -15,7 +15,7 @@ tudo e implementar direto. As decisões que ele não respondeu seguem os padrõe
 - **Plano de XP de 24 min**: o primeiro `gems.plan` depois do `focus.set` das 13:52 só saiu às 14:16. Ele roda o
   simulador para todas as hunts segurando o lock do plugin, e os eventos (troca de ativo, level up) ficam
   esperando. O cache do simulador é por nível exato do ativo, então cada level up re-simula tudo, para 4 contas
-  num VPS pequeno.
+  num servidor pequeno.
 - **XP/h absurdo para ativo fraco**: com o ativo nv 20, Rhydon nv 100 apareceu a 9,2 M XP/h. O ritmo medido perto
   do teto não era projetado para baixo (`PaceBook.projected`) e a lista não olha se o ativo sobrevive.
 - **`luizfsjunior` (pessoal)**: Charizard 204 em Jynx, 175 revives em 15 min, −127 mil de ouro/h no dia.

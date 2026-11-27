@@ -1,6 +1,6 @@
 # 0011 — Worker em IP residencial
 
-- **Status:** Aceita, revista pela [0013](0013-vps-com-proxy-autorizado.md) em 2026-11-16 (proxy/VPN liberado pelo suporte)
+- **Status:** Aceita, revista pela [0013](0013-servidor-com-proxy-autorizado.md) em 2026-11-16 (proxy/VPN liberado pelo suporte)
 - **Data:** 2026-11-12
 - **Substitui:** [0004](0004-hospedagem-digitalocean.md)
 
@@ -27,10 +27,10 @@ Os Termos (seção 8) já diziam que a moderação pode consultar o tipo de cone
 ## Pendência: pedido formal ao suporte
 
 Em 2026-11-12, enviamos um e-mail para support@pokeidle.io perguntando:
-1. se a automação pode rodar a partir de um VPS próprio, com liberação do IP fixo (a seção 8 dos Termos menciona pedidos de liberação de rede);
+1. se a automação pode rodar a partir de um servidor próprio, com liberação do IP fixo (a seção 8 dos Termos menciona pedidos de liberação de rede);
 2. se não, se conectar por um proxy residencial dedicado é permitido ou se conta como burlar limites.
 
-Até a resposta, o worker roda só em IP residencial, sem VPS nem proxy. Uma resposta positiva vira um novo ADR que revisa este. Prazo de resposta pelos Termos: até 15 dias.
+Até a resposta, o worker roda só em IP residencial, sem servidor na nuvem nem proxy. Uma resposta positiva vira um novo ADR que revisa este. Prazo de resposta pelos Termos: até 15 dias.
 
 ## Alternativas consideradas
 

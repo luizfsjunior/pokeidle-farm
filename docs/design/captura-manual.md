@@ -1,7 +1,7 @@
 # Captura manual pelo worker (22/11/2026)
 
 **Status:** aprovado e implementado em 22/11 (T1 a T18 em `test_protocol`, `test_ball_thrower`, `test_capture_target`
-e `test_restock`). Falta deploy no VPS.
+e `test_restock`). Falta deploy no servidor.
 
 Pedido de 21/11: as contas 2 e 3 estão sem VIP. Para conta sem VIP, a bola automática do jogo responde
 "Lançar pokebola é um recurso VIP". Com isso, o `capture_target` fica religando o `auto.set` a cada 30 s e nunca captura.
