@@ -29,16 +29,16 @@ export const PLACE_PT: Record<Place, string> = { todos: "Todos", equipe: "Equipe
 export const placeOf = (m: CollectionMon): Exclude<Place, "todos"> =>
   m.slot != null ? "equipe" : m.in_collection ? "colecao" : "depot";
 
-export type SortKey = "level" | "grade" | "power" | "iv" | "potency" | "quality" | "recent";
+export type SortKey = "level" | "grade" | "power" | "iv" | "potency" | "quality" | "price" | "recent";
 export const SORT_PT: Record<SortKey, string> = {
-  level: "Nível", grade: "Nota", power: "Poder", iv: "IV total", potency: "Potência", quality: "Qualidade", recent: "Captura mais recente",
+  level: "Nível", grade: "Nota", power: "Poder", iv: "IV total", potency: "Potência", quality: "Qualidade", price: "Preço no Mercado", recent: "Captura mais recente",
 };
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : -Infinity);
 const caught = (m: CollectionMon) =>
   typeof m.caught_at === "number" ? m.caught_at : typeof m.caught_at === "string" ? Date.parse(m.caught_at) || 0 : 0;
 
-export function sortCollection(list: CollectionMon[], key: SortKey): CollectionMon[] {
+export function sortCollection(list: CollectionMon[], key: SortKey, priceOf?: (m: CollectionMon) => number | null): CollectionMon[] {
   const val = (m: CollectionMon): number => {
     switch (key) {
       case "level": return num(m.level);
@@ -47,6 +47,7 @@ export function sortCollection(list: CollectionMon[], key: SortKey): CollectionM
       case "iv": return num(m.iv_sum);
       case "potency": return num(m.potency);
       case "quality": return num(m.quality);
+      case "price": return num(priceOf?.(m) ?? null);
       case "recent": return caught(m);
     }
   };
